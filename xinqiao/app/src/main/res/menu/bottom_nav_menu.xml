@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/navigation_home"
+        android:icon="@drawable/ic_home"
+        android:title="首页"/>
+    <item
+        android:id="@+id/navigation_shorts"
+        android:icon="@drawable/ic_shorts"
+        android:title="Shorts"/>
+    <item
+        android:id="@+id/navigation_subscription"
+        android:icon="@drawable/ic_subscription"
+        android:title="订阅"/>
+    <item
+        android:id="@+id/navigation_library"
+        android:icon="@drawable/ic_library"
+        android:title="媒体库"/>
+</menu> 

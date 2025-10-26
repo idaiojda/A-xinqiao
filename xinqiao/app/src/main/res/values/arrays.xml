@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="marital_status">
+        <item>未婚</item>
+        <item>已婚</item>
+        <item>离异</item>
+        <item>丧偶</item>
+    </string-array>
+
+    <string-array name="occupation">
+        <item>学生</item>
+        <item>教师</item>
+        <item>工程师</item>
+        <item>医生</item>
+        <item>律师</item>
+        <item>其他</item>
+    </string-array>
+</resources> 

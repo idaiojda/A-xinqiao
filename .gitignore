@@ -1,0 +1,24 @@
+# 前端忽略（Android 项目，xinqiao 文件夹）
+xinqiao/.idea/          # Android 项目的 IDE 配置
+xinqiao/.gradle/        # Gradle 构建缓存
+xinqiao/app/build/      # Android 编译产物（class、apk 等）
+xinqiao/app/release/    # 打包生成的 apk 文件夹
+xinqiao/build/          # 项目根目录编译缓存
+xinqiao/captures/       # 截图/调试捕获文件
+xinqiao/gradlew.bat     # Gradle 脚本（可选，若团队统一环境可忽略）
+xinqiao/local.properties # 本地配置（包含 Android SDK 路径，每个人不同）
+xinqiao/*.iml           # IDEA 项目标识文件
+xinqiao/app/*.iml       # 子模块标识文件
+
+# 后端忽略（Java 项目，xinqiao-backend 文件夹）
+xinqiao-backend/target/  # Java 编译产物（jar、class 等）
+xinqiao-backend/.idea/   # IDE 配置
+xinqiao-backend/.gradle/ # Gradle 缓存
+xinqiao-backend/*.log    # 日志文件
+xinqiao-backend/*.iml    # 项目标识文件
+xinqiao-backend/local.properties # 本地配置
+
+# 通用忽略
+.DS_Store               # Mac 系统文件
+Thumbs.db               # Windows 缩略图文件
+*.tmp                   # 临时文件

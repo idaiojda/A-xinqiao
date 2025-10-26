@@ -1,0 +1,98 @@
+apply plugin: 'com.android.application'
+
+android {
+    namespace 'com.example.xinqiao'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.example.xinqiao"
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+    buildFeatures {
+        viewBinding true
+        dataBinding true
+        buildConfig true
+    }
+
+    dataBinding {
+        enabled true
+    }
+    packagingOptions {
+        exclude 'META-INF/DEPENDENCIES'
+        exclude 'META-INF/LICENSE'
+        exclude 'META-INF/LICENSE.txt'
+        exclude 'META-INF/license.txt'
+        exclude 'META-INF/NOTICE'
+        exclude 'META-INF/NOTICE.txt'
+        exclude 'META-INF/notice.txt'
+        exclude 'META-INF/ASL2.0'
+        exclude '**/default_avatar.jpg'
+        exclude '**/avatar_*.jpg'
+    }
+
+    aaptOptions {
+        cruncherEnabled = false
+    }
+}
+
+// 这里添加一个配置，运行时忽略 Java 版本检查
+tasks.withType(JavaCompile) {
+    options.compilerArgs << '-XDignore.symbol.file'
+}
+
+dependencies {
+    implementation 'com.google.android.flexbox:flexbox:3.0.0'
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.11.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    implementation 'androidx.recyclerview:recyclerview:1.3.2'
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+    implementation 'androidx.core:core-ktx:1.12.0'
+    implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0'
+    implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.7.0'
+    implementation 'androidx.activity:activity-ktx:1.8.2'
+    implementation 'androidx.fragment:fragment-ktx:1.6.2'
+    
+    // 核心依赖
+    implementation 'androidx.core:core:1.12.0'
+    
+    // Room数据库依赖
+    def room_version = "2.6.1"
+    implementation "androidx.room:room-runtime:$room_version"
+    annotationProcessor "androidx.room:room-compiler:$room_version"
+    // 可选 - Kotlin扩展和协程支持
+    implementation "androidx.room:room-ktx:$room_version"
+    
+    // 测试依赖
+    testImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
+    
+    // MySQL连接器 (迁移期间保留)
+    implementation files('libs/mysql-connector-java-5.1.49.jar') // 添加本地MySQL JDBC驱动
+    
+    // 图片加载和裁剪相关依赖
+    implementation 'de.hdodenhof:circleimageview:3.1.0'
+    implementation 'com.github.bumptech.glide:glide:4.12.0'
+    annotationProcessor 'com.github.bumptech.glide:compiler:4.12.0'
+    implementation 'com.github.yalantis:ucrop:2.2.8'
+    
+    // WorkManager依赖
+    implementation 'androidx.work:work-runtime:2.9.0'
+}

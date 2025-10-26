@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 鼠标悬停/选中/按下时主色高亮 -->
+    <item android:state_hovered="true" android:drawable="@color/bottom_nav_selected_healing"/>
+    <item android:state_checked="true" android:drawable="@color/bottom_nav_selected_healing"/>
+    <item android:state_pressed="true" android:drawable="@color/bottom_nav_selected_healing"/>
+    <!-- 默认圆角灰色背景 -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#F5F5F5"/>
+            <corners android:radius="24dp"/>
+        </shape>
+    </item>
+</selector> 

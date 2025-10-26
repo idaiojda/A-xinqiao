@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="10dp">
+
+    <!-- AI消息布局 -->
+    <LinearLayout
+        android:id="@+id/left_layout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginEnd="60dp"
+        android:visibility="gone">
+
+        <ImageView
+            android:id="@+id/left_avatar"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_marginEnd="10dp"
+            android:scaleType="centerCrop"
+            android:background="@drawable/circle_background"
+            android:elevation="2dp"/>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/chat_bubble_left"
+            android:padding="14dp"
+            android:elevation="1dp">
+
+            <TextView
+                android:id="@+id/left_msg"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="#303030"
+                android:textSize="16sp"
+                android:lineSpacingExtra="6dp"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="心灵守护者"
+                android:textSize="12sp"
+                android:textStyle="italic"
+                android:textColor="#6A7FDB"
+                android:layout_marginTop="6dp"/>
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- 用户消息布局 -->
+    <LinearLayout
+        android:id="@+id/right_layout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="end"
+        android:layout_marginStart="60dp"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/chat_bubble_right"
+            android:padding="14dp"
+            android:elevation="1dp">
+
+            <TextView
+                android:id="@+id/right_msg"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:lineSpacingExtra="6dp"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="我"
+                android:textSize="12sp"
+                android:textStyle="italic"
+                android:textColor="#E6FFFFFF"
+                android:layout_marginTop="6dp"/>
+        </LinearLayout>
+
+        <ImageView
+            android:id="@+id/right_avatar"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_marginStart="10dp"
+            android:scaleType="centerCrop"
+            android:background="@drawable/circle_background"
+            android:elevation="2dp"/>
+    </LinearLayout>
+</LinearLayout>

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:padding="24dp">
+
+    <ImageView
+        android:layout_width="120dp"
+        android:layout_height="120dp"
+        android:src="@android:drawable/ic_menu_report_image"
+        android:tint="#CCCCCC"
+        android:contentDescription="空状态图标"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="暂无测评记录"
+        android:textSize="18sp"
+        android:textColor="#666666"
+        android:layout_marginTop="16dp"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="去完成一些测评，了解自己的心理健康状况"
+        android:textSize="14sp"
+        android:textColor="#999999"
+        android:layout_marginTop="8dp"
+        android:gravity="center"/>
+
+    <Button
+        android:id="@+id/btn_go_test"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="去测评"
+        android:textColor="#FFFFFF"
+        android:textSize="16sp"
+        android:background="@drawable/btn_report_gradient"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp"
+        android:layout_marginTop="24dp"/>
+
+</LinearLayout>

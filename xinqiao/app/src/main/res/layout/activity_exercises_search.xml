@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#F8F9FB">
+
+    <!-- 顶部搜索栏 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="#FFFFFF"
+        android:elevation="2dp"
+        android:padding="8dp">
+        <ImageButton
+            android:id="@+id/iv_back"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_alignParentStart="true"
+            android:layout_centerVertical="true"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="返回"
+            android:src="@drawable/ic_back"
+            android:tint="#30B4FF"/>
+        <EditText
+            android:id="@+id/et_search"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="40dp"
+            android:background="@drawable/input_field_bg"
+            android:hint="搜索测评"
+            android:textSize="16sp"
+            android:paddingHorizontal="12dp"
+            android:singleLine="true"
+            android:imeOptions="actionSearch"/>
+        <ImageView
+            android:id="@+id/iv_clear"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:src="@drawable/ic_delete"
+            android:tint="#999"
+            android:visibility="gone"/>
+    </LinearLayout>
+
+    <!-- 热搜区块 -->
+    <LinearLayout
+        android:id="@+id/ll_hot"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="热搜"
+            android:textColor="#222"
+            android:textSize="15sp"
+            android:textStyle="bold"/>
+        <com.google.android.flexbox.FlexboxLayout
+            android:id="@+id/flow_hot"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:flexWrap="wrap"
+            app:justifyContent="flex_start"
+            android:layout_marginTop="8dp"/>
+    </LinearLayout>
+
+    <!-- 历史区块 -->
+    <LinearLayout
+        android:id="@+id/ll_history"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="历史搜索"
+                android:textColor="#222"
+                android:textSize="15sp"
+                android:textStyle="bold"/>
+            <View
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1"/>
+            <TextView
+                android:id="@+id/tv_clear_history"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="清空"
+                android:textColor="#30B4FF"
+                android:textSize="14sp"
+                android:padding="4dp"/>
+        </LinearLayout>
+        <com.google.android.flexbox.FlexboxLayout
+            android:id="@+id/flow_history"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:flexWrap="wrap"
+            app:justifyContent="flex_start"
+            android:layout_marginTop="8dp"/>
+    </LinearLayout>
+
+    <!-- 搜索结果 -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rv_search_result"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:padding="8dp"
+        android:clipToPadding="false"
+        android:overScrollMode="never"/>
+
+    <!-- 无结果提示 -->
+    <TextView
+        android:id="@+id/tv_empty"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="未找到相关测评"
+        android:textColor="#999"
+        android:textSize="16sp"
+        android:gravity="center"
+        android:visibility="gone"
+        android:paddingTop="48dp"/>
+</LinearLayout> 

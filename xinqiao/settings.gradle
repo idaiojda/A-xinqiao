@@ -1,0 +1,60 @@
+pluginManagement {
+    repositories {
+        maven {
+            url 'https://maven.aliyun.com/repository/public'
+            allowInsecureProtocol = true
+        }
+        maven {
+            url 'https://maven.aliyun.com/repository/google'
+            allowInsecureProtocol = true
+        }
+        maven {
+            url 'https://maven.aliyun.com/repository/gradle-plugin'
+            allowInsecureProtocol = true
+        }
+        maven {
+            url 'https://maven.aliyun.com/repository/central'
+            allowInsecureProtocol = true
+        }
+        maven {
+            url 'https://maven.aliyun.com/repository/jcenter'
+            allowInsecureProtocol = true
+        }
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+        maven { url 'https://jitpack.io' }
+    }
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        maven {
+            url 'https://maven.aliyun.com/repository/public'
+            allowInsecureProtocol = true
+        }
+        maven {
+            url 'https://maven.aliyun.com/repository/google'
+            allowInsecureProtocol = true
+        }
+        maven {
+            url 'https://maven.aliyun.com/repository/gradle-plugin'
+            allowInsecureProtocol = true
+        }
+        maven {
+            url 'https://maven.aliyun.com/repository/central'
+            allowInsecureProtocol = true
+        }
+        maven {
+            url 'https://maven.aliyun.com/repository/jcenter'
+            allowInsecureProtocol = true
+        }
+        google()
+        mavenCentral()
+        maven { url 'https://jitpack.io' }
+    }
+}
+
+rootProject.name = "xinqiao"
+include ':app'

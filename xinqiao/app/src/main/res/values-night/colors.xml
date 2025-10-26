@@ -1,0 +1,10 @@
+<resources>
+    <color name="colorPrimaryNight">#8B9EFF</color>
+    <color name="colorOnPrimaryNight">#222222</color>
+    <color name="colorSecondaryNight">#232323</color>
+    <color name="colorOnSecondaryNight">#EEEEEE</color>
+    <color name="colorSurfaceNight">#1A1B1E</color>
+    <color name="colorOnSurfaceNight">#FFFFFF</color>
+    <color name="colorErrorNight">#CF6679</color>
+    <color name="colorOnErrorNight">#222222</color>
+</resources> 

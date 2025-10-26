@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<infos>
+  <course id="1">
+      <imgtitle>心理健康基础知识</imgtitle>
+      <title>第1章 心理健康入门</title>
+      <intro>      心理健康是每个人整体健康的重要组成部分。本章将介绍心理健康的基本概念、重要性以及如何识别和维持良好的心理状态。了解这些基础知识对于维护个人心理健康至关重要。</intro>
+  </course>  
+  <course id="2">
+      <imgtitle>情绪管理与调节</imgtitle>
+      <title>第2章 情绪管理</title>
+      <intro>      情绪管理是心理健康的核心技能之一。本章将深入探讨如何识别、理解和调节各种情绪，学习有效的情绪管理策略，以及如何在日常生活中应用这些技巧。</intro>
+  </course>  
+  <course id="3">
+      <imgtitle>压力与应对策略</imgtitle>
+      <title>第3章 压力管理</title>
+      <intro>      现代生活中，压力无处不在。本章将帮助您了解压力的来源、影响，以及如何通过有效的应对策略来管理压力，保持心理平衡。</intro>
+  </course>  
+  <course id="4">
+      <imgtitle>人际关系与沟通</imgtitle>
+      <title>第4章 人际交往</title>
+      <intro>      良好的人际关系是心理健康的重要支柱。本章将探讨如何建立和维护健康的人际关系，提高沟通技巧，以及如何处理人际冲突。</intro>
+  </course>  
+ <course id="5">
+      <imgtitle>自我认知与成长</imgtitle>
+      <title>第5章 自我认知</title>
+      <intro>      自我认知是心理健康的基础。本章将帮助您了解自我认知的重要性，学习如何提升自我意识，培养积极的自我形象，促进个人成长。</intro>
+  </course>  
+  <course id="6">
+      <imgtitle>心理韧性培养</imgtitle>
+      <title>第6章 心理韧性</title>
+      <intro>      心理韧性是面对困难和挑战时的适应能力。本章将探讨如何培养心理韧性，增强抗压能力，以及如何在逆境中保持积极心态。</intro>
+  </course>  
+  <course id="7">
+      <imgtitle>正念与冥想</imgtitle>
+      <title>第7章 正念练习</title>
+      <intro>      正念练习是提升心理健康的重要方法。本章将介绍正念的概念，学习各种冥想技巧，以及如何将正念融入日常生活。</intro>
+  </course>  
+  <course id="8">
+      <imgtitle>睡眠与心理健康</imgtitle>
+      <title>第8章 睡眠健康</title>
+      <intro>      良好的睡眠对心理健康至关重要。本章将探讨睡眠与心理健康的关系，学习改善睡眠质量的方法，以及如何建立健康的睡眠习惯。</intro>
+  </course>  
+  <course id="9">
+      <imgtitle>心理求助与支持</imgtitle>
+      <title>第9章 寻求帮助</title>
+      <intro>      及时寻求帮助是维护心理健康的重要一步。本章将介绍何时需要寻求专业帮助，如何寻找合适的心理咨询师，以及如何利用各种心理支持资源。</intro>
+  </course>  
+  <course id="10">
+      <imgtitle>心理健康维护</imgtitle>
+      <title>第10章 持续发展</title>
+      <intro>      心理健康是一个持续发展的过程。本章将总结前面所学内容，提供长期维护心理健康的策略，以及如何将心理健康知识应用到日常生活中。</intro>
+  </course>  
+</infos>

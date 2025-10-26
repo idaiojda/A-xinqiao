@@ -1,0 +1,7 @@
+dependencies {
+    // 其他依赖
+    implementation 'androidx.core:core:1.12.0' // 确保使用最新版本的 androidx.core 库
+    implementation 'androidx.appcompat:appcompat:1.6.1' // 添加 androidx.appcompat 库
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4' // 添加 androidx.constraintlayout 库
+    implementation 'mysql:mysql-connector-java:8.0.33' // 添加MySQL JDBC驱动
+}

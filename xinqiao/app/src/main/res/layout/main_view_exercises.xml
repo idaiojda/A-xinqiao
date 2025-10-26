@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <!-- 顶部栏：固定 -->
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:background="#FFFFFF"
+        android:elevation="2dp">
+
+        <TextView
+            android:id="@+id/tv_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            android:text="心理测评"
+            android:textColor="#222222"
+            android:textSize="20sp"
+            android:textStyle="bold"/>
+        <LinearLayout
+            android:id="@+id/ll_my_test"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:gravity="center_horizontal"
+            android:layout_alignParentEnd="true"
+            android:layout_marginEnd="16dp">
+            <ImageView
+                android:id="@+id/iv_my_test"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:src="@drawable/bt_heart"
+                android:layout_marginTop="6dp"
+                android:contentDescription="我的测评"/>
+            <TextView
+                android:id="@+id/tv_my_test"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="我的测评"
+                android:textColor="#30B4FF"
+                android:textSize="13sp"
+                android:layout_marginTop="2dp"/>
+        </LinearLayout>
+    </RelativeLayout>
+
+    <!-- 全部内容都在RecyclerView中滑动 -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rv_list"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+                android:scrollbars="none"/>
+
+</LinearLayout>
