@@ -22,11 +22,11 @@ import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
 import com.example.xinqiao.R;
-import com.example.xinqiao.view.AiView;
 import com.example.xinqiao.view.ArticleView;
 import com.example.xinqiao.view.CourseView;
 import com.example.xinqiao.view.ExercisesView;
 import com.example.xinqiao.view.MyInfoView;
+import com.example.xinqiao.view.ConsultationView;
 import com.example.xinqiao.mysql.MySQLHelper;
 import com.example.xinqiao.mysql.DBUtils;
 
@@ -43,7 +43,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private ExercisesView mExercisesView;
     private MyInfoView mMyInfoView;
     private ArticleView mArticleView;
-    private AiView mAiView;
+    private ConsultationView mConsultationView;
     /**
      * 中间内容栏
      */
@@ -127,7 +127,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             outState.putInt("current_view", R.id.bottom_bar_myinfo_btn);
         } else if (mArticleView != null && mArticleView.getVisibility() == View.VISIBLE) {
             outState.putInt("current_view", R.id.bottom_bar_article_btn);
-        } else if (mAiView != null && mAiView.getVisibility() == View.VISIBLE) {
+        } else if (mConsultationView != null && mConsultationView.getView() != null && mConsultationView.getView().getVisibility() == View.VISIBLE) {
             outState.putInt("current_view", R.id.bottom_bar_ai_btn);
         }
     }
@@ -268,7 +268,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 iv_ai.setImageResource(R.drawable.main_ai_icon);
                 tv_ai.setTextColor(getResources().getColor(R.color.bottom_nav_selected_healing));
                 rl_title_bar.setVisibility(View.VISIBLE);
-                tv_main_title.setText("AI助手");
+                tv_main_title.setText("咨询");
                 break;
         }
     }
@@ -321,7 +321,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         if (mExercisesView != null) mExercisesView.getView().setVisibility(View.GONE);
         if (mMyInfoView != null) mMyInfoView.getView().setVisibility(View.GONE);
         if (mArticleView != null) mArticleView.setVisibility(View.GONE);
-        if (mAiView != null) mAiView.setVisibility(View.GONE);
+        if (mConsultationView != null) mConsultationView.hideView();
     }
 
     /**
@@ -359,8 +359,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             if (mArticleView != null && mArticleView.getView() != null) {
                 mArticleView.setVisibility(View.GONE);
             }
-            if (mAiView != null && mAiView.getView() != null) {
-                mAiView.setVisibility(View.GONE);
+            if (mConsultationView != null && mConsultationView.getView() != null) {
+                mConsultationView.hideView();
             }
         } catch (Exception e) {
             Log.e("MainActivity", "Error hiding views: " + e.getMessage());
@@ -419,15 +419,15 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     mArticleView.showView();
                     break;
                 case 4:
-                    // AI界面
-                    if (mAiView == null) {
-                        mAiView = new AiView(this);
+                    // 咨询界面（聚合专业咨询+AI浮窗）
+                    if (mConsultationView == null) {
+                        mConsultationView = new ConsultationView(this);
                     }
                     // 检查视图是否已添加到布局中
-                    if (mAiView.getView().getParent() == null) {
-                        mBodyLayout.addView(mAiView.getView());
+                    if (mConsultationView.getView().getParent() == null) {
+                        mBodyLayout.addView(mConsultationView.getView());
                     }
-                    mAiView.showView();
+                    mConsultationView.showView();
                     break;
             }
         } catch (Exception e) {
@@ -471,7 +471,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     setSelectedStatus(2);
                 } else if (mArticleView != null && mArticleView.getVisibility() == View.VISIBLE) {
                     setSelectedStatus(3);
-                } else if (mAiView != null && mAiView.getVisibility() == View.VISIBLE) {
+                } else if (mConsultationView != null && mConsultationView.getView() != null && mConsultationView.getView().getVisibility() == View.VISIBLE) {
                     setSelectedStatus(4);
                 } else {
                     // 如果没有视图可见，显示默认的课程视图
@@ -555,8 +555,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             mArticleView = null;
         }
         
-        if (mAiView != null) {
-            mAiView = null;
+        if (mConsultationView != null) {
+            mConsultationView = null;
         }
         
         // 清理Fragment
@@ -586,8 +586,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             mArticleView.setVisibility(View.GONE);
         }
         
-        if (mAiView != null) {
-            mAiView.setVisibility(View.GONE);
+        if (mConsultationView != null && mConsultationView.getView() != null) {
+            mConsultationView.hideView();
         }
         
         if (mMyInfoView != null && mMyInfoView.getView() != null) {
@@ -616,8 +616,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             hasVisibleView = true;
         }
         
-        if (mAiView != null && mAiView.getView() != null && mAiView.getView().getVisibility() == View.VISIBLE) {
-            mAiView.showView();
+        if (mConsultationView != null && mConsultationView.getView() != null && mConsultationView.getView().getVisibility() == View.VISIBLE) {
+            mConsultationView.showView();
             hasVisibleView = true;
         }
         
