@@ -34,4 +34,8 @@
     <color name="colorOnSurface">#333333</color>
     <color name="colorError">#B00020</color>
     <color name="colorOnError">#FFFFFF</color>
+    
+    <!-- TopBar 统一品牌色 -->
+    <color name="topBarPrimary">#2F54EB</color>
+    <color name="topBarOnPrimary">#FFFFFF</color>
 </resources>

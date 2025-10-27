@@ -11,7 +11,7 @@
     <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="48dp"
-        android:background="#FFFFFF"
+        android:background="@color/topBarPrimary"
         android:elevation="2dp">
 
         <ImageButton
@@ -22,14 +22,14 @@
             android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@drawable/ic_back"
             android:contentDescription="返回"
-            android:tint="#30B4FF" />
+            android:tint="@color/topBarOnPrimary" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_centerInParent="true"
             android:text="个人资料"
-            android:textColor="#333333"
+            android:textColor="@color/topBarOnPrimary"
             android:textSize="18sp" />
 
         <TextView

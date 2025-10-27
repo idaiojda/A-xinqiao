@@ -21,6 +21,8 @@ import com.example.xinqiao.mysql.MySQLHelper;
 import com.example.xinqiao.utils.AnalysisUtils;
 import com.example.xinqiao.utils.PhoneUtils;
 import com.google.android.material.textfield.TextInputEditText;
+import com.example.xinqiao.room.AppDatabase;
+import com.example.xinqiao.room.entity.UserInfo;
 import java.sql.SQLException;
 
 public class LoginActivity extends AppCompatActivity {
@@ -33,6 +35,7 @@ public class LoginActivity extends AppCompatActivity {
     private View loginCard;
     private SharedPreferences sp;
     private DBUtils dbUtils;
+    private boolean useLocalLoginFallback = false;
     private static final String SP_NAME = "login_info";
     
 
@@ -71,6 +74,7 @@ public class LoginActivity extends AppCompatActivity {
                     try {
                         dbUtils = DBUtils.getInstance(LoginActivity.this);
                         btnLogin.setEnabled(true);
+                        useLocalLoginFallback = false;
                     } catch (SQLException e) {
                         handleDatabaseError(e);
                     }
@@ -83,11 +87,12 @@ public class LoginActivity extends AppCompatActivity {
             }
         });
     }
-    
+
     private void handleDatabaseError(SQLException e) {
         e.printStackTrace();
-        Toast.makeText(this, "数据库连接失败，请稍后重试", Toast.LENGTH_SHORT).show();
-        finish();
+        Toast.makeText(this, "远程数据库不可用，已切换到本地登录", Toast.LENGTH_SHORT).show();
+        useLocalLoginFallback = true;
+        btnLogin.setEnabled(true);
     }
 
     private void setListeners() {
@@ -155,7 +160,18 @@ public class LoginActivity extends AppCompatActivity {
 
         @Override
         protected Integer doInBackground(Void... params) {
-            return dbUtils.validateUser(phone, password);
+            try {
+                if (!useLocalLoginFallback && dbUtils != null && dbUtils.isDatabaseAvailable()) {
+                    return dbUtils.validateUser(phone, password);
+                } else {
+                    UserInfo user = AppDatabase.getInstance(LoginActivity.this)
+                            .userInfoDao().login(phone, password);
+                    return user != null ? user.getUserId() : -1;
+                }
+            } catch (Exception ex) {
+                android.util.Log.e("LoginActivity", "登录校验异常: " + ex.getMessage());
+                return -1;
+            }
         }
 
         @Override
@@ -187,10 +203,18 @@ public class LoginActivity extends AppCompatActivity {
         // 设置登录状态并保存手机号和用户ID
         AnalysisUtils.saveLoginInfo(this, phone, userId);
         Toast.makeText(this, "登录成功", Toast.LENGTH_SHORT).show();
-        // 登录成功后跳转回主界面并清空任务栈
-        Intent intent = new Intent(this, MainActivity.class);
-        intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK);
-        startActivity(intent);
+        // 若是从其它页面通过 startActivityForResult 进入登录页，返回结果给调用方
+        Intent result = new Intent();
+        result.putExtra("isLogin", true);
+        setResult(RESULT_OK, result);
+
+        // 如果当前任务栈以登录页为根（例如从设置页退出后进入登录），则进入主界面
+        if (isTaskRoot()) {
+            Intent intent = new Intent(this, MainActivity.class);
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
+        }
+        // 关闭登录页，避免停留在此页面
         finish();
     }
 }

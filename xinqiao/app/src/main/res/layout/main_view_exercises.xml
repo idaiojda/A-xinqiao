@@ -9,7 +9,7 @@
     <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="60dp"
-        android:background="#FFFFFF"
+        android:background="@color/topBarPrimary"
         android:elevation="2dp">
 
         <TextView
@@ -18,9 +18,7 @@
             android:layout_height="wrap_content"
             android:layout_centerInParent="true"
             android:text="心理测评"
-            android:textColor="#222222"
-            android:textSize="20sp"
-            android:textStyle="bold"/>
+            style="@style/TopBarTitleText"/>
         <LinearLayout
             android:id="@+id/ll_my_test"
             android:layout_width="wrap_content"
@@ -34,6 +32,7 @@
                 android:layout_width="32dp"
                 android:layout_height="32dp"
                 android:src="@drawable/bt_heart"
+                android:tint="@color/topBarOnPrimary"
                 android:layout_marginTop="6dp"
                 android:contentDescription="我的测评"/>
             <TextView

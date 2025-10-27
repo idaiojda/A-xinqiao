@@ -198,8 +198,9 @@
                 android:layout_marginTop="12dp"
                 android:background="@drawable/register_button_selector"
                 android:text="@string/register"
-                android:textColor="#667eea"
-                android:textSize="16sp" />
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:textStyle="bold"/>
 
         </LinearLayout>
 

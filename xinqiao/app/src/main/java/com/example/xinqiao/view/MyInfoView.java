@@ -100,9 +100,11 @@ public class MyInfoView extends LinearLayout implements com.example.xinqiao.mysq
             }
         });
 
-        // 加载默认头像
+        // 加载默认头像（不缓存，避免GradientDrawable编码问题）
         Glide.with(this)
             .load(R.drawable.default_avatar)
+            .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.NONE)
+            .skipMemoryCache(true)
             .circleCrop()
             .into(ivAvatar);
             
@@ -195,6 +197,8 @@ public class MyInfoView extends LinearLayout implements com.example.xinqiao.mysq
                 Toast.makeText(mContext, "数据库未初始化，请稍后重试", Toast.LENGTH_SHORT).show();
                 Glide.with(getContext())
                     .load(R.drawable.default_avatar)
+                    .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.NONE)
+                    .skipMemoryCache(true)
                     .circleCrop()
                     .into(ivAvatar);
                 return;
@@ -410,6 +414,9 @@ public class MyInfoView extends LinearLayout implements com.example.xinqiao.mysq
             
             Glide.with(getContext().getApplicationContext()) // 使用ApplicationContext避免Activity生命周期问题
                 .load(R.drawable.default_avatar)
+                .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.NONE)
+                .skipMemoryCache(true)
+                .circleCrop()
                 .into(ivAvatar);
         } catch (Exception e) {
             // 即使加载默认头像失败也不再尝试

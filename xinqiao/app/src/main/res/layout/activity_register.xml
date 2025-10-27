@@ -123,17 +123,18 @@
                     </FrameLayout>
 
                     <Button
-                        android:id="@+id/btn_select_avatar"
-                        android:layout_width="wrap_content"
-                        android:layout_height="40dp"
-                        android:background="@drawable/avatar_selector_selector"
-                        android:drawableStart="@drawable/ic_camera"
-                        android:drawablePadding="8dp"
-                        android:paddingStart="20dp"
-                        android:paddingEnd="20dp"
-                        android:text="@string/select_avatar"
-                        android:textColor="#667eea"
-                        android:textSize="14sp" />
+                            android:id="@+id/btn_select_avatar"
+                            android:layout_width="wrap_content"
+                            android:layout_height="40dp"
+                            android:background="@drawable/avatar_selector_selector"
+                            android:backgroundTint="@android:color/transparent"
+                            android:drawableStart="@drawable/ic_camera"
+                            android:drawablePadding="8dp"
+                            android:paddingStart="20dp"
+                            android:paddingEnd="20dp"
+                            android:text="@string/select_avatar"
+                            android:textColor="#FFFFFF"
+                            android:textSize="14sp"/>
 
                 </LinearLayout>
 

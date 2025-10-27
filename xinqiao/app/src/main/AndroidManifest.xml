@@ -16,7 +16,7 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/logo"
         android:supportsRtl="true"
-        android:theme="@style/Theme.AppCompat.Light.NoActionBar"
+        android:theme="@style/Theme.Xinqiao"
         android:usesCleartextTraffic="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -25,7 +25,7 @@
         <activity
             android:name=".activity.SplashActivity"
             android:exported="true"
-            android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+            android:theme="@style/Theme.Xinqiao">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -66,12 +66,12 @@
         <activity
             android:name=".activity.RegisterActivity"
             android:exported="false"
-            android:theme="@style/Theme.AppCompat.Light.NoActionBar"
+            android:theme="@style/Theme.Xinqiao"
             android:windowSoftInputMode="adjustResize" />
         <activity
             android:name="com.yalantis.ucrop.UCropActivity"
             android:screenOrientation="portrait"
-            android:theme="@style/Theme.AppCompat.Light.NoActionBar"/>
+            android:theme="@style/Theme.Xinqiao"/>
         <activity
             android:name=".activity.ArticleDetailActivity"
             android:exported="false" />
@@ -86,6 +86,15 @@
             android:exported="false" />
         <activity
             android:name=".activity.RechargeActivity"
+            android:exported="false" />
+        <activity
+            android:name=".activity.MyAppointmentsActivity"
+            android:exported="false" />
+        <activity
+            android:name=".activity.AppointmentDetailActivity"
+            android:exported="false" />
+        <activity
+            android:name=".activity.ConsultantDetailActivity"
             android:exported="false" />
     </application>
 

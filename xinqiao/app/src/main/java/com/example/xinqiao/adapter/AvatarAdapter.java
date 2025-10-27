@@ -47,7 +47,7 @@ public class AvatarAdapter extends BaseAdapter {
         // 使用Glide加载图片，避免OOM
         try {
             RequestOptions options = new RequestOptions()
-                .diskCacheStrategy(DiskCacheStrategy.RESOURCE)
+                .diskCacheStrategy(DiskCacheStrategy.NONE)
                 .override(200, 200) // 限制图片大小
                 .centerCrop();
                 

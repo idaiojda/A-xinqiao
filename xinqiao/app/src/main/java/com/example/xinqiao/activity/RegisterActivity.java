@@ -39,6 +39,8 @@ import com.example.xinqiao.utils.AvatarUtils;
 import com.example.xinqiao.utils.ImageUtils;
 import com.example.xinqiao.utils.PhoneUtils;
 import com.google.android.material.textfield.TextInputEditText;
+import com.example.xinqiao.room.AppDatabase;
+import com.example.xinqiao.room.entity.UserInfo;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -342,7 +344,16 @@ public class RegisterActivity extends AppCompatActivity {
             try {
                 conn = dbHelper.getConnection();
                 if (conn == null) {
-                    runOnUiThread(() -> Toast.makeText(RegisterActivity.this, "数据库连接失败", Toast.LENGTH_SHORT).show());
+                    boolean localOk = registerLocalWithRoom(phone, password, nickname);
+                    runOnUiThread(() -> {
+                        if (localOk) {
+                            Toast.makeText(RegisterActivity.this, "注册成功（本地）", Toast.LENGTH_SHORT).show();
+                            finish();
+                        } else {
+                            Toast.makeText(RegisterActivity.this, "注册失败（本地）", Toast.LENGTH_SHORT).show();
+                            btnRegister.setEnabled(true);
+                        }
+                    });
                     return;
                 }
 
@@ -394,23 +405,91 @@ public class RegisterActivity extends AppCompatActivity {
                         runOnUiThread(() -> Toast.makeText(RegisterActivity.this, "注册成功", Toast.LENGTH_SHORT).show());
                         finish(); // 注册成功后关闭当前Activity
                     } else {
-                        runOnUiThread(() -> Toast.makeText(RegisterActivity.this, "注册失败", Toast.LENGTH_SHORT).show());
+                        boolean localOk = registerLocalWithRoom(phone, password, nickname);
+                        runOnUiThread(() -> {
+                            if (localOk) {
+                                Toast.makeText(RegisterActivity.this, "注册成功（本地）", Toast.LENGTH_SHORT).show();
+                                finish();
+                            } else {
+                                Toast.makeText(RegisterActivity.this, "注册失败", Toast.LENGTH_SHORT).show();
+                                btnRegister.setEnabled(true);
+                            }
+                        });
                     }
                 }
             } catch (SQLException e) {
                 android.util.Log.e("RegisterActivity", "注册失败: " + e.getMessage());
                 e.printStackTrace();
-                runOnUiThread(() -> Toast.makeText(RegisterActivity.this, "注册失败: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+                boolean localOk = false;
+                try {
+                    localOk = registerLocalWithRoom(phone, password, nickname);
+                } catch (Exception ex) {
+                    android.util.Log.e("RegisterActivity", "本地注册异常: " + ex.getMessage());
+                }
+                boolean finalLocalOk = localOk;
+                runOnUiThread(() -> {
+                    if (finalLocalOk) {
+                        Toast.makeText(RegisterActivity.this, "注册成功（本地）", Toast.LENGTH_SHORT).show();
+                        finish();
+                    } else {
+                        Toast.makeText(RegisterActivity.this, "注册失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                        btnRegister.setEnabled(true);
+                    }
+                });
             } catch (Exception e) {
                 android.util.Log.e("RegisterActivity", "处理头像或注册时发生错误: " + e.getMessage());
                 e.printStackTrace();
                 runOnUiThread(() -> Toast.makeText(RegisterActivity.this, "处理头像或注册时发生错误: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+                runOnUiThread(() -> btnRegister.setEnabled(true));
             } finally {
                 if (conn != null) {
                     dbHelper.releaseConnection(conn);
                 }
             }
         });
+    }
+
+    /**
+     * 使用Room进行本地注册兜底
+     */
+    private boolean registerLocalWithRoom(String phone, String password, String nickname) {
+        try {
+            UserInfo existing = AppDatabase.getInstance(this).userInfoDao().getUserByUsername(phone);
+            if (existing != null) {
+                // 本地已存在相同用户名
+                return false;
+            }
+
+            // 转换头像到字节数组
+            byte[] avatarData = null;
+            if (currentPhotoUri != null) {
+                avatarData = ImageUtils.uriToByteArray(this, currentPhotoUri);
+            } else if (currentAvatar != null) {
+                ByteArrayOutputStream stream = new ByteArrayOutputStream();
+                currentAvatar.compress(Bitmap.CompressFormat.PNG, 100, stream);
+                avatarData = stream.toByteArray();
+            }
+
+            UserInfo user = new UserInfo();
+            user.setUsername(phone);
+            user.setPassword(password);
+            user.setNickname(nickname.isEmpty() ? phone : nickname);
+            user.setGender("未知");
+            user.setBirthday(null);
+            user.setMaritalStatus("未设置");
+            user.setOccupation("未设置");
+            user.setIntroduction("");
+            user.setAvatar(avatarData);
+            user.setBalance(0.00);
+            user.setCreatedAt(new java.util.Date());
+            user.setUpdatedAt(new java.util.Date());
+
+            long rowId = AppDatabase.getInstance(this).userInfoDao().insert(user);
+            return rowId > 0;
+        } catch (Exception ex) {
+            android.util.Log.e("RegisterActivity", "Room本地注册失败: " + ex.getMessage());
+            return false;
+        }
     }
 
     @Override

@@ -267,8 +267,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             case 4:
                 iv_ai.setImageResource(R.drawable.main_ai_icon);
                 tv_ai.setTextColor(getResources().getColor(R.color.bottom_nav_selected_healing));
-                rl_title_bar.setVisibility(View.VISIBLE);
-                tv_main_title.setText("咨询");
+                rl_title_bar.setVisibility(View.GONE);
                 break;
         }
     }
@@ -486,12 +485,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                         Toast.LENGTH_SHORT).show();
                 exitTime = System.currentTimeMillis();
             } else {
-                MainActivity.this.finish();
-                if (readLoginStatus()) {
-                    //如果退出此应用时是登录状态，则需要清除登录状态，同时需清除登录时的用户名
-                    clearLoginStatus();
-                }
-                System.exit(0);
+                // 使用 finishAffinity() 安全结束任务栈，保留登录信息
+                MainActivity.this.finishAffinity();
             }
             return true;
         }

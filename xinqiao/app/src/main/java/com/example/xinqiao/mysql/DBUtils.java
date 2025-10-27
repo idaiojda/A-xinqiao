@@ -10,6 +10,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import android.content.SharedPreferences;
+import android.text.TextUtils;
+import com.example.xinqiao.utils.AnalysisUtils;
 import com.example.xinqiao.bean.UserBean;
 import com.example.xinqiao.bean.VideoBean;
 
@@ -526,49 +528,57 @@ public class DBUtils {
         }
     }
 
-    // 获取当前用户名
+    // 获取当前用户名（优先从统一的loginInfo读取，其次按用户ID回查数据库）
     public void getCurrentUserName(Context context, final UserNameCallback callback) {
-        SharedPreferences sp = context.getSharedPreferences("login_info", Context.MODE_PRIVATE);
-        String userName = sp.getString("userName", null);
+        // 统一使用 AnalysisUtils 从 "loginInfo" 读取登录用户名
+        String userName = AnalysisUtils.readLoginUserName(context);
 
-        if (userName != null) {
+        if (!TextUtils.isEmpty(userName)) {
             callback.onSuccess(userName);
-        } else {
-            new Thread(() -> {
-                helper.getConnection(new MySQLHelper.ConnectionResultCallback() {
-                    @Override
-                    public void onSuccess(Connection conn) {
-                        try {
-                            String sql = "SELECT username FROM user_info WHERE user_id = ?;";
-                            PreparedStatement stmt = conn.prepareStatement(sql);
-                            int currentUserId = 1; // 临时值，需要替换为实际的登录用户ID
-                            stmt.setInt(1, currentUserId);
-                            ResultSet rs = stmt.executeQuery();
-                            if (rs.next()) {
-                                final String fetchedUserName = rs.getString("username");
-                                android.os.Handler mainHandler = new android.os.Handler(android.os.Looper.getMainLooper());
-                                mainHandler.post(() -> callback.onSuccess(fetchedUserName));
-                            } else {
-                                android.os.Handler mainHandler = new android.os.Handler(android.os.Looper.getMainLooper());
-                                mainHandler.post(() -> callback.onSuccess(null));
-                            }
-                        } catch (SQLException e) {
-                            android.util.Log.e("DBUtils", "getCurrentUserName: 查询异常: " + e.getMessage());
+            return;
+        }
+
+        // 若用户名为空，则尝试读取已保存的用户ID并从数据库回查用户名
+        final int userId = AnalysisUtils.readUserId(context);
+        if (userId == -1) {
+            android.os.Handler mainHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+            mainHandler.post(() -> callback.onSuccess(null));
+            return;
+        }
+
+        new Thread(() -> {
+            helper.getConnection(new MySQLHelper.ConnectionResultCallback() {
+                @Override
+                public void onSuccess(Connection conn) {
+                    try {
+                        String sql = "SELECT username FROM user_info WHERE user_id = ?;";
+                        PreparedStatement stmt = conn.prepareStatement(sql);
+                        stmt.setInt(1, userId);
+                        ResultSet rs = stmt.executeQuery();
+                        if (rs.next()) {
+                            final String fetchedUserName = rs.getString("username");
                             android.os.Handler mainHandler = new android.os.Handler(android.os.Looper.getMainLooper());
-                            mainHandler.post(() -> callback.onError(e));
-                        } finally {
-                            helper.releaseConnection(conn);
+                            mainHandler.post(() -> callback.onSuccess(fetchedUserName));
+                        } else {
+                            android.os.Handler mainHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+                            mainHandler.post(() -> callback.onSuccess(null));
                         }
-                    }
-                    @Override
-                    public void onError(SQLException e) {
-                        android.util.Log.e("DBUtils", "getCurrentUserName: 获取连接失败: " + e.getMessage());
+                    } catch (SQLException e) {
+                        android.util.Log.e("DBUtils", "getCurrentUserName: 查询异常: " + e.getMessage());
                         android.os.Handler mainHandler = new android.os.Handler(android.os.Looper.getMainLooper());
                         mainHandler.post(() -> callback.onError(e));
+                    } finally {
+                        helper.releaseConnection(conn);
                     }
-                });
-            }).start();
-        }
+                }
+                @Override
+                public void onError(SQLException e) {
+                    android.util.Log.e("DBUtils", "getCurrentUserName: 获取连接失败: " + e.getMessage());
+                    android.os.Handler mainHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+                    mainHandler.post(() -> callback.onError(e));
+                }
+            });
+        }).start();
     }
 
     public interface UserNameCallback {

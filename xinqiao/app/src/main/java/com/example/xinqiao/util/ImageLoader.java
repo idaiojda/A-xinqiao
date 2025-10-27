@@ -26,8 +26,8 @@ public class ImageLoader {
         RequestOptions options = new RequestOptions()
                 .placeholder(R.drawable.loading_placeholder)
                 .error(R.drawable.error_placeholder)
-                .diskCacheStrategy(DiskCacheStrategy.RESOURCE)
-                .centerCrop(); // 添加居中裁剪以减少内存使用
+                .diskCacheStrategy(DiskCacheStrategy.NONE)
+                .centerCrop(); // 资源型Drawable（如GradientDrawable）不进行结果缓存
 
         Glide.with(context)
                 .load(resId)
@@ -49,7 +49,7 @@ public class ImageLoader {
                 .placeholder(R.drawable.loading_placeholder)
                 .error(R.drawable.error_placeholder)
                 .diskCacheStrategy(cacheStrategy)
-                .centerCrop(); // 添加居中裁剪以减少内存使用
+                .centerCrop(); // 保持调用者自定义，但建议对资源型使用NONE
 
         Glide.with(context)
                 .load(resId)
@@ -70,7 +70,7 @@ public class ImageLoader {
                 .placeholder(R.drawable.loading_placeholder)
                 .error(R.drawable.error_placeholder)
                 .diskCacheStrategy(DiskCacheStrategy.DATA)
-                .centerCrop(); // 添加居中裁剪以减少内存使用
+                .centerCrop(); // 网络图片缓存原始数据即可
 
         Glide.with(context)
                 .load(url)
@@ -90,8 +90,8 @@ public class ImageLoader {
         RequestOptions options = new RequestOptions()
                 .placeholder(R.drawable.loading_placeholder)
                 .error(R.drawable.error_placeholder)
-                .diskCacheStrategy(DiskCacheStrategy.RESOURCE)
-                .circleCrop();
+                .diskCacheStrategy(DiskCacheStrategy.NONE)
+                .circleCrop(); // 资源型圆形头像不进行结果缓存
 
         Glide.with(context)
                 .load(resId)
@@ -108,7 +108,7 @@ public class ImageLoader {
         if (context == null) return;
         
         RequestOptions options = new RequestOptions()
-                .diskCacheStrategy(DiskCacheStrategy.RESOURCE);
+                .diskCacheStrategy(DiskCacheStrategy.NONE); // 预加载资源型Drawable无需磁盘缓存
 
         Glide.with(context)
                 .load(resId)
