@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 顶部栏统一标题样式：18sp、半粗/粗体、颜色跟随TopBarOnPrimary -->
+    <style name="TopBarTitleText">
+        <item name="android:textSize">18sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@color/topBarOnPrimary</item>
+    </style>
+</resources>

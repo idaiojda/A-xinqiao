@@ -22,3 +22,16 @@ xinqiao-backend/local.properties # 本地配置
 .DS_Store               # Mac 系统文件
 Thumbs.db               # Windows 缩略图文件
 *.tmp                   # 临时文件
+
+# IDE配置
+.vscode/
+# 预览文件
+preview/
+xinqiao/preview/
+
+# Android/Kotlin 构建产物
+xinqiao/app/build/
+xinqiao/app/build2/  # 若存在多个 build 目录，单独列出
+
+*.apk
+*.mp4
