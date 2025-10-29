@@ -16,7 +16,11 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.example.xinqiao.R;
 import com.example.xinqiao.adapter.ExercisesAdapter;
+import com.example.xinqiao.adapter.HotRankAdapter;
 import com.example.xinqiao.bean.ExercisesBean;
+import com.example.xinqiao.dao.TestRecordDao;
+import com.example.xinqiao.dao.SearchHistoryDao;
+import com.example.xinqiao.activity.ExercisesDetailActivity;
 import java.util.ArrayList;
 import java.util.List;
 import android.content.SharedPreferences;
@@ -29,16 +33,20 @@ public class ExercisesSearchActivity extends Activity {
     private EditText etSearch;
     private ImageView ivBack, ivClear;
     private RecyclerView rvResult;
+    private RecyclerView rvHotRank;
     private TextView tvEmpty;
     private ExercisesAdapter adapter;
     private List<ExercisesBean> allList = new ArrayList<>();
     private FlexboxLayout flowHot, flowHistory;
     private TextView tvClearHistory;
     private SharedPreferences sp;
-    private static final String SP_HISTORY = "search_history";
+    private static final String SP_HISTORY = "search_history"; // 不再使用SP存储，但保留常量避免编译错误
     private static final int MAX_HISTORY = 10;
     private String[] hotWords = {"焦虑", "抑郁", "社交", "压力", "自信", "亲子", "能力"};
     private String userName;
+    private HotRankAdapter hotRankAdapter;
+    private SearchHistoryDao searchHistoryDao;
+    private TestRecordDao testRecordDao;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -48,11 +56,14 @@ public class ExercisesSearchActivity extends Activity {
         ivBack = findViewById(R.id.iv_back);
         ivClear = findViewById(R.id.iv_clear);
         rvResult = findViewById(R.id.rv_search_result);
+        rvHotRank = findViewById(R.id.rv_hot_rank);
         tvEmpty = findViewById(R.id.tv_empty);
         flowHot = findViewById(R.id.flow_hot);
         flowHistory = findViewById(R.id.flow_history);
         tvClearHistory = findViewById(R.id.tv_clear_history);
-        sp = getSharedPreferences(SP_HISTORY, MODE_PRIVATE);
+        // 初始化DAO
+        searchHistoryDao = new SearchHistoryDao(this);
+        testRecordDao = new TestRecordDao(this);
         userName = AnalysisUtils.readLoginUserName(this);
         // 获取全部测评数据（可通过Intent传递或静态方法获取，这里用静态模拟）
         allList = getAllExercises();
@@ -62,6 +73,20 @@ public class ExercisesSearchActivity extends Activity {
         rvResult.setLayoutManager(new LinearLayoutManager(this));
         rvResult.setAdapter(adapter);
         rvResult.setVisibility(View.GONE); // 初始隐藏
+
+        // 热度排行列表
+        rvHotRank.setLayoutManager(new LinearLayoutManager(this));
+        hotRankAdapter = new HotRankAdapter(this, new ArrayList<>(), allList);
+        rvHotRank.setAdapter(hotRankAdapter);
+        hotRankAdapter.setOnItemClickListener(item -> {
+            saveHistory(item.title);
+            Intent intent = new Intent(ExercisesSearchActivity.this, ExercisesDetailActivity.class);
+            intent.putExtra("id", item.id);
+            intent.putExtra("title", item.title);
+            startActivity(intent);
+        });
+        // 加载排行榜数据（基于MySQL的test_record聚合）
+        loadHotRank();
         // 顶部返回
         ivBack.setOnClickListener(v -> finish());
         // 清除输入
@@ -82,11 +107,10 @@ public class ExercisesSearchActivity extends Activity {
             });
             flowHot.addView(tag);
         }
-        // 历史标签
+        // 历史标签（从MySQL读取）
         showHistory();
         tvClearHistory.setOnClickListener(v -> {
-            sp.edit().remove("history_" + userName).apply();
-            showHistory();
+            searchHistoryDao.clearHistoryAsync(userName, this::showHistory);
         });
         // 输入监听实时搜索
         etSearch.addTextChangedListener(new TextWatcher() {
@@ -101,12 +125,17 @@ public class ExercisesSearchActivity extends Activity {
                     rvResult.setVisibility(View.GONE);
                     tvEmpty.setVisibility(View.GONE);
                     findViewById(R.id.ll_hot).setVisibility(View.VISIBLE);
-                    findViewById(R.id.ll_history).setVisibility(View.VISIBLE);
+                    // 历史区域的可见性由实际数据决定，不再强制显示
+                    showHistory();
+                    findViewById(R.id.tv_hot_rank_title).setVisibility(View.VISIBLE);
+                    findViewById(R.id.rv_hot_rank).setVisibility(View.VISIBLE);
                 } else {
                     adapter.filter(keyword);
                     rvResult.setVisibility(View.VISIBLE);
                     findViewById(R.id.ll_hot).setVisibility(View.GONE);
                     findViewById(R.id.ll_history).setVisibility(View.GONE);
+                    findViewById(R.id.tv_hot_rank_title).setVisibility(View.GONE);
+                    findViewById(R.id.rv_hot_rank).setVisibility(View.GONE);
                     updateEmptyView();
                 }
             }
@@ -127,13 +156,41 @@ public class ExercisesSearchActivity extends Activity {
         updateEmptyView();
     }
     private void updateEmptyView() {
-        if (adapter.getItemCount() <= 1) { // 只有header
+        if (adapter.getItemCount() == 0) {
             tvEmpty.setVisibility(View.VISIBLE);
             rvResult.setVisibility(View.GONE);
         } else {
             tvEmpty.setVisibility(View.GONE);
             rvResult.setVisibility(View.VISIBLE);
         }
+    }
+
+    // 加载排行榜数据（从MySQL test_record聚合查询）
+    private void loadHotRank() {
+        testRecordDao.getGlobalHotRankAsync(10, new TestRecordDao.TitleCountCallback() {
+            @Override
+            public void onSuccess(List<TestRecordDao.TitleCount> list) {
+                List<HotRankAdapter.HotItem> items = new ArrayList<>();
+                for (TestRecordDao.TitleCount tc : list) {
+                    int id = findExerciseIdByTitle(tc.title);
+                    items.add(new HotRankAdapter.HotItem(id, tc.title, tc.count));
+                }
+                hotRankAdapter.setData(items);
+            }
+            @Override
+            public void onError(Exception e) {
+                android.util.Log.e("ExercisesSearchActivity", "加载排行榜失败: " + e.getMessage());
+            }
+        });
+    }
+
+    private int findExerciseIdByTitle(String title) {
+        for (ExercisesBean bean : allList) {
+            if (bean.title != null && bean.title.equals(title)) {
+                return bean.id;
+            }
+        }
+        return 0; // 未匹配到则返回0
     }
     // 可根据实际情况获取全部测评数据
     private List<ExercisesBean> getAllExercises() {
@@ -291,38 +348,35 @@ public class ExercisesSearchActivity extends Activity {
     }
     private void showHistory() {
         flowHistory.removeAllViews();
-        List<String> history = getHistory();
-        if (history.isEmpty()) {
-            findViewById(R.id.ll_history).setVisibility(View.GONE);
-        } else {
-            findViewById(R.id.ll_history).setVisibility(View.VISIBLE);
-            flowHistory.setVisibility(View.VISIBLE);
-            for (String word : history) {
-                TextView tag = createTag(word, 0xFFBBBBBB, 0x1A999999);
-                tag.setOnClickListener(v -> {
-                    etSearch.setText(word);
-                    etSearch.setSelection(word.length());
-                });
-                flowHistory.addView(tag);
+        searchHistoryDao.getHistoryAsync(userName, MAX_HISTORY, new SearchHistoryDao.HistoryCallback() {
+            @Override
+            public void onSuccess(List<String> history) {
+                if (history == null || history.isEmpty()) {
+                    findViewById(R.id.ll_history).setVisibility(View.GONE);
+                    return;
+                }
+                findViewById(R.id.ll_history).setVisibility(View.VISIBLE);
+                flowHistory.setVisibility(View.VISIBLE);
+                for (String word : history) {
+                    TextView tag = createTag(word, 0xFFBBBBBB, 0x1A999999);
+                    tag.setOnClickListener(v -> {
+                        etSearch.setText(word);
+                        etSearch.setSelection(word.length());
+                    });
+                    flowHistory.addView(tag);
+                }
             }
-        }
+
+            @Override
+            public void onError(Exception e) {
+                android.util.Log.e("ExercisesSearchActivity", "加载搜索历史失败: " + e.getMessage());
+                findViewById(R.id.ll_history).setVisibility(View.GONE);
+            }
+        });
     }
+
     private void saveHistory(String keyword) {
-        List<String> history = getHistory();
-        history.remove(keyword);
-        history.add(0, keyword);
-        if (history.size() > MAX_HISTORY) history = history.subList(0, MAX_HISTORY);
-        sp.edit().putString("history_" + userName, String.join(",", history)).apply();
-    }
-    private List<String> getHistory() {
-        String str = sp.getString("history_" + userName, "");
-        List<String> list = new ArrayList<>();
-        if (!str.isEmpty()) {
-            for (String s : str.split(",")) {
-                if (!s.isEmpty()) list.add(s);
-            }
-        }
-        return list;
+        searchHistoryDao.saveKeywordAsync(userName, keyword);
     }
     private TextView createTag(String text, int strokeColor, int bgColor) {
         TextView tv = new TextView(this);

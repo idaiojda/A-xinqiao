@@ -1,8 +1,9 @@
 apply plugin: 'com.android.application'
 apply plugin: 'org.jetbrains.kotlin.android'
 
-// 使用独立构建目录，规避 Windows 环境下被锁定的旧产物
-buildDir = file("$projectDir/build2")
+// 使用独立构建目录，规�?Windows 环境下被锁定的旧产物
+// 切换�?build5 以避开当前被占用的 build3 目录
+buildDir = file("$projectDir/build5")
 
 android {
     namespace 'com.example.xinqiao'
@@ -64,7 +65,7 @@ android {
     }
 }
 
-// 这里添加一个配置，运行时忽略 Java 版本检查
+// 这里添加一个配置，运行时忽�?Java 版本检�?
 tasks.withType(JavaCompile) {
     options.compilerArgs << '-XDignore.symbol.file'
 }
@@ -91,6 +92,7 @@ dependencies {
     implementation 'androidx.compose.material:material-icons-extended:1.6.7'
     implementation 'androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0'
     implementation 'com.google.accompanist:accompanist-swiperefresh:0.34.0'
+    implementation 'androidx.compose.material:material:1.6.7'
     
     // Remove incorrect artifact and use lifecycle-runtime-ktx instead
     implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.7.0'
@@ -98,11 +100,11 @@ dependencies {
     // 核心依赖
     implementation 'androidx.core:core:1.12.0'
     
-    // Room数据库依赖
+    // Room数据库依�?
     def room_version = "2.6.1"
     implementation "androidx.room:room-runtime:$room_version"
     annotationProcessor "androidx.room:room-compiler:$room_version"
-    // 可选 - Kotlin扩展和协程支持
+    // 可�?- Kotlin扩展和协程支�?
     implementation "androidx.room:room-ktx:$room_version"
     
     // 测试依赖
@@ -110,10 +112,10 @@ dependencies {
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
     
-    // MySQL连接器 (迁移期间保留)
+    // MySQL连接�?(迁移期间保留)
     implementation files('libs/mysql-connector-java-5.1.49.jar') // 添加本地MySQL JDBC驱动
     
-    // 图片加载和裁剪相关依赖
+    // 图片加载和裁剪相关依�?
     implementation 'de.hdodenhof:circleimageview:3.1.0'
     implementation 'com.github.bumptech.glide:glide:4.12.0'
     annotationProcessor 'com.github.bumptech.glide:compiler:4.12.0'
@@ -121,4 +123,8 @@ dependencies {
     
     // WorkManager依赖
     implementation 'androidx.work:work-runtime:2.9.0'
+
+    // 位置服务（FusedLocationProviderClient�?
+    implementation 'com.google.android.gms:play-services-location:21.3.0'
 }
+

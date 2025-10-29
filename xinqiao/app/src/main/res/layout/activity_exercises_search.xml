@@ -110,6 +110,31 @@
             android:layout_marginTop="8dp"/>
     </LinearLayout>
 
+    <!-- 删除推荐区块，改为仅展示排行榜和历史搜索 -->
+
+    <!-- 热度排行区块 -->
+    <TextView
+        android:id="@+id/tv_hot_rank_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="排行榜"
+        android:textColor="#222"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="8dp"/>
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rv_hot_rank"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="8dp"
+        android:overScrollMode="never"
+        android:scrollbars="none"/>
+
     <!-- 搜索结果 -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rv_search_result"

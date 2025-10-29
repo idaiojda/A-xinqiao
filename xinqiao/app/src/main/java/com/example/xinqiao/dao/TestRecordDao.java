@@ -30,6 +30,21 @@ public class TestRecordDao {
         void onSuccess(List<TestRecord> records);
         void onError(Exception e);
     }
+
+    // 排行榜条目
+    public static class TitleCount {
+        public String title;
+        public int count;
+        public TitleCount(String title, int count) {
+            this.title = title;
+            this.count = count;
+        }
+    }
+
+    public interface TitleCountCallback {
+        void onSuccess(List<TitleCount> list);
+        void onError(Exception e);
+    }
     // 新增测评记录
     public boolean saveTestRecord(String userName, TestRecord record) {
         boolean flag = false;
@@ -98,6 +113,41 @@ public class TestRecordDao {
             flag = false;
         }
         return flag;
+    }
+
+    /**
+     * 获取全局排行榜（按 title 聚合计数），仅统计已完成记录（status=1）
+     */
+    public void getGlobalHotRankAsync(int limit, final TitleCountCallback callback) {
+        new Thread(() -> {
+            helper.getConnection(new MySQLHelper.ConnectionResultCallback() {
+                @Override
+                public void onSuccess(Connection conn) {
+                    List<TitleCount> list = new ArrayList<>();
+                    try {
+                        String sql = "SELECT title, COUNT(*) AS cnt FROM test_record WHERE status=1 GROUP BY title ORDER BY cnt DESC LIMIT ?";
+                        PreparedStatement pstmt = conn.prepareStatement(sql);
+                        pstmt.setInt(1, limit);
+                        ResultSet rs = pstmt.executeQuery();
+                        while (rs.next()) {
+                            list.add(new TitleCount(rs.getString("title"), rs.getInt("cnt")));
+                        }
+                        rs.close();
+                        pstmt.close();
+                        mainHandler.post(() -> callback.onSuccess(list));
+                    } catch (SQLException e) {
+                        mainHandler.post(() -> callback.onError(e));
+                    } finally {
+                        helper.releaseConnection(conn);
+                    }
+                }
+
+                @Override
+                public void onError(SQLException e) {
+                    mainHandler.post(() -> callback.onError(e));
+                }
+            });
+        }).start();
     }
     // 查询当前用户所有测评记录
     public List<TestRecord> getTestRecords(String userName) {

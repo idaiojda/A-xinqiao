@@ -1,7 +1,9 @@
 package com.example.xinqiao.consultation.pro
 
 import android.app.Activity
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Color
 import android.widget.ImageView
 import android.widget.Toast
@@ -13,6 +15,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
@@ -22,6 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,30 +45,60 @@ import com.example.xinqiao.activity.ConsultantDetailActivity
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import com.google.accompanist.swiperefresh.SwipeRefresh
 import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
+import androidx.compose.material.icons.outlined.FilterList
+import androidx.compose.material.icons.outlined.SwapVert
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
+import com.example.xinqiao.R
+import androidx.compose.material.pullrefresh.pullRefresh
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.material.ExperimentalMaterialApi::class)
 @Composable
 fun ConsultProScreen(vm: ConsultProViewModel = viewModel()) {
     val ctx = LocalContext.current
     val consultants by vm.consultants.collectAsState()
     val loading by vm.loading.collectAsState()
     val error by vm.error.collectAsState()
+    val cities by vm.cities.collectAsState()
+    val cityDict by vm.cityDict.collectAsState()
+    val locationCity by vm.locationCity.collectAsState()
+    val recentCities by vm.recentCities.collectAsState()
 
     val themeColor = androidx.compose.ui.graphics.Color(0xFF2F54EB)
     val scrollState = rememberScrollState()
     val listState = rememberLazyListState()
 
-    val token = remember { readToken(ctx) }
-    LaunchedEffect(Unit) {
-        // 启动时不再强制跳转登录；直接刷新数据（无 token 也可尝试获取公开列表）
-        vm.refresh(token)
+    // 运行时权限请�?Launcher（用于启动时和手动点击）
+    val finePermLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) vm.detectLocationCity(true)
     }
 
-    val swipeState = rememberSwipeRefreshState(isRefreshing = loading)
+    val token = remember { readToken(ctx) }
+    LaunchedEffect(Unit) {
+        // 启动时仅加载数据，不申请定位权限、不触发定位
+        vm.refresh(token)
+        vm.loadCityDict(token)
+    }
+    
+
+    val pullRefreshState = androidx.compose.material.pullrefresh.rememberPullRefreshState(
+        refreshing = loading,
+        onRefresh = { vm.refresh(token) }
+    )
 
     var query by remember { mutableStateOf("") }
+    // 顶部筛选栏状�?    var selectedConcern by remember { mutableStateOf(vm.field ?: "全部") }
+    var selectedCity by remember { mutableStateOf(vm.city ?: "全部") }
+    var selectedPriceRange by remember { mutableStateOf("不限") }
+    var showFilterSheet by remember { mutableStateOf(false) }
+    var showCitySheet by remember { mutableStateOf(false) }
+    var priceAsc by remember { mutableStateOf(vm.sort == "价格从低到高") }
 
     Scaffold(
         topBar = {
@@ -96,8 +132,7 @@ fun ConsultProScreen(vm: ConsultProViewModel = viewModel()) {
         Column(modifier = Modifier
             .fillMaxSize()
             .padding(padding)) {
-            // 搜索栏
-            Row(modifier = Modifier
+            // 搜索�?            Row(modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 OutlinedTextField(
@@ -109,78 +144,159 @@ fun ConsultProScreen(vm: ConsultProViewModel = viewModel()) {
                     placeholder = { Text("搜索咨询师、领域或标签") }
                 )
             }
-            // 筛选栏
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Row(modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(scrollState)
-                    .padding(horizontal = 12.dp, vertical = 8.dp)) {
-                    FilterRadioGroup(
-                        label = "咨询领域",
+
+            // 底部筛选弹层：咨询形式
+            if (showFilterSheet) {
+                val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+                ModalBottomSheet(
+                    onDismissRequest = { showFilterSheet = false },
+                    sheetState = sheetState
+                ) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                        Text("咨询形式", fontWeight = FontWeight.SemiBold)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        val modes = listOf("全部", "文字咨询", "语音咨询", "视频咨询")
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            modes.forEach { m ->
+                                AssistChip(
+                                    onClick = {
+                                        vm.setFilters(vm.field, m, vm.sort)
+                                        showFilterSheet = false
+                                        delayedReload { vm.refresh(token) }
+                                    },
+                                    label = { Text(m) },
+                                    colors = AssistChipDefaults.assistChipColors(
+                                        containerColor = if (m == (vm.mode ?: "全部")) androidx.compose.ui.graphics.Color(0xFFE8F0FE) else androidx.compose.ui.graphics.Color(0xFFF7F7F7),
+                                    )
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+                }
+            }
+            // 顶部分类筛选栏（困�?/ 城市 / 价格 / 筛�?+ 排序�?            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    DropdownTab(
+                        label = "困扰",
                         options = listOf("全部", "抑郁干预", "焦虑缓解", "职场压力", "情感关系", "亲子教育"),
-                        selected = vm.field ?: "全部",
-                        onSelect = { vm.setFilters(it, vm.mode, vm.sort); delayedReload { vm.refresh(token) } },
-                        themeColor = themeColor
+                        onSelect = { selectedConcern = it; vm.setFilters(it, vm.mode, vm.sort); delayedReload { vm.refresh(token) } }
                     )
-                    Spacer(modifier = Modifier.width(16.dp))
-                    FilterRadioGroup(
-                        label = "咨询形式",
-                        options = listOf("全部", "文字咨询", "语音咨询", "视频咨询"),
-                        selected = vm.mode ?: "全部",
-                        onSelect = { vm.setFilters(vm.field, it, vm.sort); delayedReload { vm.refresh(token) } },
-                        themeColor = themeColor
+                    // 城市：仅作为弹层入口（定位芯片移动到弹层顶部�?                    Row(
+                        modifier = Modifier.clickable { showCitySheet = true },
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("城市", color = androidx.compose.ui.graphics.Color(0xFF111111), fontSize = 16.sp)
+                        Icon(Icons.Filled.ArrowDropDown, contentDescription = null, tint = androidx.compose.ui.graphics.Color(0xFF111111))
+                    }
+                    DropdownTab(
+                        label = "价格",
+                        options = listOf("不限", "<199", "200-299", "300-499", "500+"),
+                        onSelect = { selectedPriceRange = it }
                     )
-                    Spacer(modifier = Modifier.width(16.dp))
-                    FilterRadioGroup(
-                        label = "排序方式",
-                        options = listOf("综合评分", "咨询量", "价格从低到高", "价格从高到低"),
-                        selected = vm.sort ?: "综合评分",
-                        onSelect = { vm.setFilters(vm.field, vm.mode, it); delayedReload { vm.refresh(token) } },
-                        themeColor = themeColor
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = { showFilterSheet = true }) {
+                            Icon(Icons.Outlined.FilterList, contentDescription = "筛�?)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        IconButton(onClick = {
+                            priceAsc = !priceAsc
+                            val s = if (priceAsc) "价格从低到高" else "价格从高到低"
+                            vm.setFilters(vm.field, vm.mode, s)
+                            delayedReload { vm.refresh(token) }
+                        }) {
+                            Icon(Icons.Outlined.SwapVert, contentDescription = "排序")
+                        }
+                    }
                 }
                 Divider(color = androidx.compose.ui.graphics.Color(0xFFF5F5F5), thickness = 1.dp)
             }
 
-            SwipeRefresh(state = swipeState, onRefresh = { vm.refresh(token) }) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    val displayList = remember(consultants, query) {
-                        val q = query.trim().lowercase()
-                        if (q.isEmpty()) consultants else consultants.filter { c ->
-                            c.name.lowercase().contains(q) ||
-                            c.title.lowercase().contains(q) ||
-                            c.skills.any { it.lowercase().contains(q) }
-                        }
+            Box(modifier = Modifier
+                .fillMaxSize()
+                .pullRefresh(pullRefreshState)) {
+                val displayList = remember(consultants, query, selectedPriceRange) {
+                    val q = query.trim().lowercase()
+                    val base = if (q.isEmpty()) consultants else consultants.filter { c ->
+                        c.name.lowercase().contains(q) ||
+                        c.title.lowercase().contains(q) ||
+                        c.skills.any { it.lowercase().contains(q) }
                     }
-                    if (displayList.isEmpty() && !loading) {
-                        EmptyState()
-                    } else {
-                        LazyColumn(state = listState, modifier = Modifier.fillMaxSize().padding(12.dp)) {
-                            items(displayList) { c ->
-                                ConsultantItem(c, themeColor, onClick = {
-                                    if (ctx is Activity) {
-                                        val it = Intent(ctx, ConsultantDetailActivity::class.java)
+                    // 本地价格区间过滤
+                    when (selectedPriceRange) {
+                        "不限" -> base
+                        "<199" -> base.filter { it.price < 199 }
+                        "200-299" -> base.filter { it.price in 200..299 }
+                        "300-499" -> base.filter { it.price in 300..499 }
+                        "500+" -> base.filter { it.price >= 500 }
+                        else -> base
+                    }
+                }
+                if (displayList.isEmpty() && !loading) {
+                    EmptyState()
+                } else {
+                    LazyColumn(state = listState, modifier = Modifier.fillMaxSize().padding(12.dp)) {
+                        items(displayList) { c ->
+                            ConsultantItem(c, themeColor, onClick = {
+                                if (ctx is Activity) {
+                                    val it = Intent(ctx, ConsultantDetailActivity::class.java)
+                                    it.putExtra("consultantId", c.id)
+                                    ctx.startActivity(it)
+                                }
+                            }, onBook = {
+                                if (ctx is Activity) {
+                                    if (readLoginStatus(ctx)) {
+                                        val it = Intent(ctx, AppointmentDetailActivity::class.java)
                                         it.putExtra("consultantId", c.id)
+                                        it.putExtra("name", c.name)
+                                        it.putExtra("mode", c.defaultMode)
                                         ctx.startActivity(it)
+                                    } else {
+                                        Toast.makeText(ctx, "请先登录", Toast.LENGTH_SHORT).show()
+                                        ctx.startActivity(Intent(ctx, LoginActivity::class.java))
                                     }
-                                }, onBook = {
-                                    if (ctx is Activity) {
-                                        if (readLoginStatus(ctx)) {
-                                            val it = Intent(ctx, AppointmentDetailActivity::class.java)
-                                            it.putExtra("consultantId", c.id)
-                                            it.putExtra("name", c.name)
-                                            it.putExtra("mode", c.defaultMode)
-                                            ctx.startActivity(it)
-                                        } else {
-                                            Toast.makeText(ctx, "请先登录", Toast.LENGTH_SHORT).show()
-                                            ctx.startActivity(Intent(ctx, LoginActivity::class.java))
-                                        }
-                                    }
-                                })
-                                Spacer(modifier = Modifier.height(8.dp))
-                            }
+                                }
+                            })
+                            Spacer(modifier = Modifier.height(8.dp))
                         }
                     }
+                }
+                androidx.compose.material.pullrefresh.PullRefreshIndicator(
+                    refreshing = loading,
+                    state = pullRefreshState,
+                    modifier = Modifier.align(Alignment.TopCenter)
+                )
+            }
+
+            // 城市层级弹层
+            if (showCitySheet) {
+                val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+                ModalBottomSheet(
+                    onDismissRequest = { showCitySheet = false },
+                    sheetState = sheetState
+                ) {
+                    CitySelectorSheet(
+                        dict = cityDict,
+                        locationCity = locationCity,
+                        recentCities = recentCities,
+                        onLocate = {
+                            val fineGranted = ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                            val coarseGranted = ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                            if (fineGranted || coarseGranted) vm.detectLocationCity(true) else finePermLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                        },
+                        onSelect = { city ->
+                            showCitySheet = false
+                            selectedCity = city
+                            vm.updateCity(city)
+                            delayedReload { vm.refresh(token) }
+                        }
+                    )
                 }
             }
         }
@@ -256,7 +372,8 @@ private fun ConsultantItem(
                         scaleType = ImageView.ScaleType.CENTER_CROP
                         Glide.with(ctx)
                             .load(c.avatarUrl)
-                            .placeholder(android.R.drawable.sym_def_app_icon)
+                            .placeholder(R.drawable.default_avatar)
+                            .error(R.drawable.default_avatar)
                             .diskCacheStrategy(DiskCacheStrategy.DATA)
                             .circleCrop()
                             .into(this)
@@ -269,14 +386,13 @@ private fun ConsultantItem(
                 }
             }
             Spacer(modifier = Modifier.width(12.dp))
-            // 中间信息区
-            Column(modifier = Modifier.weight(1f)) {
+            // 中间信息�?            Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(c.name, style = MaterialTheme.typography.titleSmall)
                     Spacer(Modifier.width(6.dp))
                     Text(c.title, color = androidx.compose.ui.graphics.Color(0xFF666666), style = MaterialTheme.typography.bodySmall)
                 }
-                Row { // 擅长领域标签（最多2个）
+                Row { // 擅长领域标签（最�?个）
                     c.skills.take(2).forEach { skill ->
                         Box(modifier = Modifier
                             .padding(end = 6.dp)
@@ -288,14 +404,13 @@ private fun ConsultantItem(
                     if (extra > 0) Text("+${extra}", color = themeColor, style = MaterialTheme.typography.labelSmall)
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("★ ${c.rating}", color = androidx.compose.ui.graphics.Color(0xFFFF9500), style = MaterialTheme.typography.bodySmall)
+                    Text("����${c.rating}")), color = androidx.compose.ui.graphics.Color(0xFFFF9500), style = MaterialTheme.typography.bodySmall)
                     Spacer(Modifier.width(12.dp))
-                    Text("咨询量 ${c.consultCount}+", color = androidx.compose.ui.graphics.Color(0xFF999999), style = MaterialTheme.typography.bodySmall)
+                    Text("��ѯ��${c.consultCount}+")), color = androidx.compose.ui.graphics.Color(0xFF999999), style = MaterialTheme.typography.bodySmall)
                 }
             }
-            // 右侧价格与预约按钮
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("¥${c.price} / 次", color = themeColor, style = MaterialTheme.typography.titleSmall)
+            // 右侧价格与预约按�?            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("¥${c.price} / �?, color = themeColor, style = MaterialTheme.typography.titleSmall)
                 Text("${c.durationMinutes} 分钟", color = androidx.compose.ui.graphics.Color(0xFF999999), style = MaterialTheme.typography.labelSmall)
                 Spacer(Modifier.height(8.dp))
                 Button(onClick = onBook, colors = ButtonDefaults.buttonColors(containerColor = themeColor), modifier = Modifier.width(80.dp).height(30.dp)) {
@@ -310,17 +425,15 @@ private fun ConsultantItem(
 private fun EmptyState() {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            // 简化空态图标
-            Box(modifier = Modifier.size(80.dp).background(androidx.compose.ui.graphics.Color(0xFFCCCCCC)))
+            // 简化空态图�?            Box(modifier = Modifier.size(80.dp).background(androidx.compose.ui.graphics.Color(0xFFCCCCCC)))
             Spacer(Modifier.height(12.dp))
-            Text("暂无符合条件的咨询师，可尝试调整筛选条件", color = androidx.compose.ui.graphics.Color(0xFF999999))
+            Text("暂无符合条件的咨询师，可尝试调整筛选条�?, color = androidx.compose.ui.graphics.Color(0xFF999999))
         }
     }
 }
 
 private fun delayedReload(block: () -> Unit) {
-    // 简单延迟 100ms，避免频繁请求
-    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(block, 100)
+    // 简单延�?100ms，避免频繁请�?    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(block, 100)
 }
 
 private fun readToken(ctx: android.content.Context): String? {
@@ -332,3 +445,150 @@ private fun readLoginStatus(ctx: android.content.Context): Boolean {
     val sp = ctx.getSharedPreferences("loginInfo", android.content.Context.MODE_PRIVATE)
     return sp.getBoolean("isLogin", false)
 }
+@Composable
+private fun DropdownTab(
+    label: String,
+    options: List<String>,
+    onSelect: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        Row(
+            modifier = Modifier.clickable { expanded = true },
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(label, color = androidx.compose.ui.graphics.Color(0xFF111111), fontSize = 16.sp)
+            Icon(Icons.Filled.ArrowDropDown, contentDescription = null, tint = androidx.compose.ui.graphics.Color(0xFF111111))
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            options.forEach { opt ->
+                DropdownMenuItem(text = { Text(opt) }, onClick = { expanded = false; onSelect(opt) })
+            }
+        }
+    }
+}
+@Composable
+private fun CitySelectorSheet(
+    dict: CityDict?,
+    locationCity: String?,
+    recentCities: List<String>,
+    onLocate: () -> Unit,
+    onSelect: (String) -> Unit
+) {
+    val tabs = dict?.tabs ?: emptyList()
+    var tabIndex by remember { mutableStateOf(0) }
+    var selectedGroupIndex by remember { mutableStateOf(0) }
+    var locating by remember { mutableStateOf(false) }
+    LaunchedEffect(locationCity) { if (!locationCity.isNullOrBlank()) locating = false }
+
+    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+        Text("城市选择", fontWeight = FontWeight.SemiBold)
+        Spacer(modifier = Modifier.height(8.dp))
+        // 顶部：定位与最近浏览（始终显示定位区域�?        Column(modifier = Modifier.fillMaxWidth()) {
+            Text("定位", style = MaterialTheme.typography.labelSmall, color = androidx.compose.ui.graphics.Color(0xFF666666))
+            Spacer(modifier = Modifier.height(6.dp))
+            if (!locationCity.isNullOrBlank()) {
+                AssistChip(
+                    onClick = { onSelect(locationCity!!) },
+                    label = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.LocationOn, contentDescription = null, tint = androidx.compose.ui.graphics.Color(0xFF2F54EB))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(locationCity!!)
+                        }
+                    },
+                    colors = AssistChipDefaults.assistChipColors(
+                        containerColor = androidx.compose.ui.graphics.Color(0xFFF7F7F7)
+                    )
+                )
+            } else {
+                AssistChip(
+                    onClick = { locating = true; onLocate() },
+                    label = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.LocationOn, contentDescription = null, tint = androidx.compose.ui.graphics.Color(0xFF2F54EB))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("使用当前定位")
+                        }
+                    },
+                    colors = AssistChipDefaults.assistChipColors(
+                        containerColor = androidx.compose.ui.graphics.Color(0xFFF7F7F7)
+                    )
+                )
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            if (recentCities.isNotEmpty()) {
+                Text("最近浏�?, style = MaterialTheme.typography.labelSmall, color = androidx.compose.ui.graphics.Color(0xFF666666))
+                Spacer(modifier = Modifier.height(6.dp))
+                LazyVerticalGrid(columns = GridCells.Fixed(3), modifier = Modifier.fillMaxWidth()) {
+                    items(recentCities) { c ->
+                        AssistChip(onClick = { onSelect(c) }, label = { Text(c) })
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+        }
+        if (tabs.isEmpty()) {
+            // 兜底：仅展示简单城市列�?            LazyVerticalGrid(columns = GridCells.Fixed(3), modifier = Modifier.fillMaxWidth()) {
+                items(listOf("全部")) { c ->
+                    AssistChip(onClick = { onSelect(c) }, label = { Text(c) })
+                }
+            }
+            return@Column
+        }
+
+        TabRow(selectedTabIndex = tabIndex) {
+            tabs.forEachIndexed { i, t ->
+                Tab(selected = tabIndex == i, onClick = { tabIndex = i; selectedGroupIndex = 0 }) {
+                    Text(t.label, modifier = Modifier.padding(12.dp))
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+
+        val current = tabs.getOrNull(tabIndex)
+        if (current != null && current.groups.isNotEmpty()) {
+            Row(modifier = Modifier.fillMaxWidth()) {
+                // 左侧省份列表
+                LazyColumn(modifier = Modifier.width(100.dp)) {
+                    items(current.groups.size) { idx ->
+                        val g = current.groups[idx]
+                        Text(
+                            g.label,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(8.dp)
+                                .clickable { selectedGroupIndex = idx },
+                            color = if (selectedGroupIndex == idx) androidx.compose.ui.graphics.Color(0xFF2F54EB) else androidx.compose.ui.graphics.Color(0xFF333333)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                // 右侧城市网格
+                val cities = current.groups.getOrNull(selectedGroupIndex)?.cities ?: emptyList()
+                LazyVerticalGrid(columns = GridCells.Fixed(3), modifier = Modifier.weight(1f)) {
+                    items(cities) { c ->
+                        AssistChip(onClick = { onSelect(c) }, label = { Text(c) })
+                    }
+                }
+            }
+        } else {
+            // 热门城市或简单列�?            val hotCities = current?.cities ?: emptyList()
+            LazyVerticalGrid(columns = GridCells.Fixed(3), modifier = Modifier.fillMaxWidth()) {
+                items(hotCities) { c ->
+                    AssistChip(onClick = { onSelect(c) }, label = { Text(c) })
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+        Button(onClick = { onSelect("全部") }, modifier = Modifier.fillMaxWidth()) {
+            Text("不限城市")
+        }
+    }
+}
+
+
+
+
+

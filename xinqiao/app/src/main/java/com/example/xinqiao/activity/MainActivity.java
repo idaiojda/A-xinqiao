@@ -75,6 +75,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private RelativeLayout rl_title_bar;
     // 用于后台任务的线程池
     private ExecutorService executorService;
+    // 记录当前显示的视图索引（0:课程,1:习题,2:我,3:文章,4:咨询）
+    private int currentIndex = -1;
+    // 简单界面返回栈：记录从哪个视图跳转到当前视图
+    private java.util.ArrayDeque<Integer> viewHistory = new java.util.ArrayDeque<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -135,8 +139,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private void restoreState(Bundle savedInstanceState) {
         int currentView = savedInstanceState.getInt("current_view", R.id.bottom_bar_course_btn);
         setSelectedStatus(currentView);
-        // 延迟恢复视图状态，避免阻塞主线程
-        mBodyLayout.post(() -> selectDisplayView(currentView));
+        // 延迟恢复视图状态，避免阻塞主线程（不记录历史）
+        mBodyLayout.post(() -> selectDisplayViewInternal(currentView, false));
     }
 
     /**
@@ -321,19 +325,32 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         if (mMyInfoView != null) mMyInfoView.getView().setVisibility(View.GONE);
         if (mArticleView != null) mArticleView.setVisibility(View.GONE);
         if (mConsultationView != null) mConsultationView.hideView();
+
+        // 初始化当前索引与返回栈
+        currentIndex = 0;
+        viewHistory.clear();
     }
 
     /**
      * 显示对应的页面
      */
     private void selectDisplayView(int index) {
+        selectDisplayViewInternal(index, true);
+    }
+
+    // 支持选择视图时是否记录历史，用于“返回到上一个界面”的行为
+    private void selectDisplayViewInternal(int index, boolean recordHistory) {
         try {
+            if (recordHistory && currentIndex != -1 && index != currentIndex) {
+                viewHistory.push(currentIndex);
+            }
             // 先隐藏所有视图
             hideAllViews();
-            
+
             // 创建并显示对应视图
             createView(index);
             setSelectedStatus(index);
+            currentIndex = index;
         } catch (Exception e) {
             Log.e("MainActivity", "Error selecting display view: " + e.getMessage());
             e.printStackTrace();
@@ -473,20 +490,31 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 } else if (mConsultationView != null && mConsultationView.getView() != null && mConsultationView.getView().getVisibility() == View.VISIBLE) {
                     setSelectedStatus(4);
                 } else {
-                    // 如果没有视图可见，显示默认的课程视图
-                    selectDisplayView(0);
+                    // 如果没有视图可见，回退到历史中的上一个视图或默认课程
+                    if (!viewHistory.isEmpty()) {
+                        int prev = viewHistory.pop();
+                        selectDisplayViewInternal(prev, false);
+                    } else {
+                        selectDisplayViewInternal(0, false);
+                    }
                 }
                 return true;
             }
             
-            // 没有Fragment，处理应用退出逻辑
-            if ((System.currentTimeMillis() - exitTime) > 2000) {
-                Toast.makeText(MainActivity.this, "再按一次退出心桥",
-                        Toast.LENGTH_SHORT).show();
-                exitTime = System.currentTimeMillis();
+            // 没有Fragment：优先使用视图返回栈回到上一个界面
+            if (!viewHistory.isEmpty()) {
+                int prev = viewHistory.pop();
+                selectDisplayViewInternal(prev, false);
             } else {
-                // 使用 finishAffinity() 安全结束任务栈，保留登录信息
-                MainActivity.this.finishAffinity();
+                // 返回栈为空时，执行双击退出逻辑
+                if ((System.currentTimeMillis() - exitTime) > 2000) {
+                    Toast.makeText(MainActivity.this, "再按一次退出心桥",
+                            Toast.LENGTH_SHORT).show();
+                    exitTime = System.currentTimeMillis();
+                } else {
+                    // 使用 finishAffinity() 安全结束任务栈，保留登录信息
+                    MainActivity.this.finishAffinity();
+                }
             }
             return true;
         }
@@ -593,7 +621,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     @Override
     protected void onResume() {
         super.onResume();
-        // 检查是否有视图可见，如果没有则显示默认课程视图
+        // 检查是否有视图可见，如果没有则恢复到上一次显示的视图
         boolean hasVisibleView = false;
         
         if (mCourseView != null && mCourseView.getView().getVisibility() == View.VISIBLE) {
@@ -621,9 +649,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             hasVisibleView = true;
         }
         
-        // 如果没有任何视图可见，显示默认课程视图
+        // 如果没有任何视图可见，则恢复到当前索引对应的视图；若未初始化则显示课程视图
         if (!hasVisibleView) {
-            selectDisplayView(0);
+            int targetIndex = (currentIndex != -1) ? currentIndex : 0;
+            selectDisplayViewInternal(targetIndex, false);
         }
     }
 }

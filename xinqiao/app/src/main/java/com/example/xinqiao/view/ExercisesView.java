@@ -301,13 +301,12 @@ public class ExercisesView {
 
     public void onMyTestClick(View v) {
         MainActivity mainActivity = (MainActivity) mContext;
-        
-        // 先隐藏当前视图
-        View currentView = this.getView();
-        if (currentView != null) {
-            currentView.setVisibility(View.GONE);
-        }
-        
+        // 不再隐藏当前视图，避免返回时出现空白（Fragment出栈后自动显示底层视图）
+        // View currentView = this.getView();
+        // if (currentView != null) {
+        //     currentView.setVisibility(View.GONE);
+        // }
+
         // 创建并添加新的Fragment
         FragmentManager fragmentManager = mainActivity.getSupportFragmentManager();
         

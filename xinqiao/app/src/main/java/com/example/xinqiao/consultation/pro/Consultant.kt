@@ -11,5 +11,6 @@ data class Consultant(
     val consultCount: Int,
     val price: Int,
     val durationMinutes: Int,
-    val defaultMode: String
+    val defaultMode: String,
+    val city: String?
 )

@@ -671,6 +671,18 @@ public class MySQLHelper {
                     pstmt.executeUpdate();
                 }
             }
+
+            // 创建搜索历史表（如不存在）
+            conn.createStatement().execute(
+                "CREATE TABLE IF NOT EXISTS search_history (" +
+                "id INT AUTO_INCREMENT PRIMARY KEY, " +
+                "userName VARCHAR(50) NOT NULL, " +
+                "keyword VARCHAR(100) NOT NULL, " +
+                "createTime BIGINT NOT NULL, " +
+                "INDEX idx_search_history_userName (userName), " +
+                "INDEX idx_search_history_createTime (createTime)" +
+                ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+            );
             
             long endTime = System.currentTimeMillis();
             android.util.Log.i("MySQLHelper", "数据库表创建完成，耗时: " + (endTime - startTime) + "ms");
