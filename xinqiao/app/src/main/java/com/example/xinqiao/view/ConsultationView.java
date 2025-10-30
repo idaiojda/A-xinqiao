@@ -54,7 +54,8 @@ public class ConsultationView extends FrameLayout {
         composeView.setContent(new Function2<Composer, Integer, Unit>() {
             @Override
             public Unit invoke(Composer composer, Integer changed) {
-                ConsultProScreenKt.ConsultProScreenEntry(composer, 0);
+                // 传入默认参数位掩码，令 vm 使用默认的 viewModel()
+                ConsultProScreenKt.ConsultProScreen(null, composer, 0, 1);
                 return Unit.INSTANCE;
             }
         });

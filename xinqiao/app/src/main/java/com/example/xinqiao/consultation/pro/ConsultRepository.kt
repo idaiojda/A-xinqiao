@@ -173,4 +173,24 @@ class ConsultRepository(private val context: Context) {
             Result.failure(e)
         }
     }
+
+    fun reverseGeocode(lat: Double, lon: Double): Result<String?> {
+        val url = "$baseUrl/api/geo/reverse?lat=$lat&lon=$lon"
+        val req = Request.Builder().url(url).build()
+        return try {
+            client.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) {
+                    Result.failure(RuntimeException("HTTP ${resp.code}"))
+                } else {
+                    val bodyStr = resp.body?.string() ?: "{}"
+                    val root = JSONObject(bodyStr)
+                    val ok = root.optBoolean("ok", false)
+                    val city = if (ok) root.optString("city", null) else null
+                    Result.success(if (city.isNullOrBlank()) null else city)
+                }
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

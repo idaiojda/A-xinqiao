@@ -14,6 +14,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 class ConsultProViewModel(app: Application) : AndroidViewModel(app) {
     private val repo = ConsultRepository(app)
@@ -36,11 +37,15 @@ class ConsultProViewModel(app: Application) : AndroidViewModel(app) {
     private val _locationCity = MutableStateFlow<String?>(null)
     val locationCity: StateFlow<String?> = _locationCity
 
+    private val _locationError = MutableStateFlow<String?>(null)
+    val locationError: StateFlow<String?> = _locationError
+
     private val _recentCities = MutableStateFlow<List<String>>(emptyList())
     val recentCities: StateFlow<List<String>> = _recentCities
 
     private var page = 1
     private val size = 10
+    private var lastDetectAt = 0L
 
     // 过滤条件
     private val sp by lazy { app.getSharedPreferences("consult_filters", Context.MODE_PRIVATE) }
@@ -132,24 +137,41 @@ class ConsultProViewModel(app: Application) : AndroidViewModel(app) {
 
     // 定位并写入定位城市（需要在 UI 层已授予定位权限）
     fun detectLocationCity(hasLocationPermission: Boolean) {
-        if (!hasLocationPermission) return
+        if (!hasLocationPermission) {
+            _locationError.value = "未授予定位权限"
+            return
+        }
+        val now = System.currentTimeMillis()
+        if (now - lastDetectAt < 10_000) {
+            _locationError.value = "定位太频繁，请稍后再试"
+            return
+        }
+        lastDetectAt = now
         viewModelScope.launch(Dispatchers.IO) {
             try {
+                _locationError.value = null
                 val ctx = getApplication<Application>()
                 val fused = LocationServices.getFusedLocationProviderClient(ctx)
                 // 优先尝试当前定位，其次回退到最近一次定位
                 val cts = CancellationTokenSource()
                 // 优先使用高精度，提升获取当前城市成功率；再回退到最近一次定位；最后低功耗兜底
-                val highAcc = try { Tasks.await(fused.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cts.token)) } catch (_: Exception) { null }
-                val last = try { Tasks.await(fused.lastLocation) } catch (_: Exception) { null }
-                val lowPower = try { Tasks.await(fused.getCurrentLocation(Priority.PRIORITY_LOW_POWER, cts.token)) } catch (_: Exception) { null }
-                val loc = highAcc ?: last ?: lowPower
-                val city = if (loc != null) geocodeCity(ctx, loc.latitude, loc.longitude) else null
-                if (!city.isNullOrBlank()) {
-                    setLocationCity(city)
+                val result = withTimeoutOrNull(7_000) {
+                    val highAcc = try { Tasks.await(fused.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cts.token)) } catch (_: Exception) { null }
+                    val last = try { Tasks.await(fused.lastLocation) } catch (_: Exception) { null }
+                    val lowPower = try { Tasks.await(fused.getCurrentLocation(Priority.PRIORITY_LOW_POWER, cts.token)) } catch (_: Exception) { null }
+                    val loc = highAcc ?: last ?: lowPower
+                    if (loc == null) return@withTimeoutOrNull null
+                    // 优先使用后端 API 进行反地理解析
+                    val apiRes = repo.reverseGeocode(loc.latitude, loc.longitude)
+                    var city: String? = null
+                    if (apiRes.isSuccess) city = apiRes.getOrNull()?.let { normalizeCityName(it) }
+                    if (city.isNullOrBlank()) city = geocodeCity(ctx, loc.latitude, loc.longitude)
+                    city
                 }
+                if (!result.isNullOrBlank()) setLocationCity(result) else _locationError.value = "定位失败，请稍后再试"
             } catch (e: Exception) {
                 // 静默失败，不影响正常功能
+                _locationError.value = "定位失败，请稍后再试"
             }
         }
     }
