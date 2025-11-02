@@ -11,6 +11,8 @@ import android.widget.TextView;
 import com.example.xinqiao.R;
 import com.example.xinqiao.activity.VideoListActivity;
 import com.example.xinqiao.bean.CourseBean;
+import com.example.xinqiao.util.ImageLoader;
+
 
 import java.util.List;
 
@@ -130,47 +132,33 @@ public class CourseAdapter extends BaseAdapter {
 	/**
 	 * 设置左边图片，根据课程id选择不同图片
 	 */
-	private void setLeftImg(int id, ImageView iv_left_img) {
-		switch (id) {
-			case 1:
-				iv_left_img.setImageResource(R.mipmap.chapter_1_icon);
-				break;
-			case 3:
-				iv_left_img.setImageResource(R.mipmap.chapter_3_icon);
-				break;
-			case 5:
-				iv_left_img.setImageResource(R.mipmap.chapter_5_icon);
-				break;
-			case 7:
-				iv_left_img.setImageResource(R.mipmap.chapter_7_icon);
-				break;
-			case 9:
-				iv_left_img.setImageResource(R.mipmap.chapter_9_icon);
-				break;
-		}
-	}
+    private void setLeftImg(int id, ImageView iv_left_img) {
+        int resId = getImageResId(id);
+        ImageLoader.loadImageFitCenter(mContext, resId, iv_left_img);
+    }
 	/**
 	 * 设置右边图片，根据课程id选择不同图片
 	 */
-	private void setRightImg(int id, ImageView iv_right_img) {
-		switch (id) {
-			case 2:
-				iv_right_img.setImageResource(R.mipmap.chapter_2_icon);
-				break;
-			case 4:
-				iv_right_img.setImageResource(R.mipmap.chapter_4_icon);
-				break;
-			case 6:
-				iv_right_img.setImageResource(R.mipmap.chapter_6_icon);
-				break;
-			case 8:
-				iv_right_img.setImageResource(R.mipmap.chapter_8_icon);
-				break;
-			case 10:
-				iv_right_img.setImageResource(R.mipmap.chapter_10_icon);
-				break;
-		}
-	}
+    private void setRightImg(int id, ImageView iv_right_img) {
+        int resId = getImageResId(id);
+        ImageLoader.loadImageFitCenter(mContext, resId, iv_right_img);
+    }
+
+    private int getImageResId(int id) {
+        switch (id) {
+            case 1: return R.mipmap.chapter_1_icon;
+            case 2: return R.mipmap.chapter_2_icon;
+            case 3: return R.mipmap.chapter_3_icon;
+            case 4: return R.mipmap.chapter_4_icon;
+            case 5: return R.mipmap.chapter_5_icon;
+            case 6: return R.mipmap.chapter_6_icon;
+            case 7: return R.mipmap.chapter_7_icon;
+            case 8: return R.mipmap.chapter_8_icon;
+            case 9: return R.mipmap.chapter_9_icon;
+            case 10: return R.mipmap.chapter_10_icon;
+            default: return R.mipmap.chapter_1_icon;
+        }
+    }
 	/**
 	 * ViewHolder内部类，缓存item视图，提升性能
 	 */

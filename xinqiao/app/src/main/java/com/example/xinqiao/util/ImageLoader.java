@@ -79,6 +79,28 @@ public class ImageLoader {
     }
 
     /**
+     * 加载资源图片（适配不裁切）
+     * 使用fitCenter保证整张图片完整显示，不被裁切。
+     * @param context 上下文
+     * @param resId 资源ID
+     * @param imageView 目标ImageView
+     */
+    public static void loadImageFitCenter(Context context, int resId, ImageView imageView) {
+        if (context == null || imageView == null) return;
+
+        RequestOptions options = new RequestOptions()
+                .placeholder(R.drawable.loading_placeholder)
+                .error(R.drawable.error_placeholder)
+                .diskCacheStrategy(DiskCacheStrategy.NONE)
+                .fitCenter();
+
+        Glide.with(context)
+                .load(resId)
+                .apply(options)
+                .into(imageView);
+    }
+
+    /**
      * 加载圆形图片
      * @param context 上下文
      * @param resId 资源ID

@@ -10,16 +10,20 @@ import android.view.Display;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ListView;
 import android.widget.Toast;
 
 import androidx.fragment.app.FragmentActivity;
 import androidx.viewpager.widget.ViewPager;
+import androidx.recyclerview.widget.RecyclerView;
+import androidx.recyclerview.widget.StaggeredGridLayoutManager;
 
 import com.example.xinqiao.R;
 import com.example.xinqiao.activity.PlayHistoryActivity;
 import com.example.xinqiao.adapter.AdBannerAdapter;
-import com.example.xinqiao.adapter.CourseAdapter;
+// import com.example.xinqiao.adapter.CourseAdapter; // replaced by RecyclerView adapter
+import com.example.xinqiao.adapter.CourseListAdapter;
+import com.example.xinqiao.util.RecyclerViewOptimizer;
+import com.example.xinqiao.util.SpacesItemDecoration;
 import com.example.xinqiao.bean.CourseBean;
 import com.example.xinqiao.utils.AnalysisUtils;
 
@@ -31,10 +35,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class CourseView {
     // 根视图
     private View mRootView;
-    // 课程列表ListView
-    private ListView lv_list;
-    // 课程适配器
-    private CourseAdapter adapter;
+    // 课程列表RecyclerView
+    private RecyclerView rv_list;
+    // 课程适配器（RecyclerView + ListAdapter）
+    private CourseListAdapter adapter;
     // 课程数据列表
     private List<List<CourseBean>> cbl;
     // 上下文
@@ -75,8 +79,8 @@ public class CourseView {
     private void createView() {
         mHandler = new MHandler(); // 初始化Handler
         initAdData();              // 初始化广告数据
-        getCourseData();           // 获取课程数据
-        initView();                // 初始化控件
+        initView();                // 初始化控件（先设置空数据的适配器）
+        loadCourseDataAsync();     // 异步加载课程数据，完成后刷新适配器
         startAdAutoSlide();        // 启动广告自动轮播
     }
 
@@ -122,11 +126,27 @@ public class CourseView {
      */
     private void initView() {
         mCurrentView = mInflater.inflate(R.layout.main_view_course, null);
-        // 初始化课程列表
-        lv_list = (ListView) mCurrentView.findViewById(R.id.lv_list);
-        adapter = new CourseAdapter(mContext);
-        adapter.setData(cbl);
-        lv_list.setAdapter(adapter);
+        // 初始化课程 RecyclerView
+        rv_list = (RecyclerView) mCurrentView.findViewById(R.id.rv_list);
+        if (rv_list != null) {
+            // 瀑布流布局，两列
+            StaggeredGridLayoutManager sglm = new StaggeredGridLayoutManager(2, StaggeredGridLayoutManager.VERTICAL);
+            sglm.setGapStrategy(StaggeredGridLayoutManager.GAP_HANDLING_MOVE_ITEMS_BETWEEN_SPANS);
+            rv_list.setLayoutManager(sglm);
+            // 间距装饰：8dp，含边距
+            int spacingPx = dpToPx(8);
+            rv_list.addItemDecoration(new SpacesItemDecoration(spacingPx, true));
+            // Padding 与裁剪设置
+            rv_list.setClipToPadding(false);
+            rv_list.setPadding(spacingPx, spacingPx, spacingPx, spacingPx);
+            // 性能优化
+            RecyclerViewOptimizer.optimizeDefault(rv_list);
+            // 适配器
+            adapter = new CourseListAdapter(mContext);
+            rv_list.setAdapter(adapter);
+            // 先提交空数据，避免主线程阻塞
+            adapter.submitList(new ArrayList<com.example.xinqiao.bean.CourseBean>());
+        }
         
         // 初始化播放历史按钮
         View playHistoryBtn = mCurrentView.findViewById(R.id.ll_play_history);
@@ -209,6 +229,55 @@ public class CourseView {
                 ada.setDatas(cadl);
             }
         }
+    }
+
+    /**
+     * 异步加载课程数据，解析完成后在主线程刷新适配器
+     */
+    private void loadCourseDataAsync() {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                List<List<CourseBean>> result = null;
+                try {
+                    InputStream is = mContext.getResources().getAssets().open("chaptertitle.xml");
+                    result = AnalysisUtils.getCourseInfos(is);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                final List<List<CourseBean>> finalResult = result;
+                mContext.runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        cbl = (finalResult != null) ? finalResult : new ArrayList<List<CourseBean>>();
+                        if (adapter != null) {
+                            List<CourseBean> flat = flattenCourseData(cbl);
+                            adapter.submitList(flat);
+                        }
+                    }
+                });
+            }
+        }).start();
+    }
+
+    /**
+     * 将二维课程数据拍平为一维列表，供 RecyclerView 使用
+     */
+    private List<CourseBean> flattenCourseData(List<List<CourseBean>> groups) {
+        List<CourseBean> out = new ArrayList<CourseBean>();
+        if (groups != null) {
+            for (List<CourseBean> g : groups) {
+                if (g != null) {
+                    out.addAll(g);
+                }
+            }
+        }
+        return out;
+    }
+
+    private int dpToPx(int dp) {
+        float density = mContext.getResources().getDisplayMetrics().density;
+        return Math.round(dp * density);
     }
 
     /**

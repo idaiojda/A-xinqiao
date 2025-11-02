@@ -21,3 +21,19 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# --- Compose runtime & UI: prevent incorrect optimizations that may break lock verification ---
+# Keep Compose runtime classes to avoid aggressive optimizations around synchronized blocks.
+-keep class androidx.compose.runtime.** { *; }
+-keep class androidx.compose.ui.** { *; }
+-keep class androidx.compose.foundation.** { *; }
+-keep class androidx.compose.material.** { *; }
+-keep class androidx.compose.material3.** { *; }
+-dontwarn androidx.compose.**
+
+# If you observe lock verification warnings in release builds with the optimized default file,
+# you can additionally restrict optimizations that sometimes impact monitor enter/exit handling.
+# Uncomment the next line to disable code-level optimizations globally (safer but larger apk):
+# -dontoptimize
+# Or selectively disable a few known risky optimization groups:
+-optimizations !code/simplification/arithmetic,!code/simplification/cast,!class/merging/*,!field/*

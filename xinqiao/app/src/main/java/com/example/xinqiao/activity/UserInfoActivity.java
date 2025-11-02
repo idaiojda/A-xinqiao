@@ -78,6 +78,9 @@ public class UserInfoActivity extends AppCompatActivity {
 
     private Uri cameraPhotoUri; // 用于存储拍照后的URI
     private Uri croppedAvatarUri; // 用于存储裁剪后的URI
+    private ExecutorService executor = Executors.newSingleThreadExecutor();
+    private boolean avatarChanged = false;
+    private Uri selectedAvatarUri = null;
 
     private final ActivityResultLauncher<Intent> pickImage = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(),
@@ -111,20 +114,24 @@ public class UserInfoActivity extends AppCompatActivity {
             result -> {
                 if (result.getResultCode() == RESULT_OK) {
                     if (croppedAvatarUri != null) {
-                        try {
-                            // 使用ImageUtils加载并缩放图片，避免OOM
-                Bitmap bitmap = com.example.xinqiao.utils.ImageUtils.loadAndResizeBitmap(this, croppedAvatarUri);
-                            if (bitmap != null) {
-                                ivAvatar.setImageBitmap(bitmap);
-                                ivAvatar.postInvalidate();
-                                avatarChanged = true;
-                                selectedAvatarUri = croppedAvatarUri;
-                            } else {
-                                Toast.makeText(this, "头像预览失败", Toast.LENGTH_SHORT).show();
+                        // 在后台线程加载并缩放图片，避免阻塞主线程
+                        executor.submit(() -> {
+                            try {
+                                Bitmap bitmap = com.example.xinqiao.utils.ImageUtils.loadAndResizeBitmap(UserInfoActivity.this, croppedAvatarUri);
+                                runOnUiThread(() -> {
+                                    if (bitmap != null) {
+                                        ivAvatar.setImageBitmap(bitmap);
+                                        ivAvatar.postInvalidate();
+                                        avatarChanged = true;
+                                        selectedAvatarUri = croppedAvatarUri;
+                                    } else {
+                                        Toast.makeText(UserInfoActivity.this, "头像预览失败", Toast.LENGTH_SHORT).show();
+                                    }
+                                });
+                            } catch (Exception e) {
+                                runOnUiThread(() -> Toast.makeText(UserInfoActivity.this, "头像预览失败: " + e.getMessage(), Toast.LENGTH_SHORT).show());
                             }
-                        } catch (Exception e) {
-                            Toast.makeText(this, "头像预览失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                        }
+                        });
                     } else {
                         Toast.makeText(this, "裁剪图片失败", Toast.LENGTH_SHORT).show();
                     }
@@ -134,11 +141,7 @@ public class UserInfoActivity extends AppCompatActivity {
                     Toast.makeText(this, "裁剪图片失败", Toast.LENGTH_SHORT).show();
                 }
             });
-
-    private ExecutorService executor = Executors.newSingleThreadExecutor();
-
-    private boolean avatarChanged = false;
-    private Uri selectedAvatarUri = null;
+    
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

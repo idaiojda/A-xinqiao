@@ -314,17 +314,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         clearBottomImageState();
         setSelectedStatus(0);
         createView(0);
-        // 确保其他视图也被初始化但隐藏
-        createView(1);
-        createView(2);
-        createView(3);
-        createView(4);
-        
-        // 隐藏除课程页面外的所有视图
-        if (mExercisesView != null) mExercisesView.getView().setVisibility(View.GONE);
-        if (mMyInfoView != null) mMyInfoView.getView().setVisibility(View.GONE);
-        if (mArticleView != null) mArticleView.setVisibility(View.GONE);
-        if (mConsultationView != null) mConsultationView.hideView();
+        // 其他视图按需创建，避免启动时阻塞主线程
 
         // 初始化当前索引与返回栈
         currentIndex = 0;

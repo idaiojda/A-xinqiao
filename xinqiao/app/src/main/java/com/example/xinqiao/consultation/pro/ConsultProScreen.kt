@@ -12,6 +12,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -29,11 +33,25 @@ import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.runtime.*
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.Color as ComposeColor
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Fill
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.bumptech.glide.Glide
@@ -45,9 +63,17 @@ import com.example.xinqiao.activity.ConsultantDetailActivity
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.material.ripple.rememberRipple
+import androidx.compose.foundation.shape.CircleShape
+// coil imports removed; using Glide via AndroidView for image loading
 import androidx.core.content.ContextCompat
-import com.google.accompanist.swiperefresh.SwipeRefresh
-import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
+import androidx.compose.material.pullrefresh.PullRefreshIndicator
+import androidx.compose.material.pullrefresh.pullRefresh
+import androidx.compose.material.pullrefresh.rememberPullRefreshState
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.SwapVert
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -95,7 +121,7 @@ fun ConsultProScreen(vm: ConsultProViewModel = viewModel()) {
     }
     
 
-    val swipeRefreshState = rememberSwipeRefreshState(isRefreshing = loading)
+    val pullRefreshState = rememberPullRefreshState(refreshing = loading, onRefresh = { vm.refresh(token) })
 
     var query by remember { mutableStateOf("") }
     // 顶部筛选栏状态
@@ -105,6 +131,9 @@ fun ConsultProScreen(vm: ConsultProViewModel = viewModel()) {
     var showFilterSheet by remember { mutableStateOf(false) }
     var showCitySheet by remember { mutableStateOf(false) }
     var priceAsc by remember { mutableStateOf(vm.sort == "价格从低到高") }
+    // 排序菜单状态与当前选择
+    var showSortMenu by remember { mutableStateOf(false) }
+    var selectedSort by remember { mutableStateOf(vm.sort ?: "综合评分") }
 
     Scaffold(
         topBar = {
@@ -214,13 +243,29 @@ fun ConsultProScreen(vm: ConsultProViewModel = viewModel()) {
                             Icon(Icons.Outlined.FilterList, contentDescription = "筛选")
                         }
                         Spacer(modifier = Modifier.width(8.dp))
-                        IconButton(onClick = {
-                            priceAsc = !priceAsc
-                            val s = if (priceAsc) "价格从低到高" else "价格从高到低"
-                            vm.setFilters(vm.field, vm.mode, s)
-                            delayedReload { vm.refresh(token) }
-                        }) {
-                            Icon(Icons.Outlined.SwapVert, contentDescription = "排序")
+                        // 排序下拉菜单
+                        Box {
+                            IconButton(onClick = { showSortMenu = true }) {
+                                Icon(Icons.Outlined.SwapVert, contentDescription = "排序")
+                            }
+                            val sortOptions = listOf("综合评分", "价格从低到高", "价格从高到低", "评分从高到低", "咨询量从高到低")
+                            androidx.compose.material3.DropdownMenu(
+                                expanded = showSortMenu,
+                                onDismissRequest = { showSortMenu = false }
+                            ) {
+                                sortOptions.forEach { opt ->
+                                    androidx.compose.material3.DropdownMenuItem(
+                                        text = { Text(opt) },
+                                        onClick = {
+                                            selectedSort = opt
+                                            priceAsc = (opt == "价格从低到高")
+                                            vm.setFilters(vm.field, vm.mode, opt)
+                                            showSortMenu = false
+                                            delayedReload { vm.refresh(token) }
+                                        }
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -228,30 +273,81 @@ fun ConsultProScreen(vm: ConsultProViewModel = viewModel()) {
             }
 
             Box(modifier = Modifier
-                .fillMaxSize()) {
-                SwipeRefresh(state = swipeRefreshState, onRefresh = { vm.refresh(token) }) {
-                val displayList = remember(consultants, query, selectedPriceRange) {
-                    val q = query.trim().lowercase()
-                    val base = if (q.isEmpty()) consultants else consultants.filter { c ->
-                        c.name.lowercase().contains(q) ||
-                        c.title.lowercase().contains(q) ||
-                        c.skills.any { it.lowercase().contains(q) }
-                    }
-                    // 本地价格区间过滤
-                    when (selectedPriceRange) {
-                        "不限" -> base
-                        "<199" -> base.filter { it.price < 199 }
-                        "200-299" -> base.filter { it.price in 200..299 }
-                        "300-499" -> base.filter { it.price in 300..499 }
-                        "500+" -> base.filter { it.price >= 500 }
-                        else -> base
+                .fillMaxSize()
+                .pullRefresh(pullRefreshState)) {
+                val displayList by produceState(
+                    initialValue = emptyList<Consultant>(),
+                    consultants, query, selectedConcern, selectedCity, selectedPriceRange, selectedSort
+                ) {
+                    value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+                        val q = query.trim().lowercase()
+                        val baseSearch = if (q.isEmpty()) consultants else consultants.filter { c ->
+                            c.name.lowercase().contains(q) ||
+                            c.title.lowercase().contains(q) ||
+                            c.skills.any { it.lowercase().contains(q) }
+                        }
+                        // 本地“困扰”类型筛选（后端未实现该筛选）：按技能/标题关键词匹配
+                        fun concernKeywords(label: String): List<String> = when (label) {
+                            "全部" -> emptyList()
+                            "焦虑缓解" -> listOf("焦虑缓解", "焦虑")
+                            "抑郁纾解" -> listOf("抑郁")
+                            "职场压力" -> listOf("职场压力")
+                            "亲子关系" -> listOf("亲子教育")
+                            "子女教育" -> listOf("亲子教育")
+                            else -> listOf(label)
+                        }
+                        val byConcern = if (selectedConcern == "全部") baseSearch else {
+                            val keys = concernKeywords(selectedConcern)
+                            baseSearch.filter { c ->
+                                keys.any { k ->
+                                    c.skills.any { it.contains(k) } || c.title.contains(k)
+                                }
+                            }
+                        }
+                        // 城市规范化以消除“上海/上海市”等字面差异
+                        fun normalizeCity(name: String?): String {
+                            var s = (name ?: "").trim()
+                            if (s.isEmpty()) return s
+                            if (s.endsWith("自治区")) s = s.removeSuffix("自治区")
+                            if (s.endsWith("特别行政区")) s = s.removeSuffix("特别行政区")
+                            if (s.endsWith("省")) s = s.removeSuffix("省")
+                            if (s.endsWith("市")) s = s.removeSuffix("市")
+                            return s
+                        }
+                        // 本地城市筛选（与后端参数 city 互补，保证前端也能生效）
+                        val byCity = if (selectedCity == "全部") byConcern else byConcern.filter {
+                            normalizeCity(it.city) == normalizeCity(selectedCity)
+                        }
+                        // 本地价格区间过滤
+                        val filtered = when (selectedPriceRange) {
+                            "不限" -> byCity
+                            "<199" -> byCity.filter { it.price < 199 }
+                            "200-299" -> byCity.filter { it.price in 200..299 }
+                            "300-499" -> byCity.filter { it.price in 300..499 }
+                            "500+" -> byCity.filter { it.price >= 500 }
+                            else -> byCity
+                        }
+                        // 本地排序（后端演示数据未实现排序）
+                        when (selectedSort) {
+                            "价格从低到高" -> filtered.sortedBy { it.price }
+                            "价格从高到低" -> filtered.sortedByDescending { it.price }
+                            "评分从高到低" -> filtered.sortedByDescending { it.rating }
+                            "咨询量从高到低" -> filtered.sortedByDescending { it.consultCount }
+                            else -> filtered // 综合评分保持原序
+                        }
                     }
                 }
                 if (displayList.isEmpty() && !loading) {
                     EmptyState()
                 } else {
                     LazyColumn(state = listState, modifier = Modifier.fillMaxSize().padding(12.dp)) {
-                        items(displayList) { c: Consultant ->
+                        if (loading && displayList.isEmpty()) {
+                            items(5) {
+                                ConsultantCardSkeleton()
+                                Spacer(modifier = Modifier.height(8.dp))
+                            }
+                        } else {
+                        items(displayList, key = { it.id }, contentType = { "consultant-card" }) { c: Consultant ->
                             ConsultantCard(c, themeColor, onClick = {
                                 if (ctx is Activity) {
                                     val it = Intent(ctx, ConsultantDetailActivity::class.java)
@@ -265,6 +361,8 @@ fun ConsultProScreen(vm: ConsultProViewModel = viewModel()) {
                                         it.putExtra("consultantId", c.id)
                                         it.putExtra("name", c.name)
                                         it.putExtra("mode", c.defaultMode)
+                                        it.putExtra("price", c.price)
+                                        it.putExtra("duration", c.durationMinutes)
                                         ctx.startActivity(it)
                                     } else {
                                         Toast.makeText(ctx, "请先登录", Toast.LENGTH_SHORT).show()
@@ -274,9 +372,10 @@ fun ConsultProScreen(vm: ConsultProViewModel = viewModel()) {
                             })
                             Spacer(modifier = Modifier.height(8.dp))
                         }
+                        }
                     }
                 }
-                }
+                PullRefreshIndicator(refreshing = loading, state = pullRefreshState, modifier = Modifier.align(Alignment.TopCenter))
             }
 
             // 城市分层弹窗
@@ -444,41 +543,287 @@ fun ConsultantCard(
     onClick: () -> Unit,
     onBook: () -> Unit
 ) {
+    val gradient = Brush.horizontalGradient(listOf(ComposeColor(0xFF6B8AFD), ComposeColor(0xFF4F46E5)))
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val elevate by animateDpAsState(if (pressed) 6.dp else 4.dp, label = "cardElev")
+    val ty by animateDpAsState(if (pressed) (-3).dp else 0.dp, label = "cardTy")
+    val bg by animateColorAsState(if (pressed) ComposeColor(0xFFF9FAFB) else MaterialTheme.colorScheme.surface, label = "cardBg")
+
     Card(
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = elevate),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = bg),
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, androidx.compose.ui.graphics.Color(0xFFF0F0F0), RectangleShape)
-            .clip(RectangleShape)
-            .clickable { onClick() }
-            .padding(12.dp)
+            .height(180.dp)
+            .padding(horizontal = 16.dp)
+            .offset(y = ty)
+            .clickable(interactionSource = interactionSource, indication = null) { onClick() }
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(c.name, style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.height(4.dp))
-                Text(c.title, color = androidx.compose.ui.graphics.Color(0xFF666666), style = MaterialTheme.typography.bodySmall)
-                Spacer(Modifier.height(6.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    val skills = c.skills.take(2)
-                    skills.forEach { skill ->
-                        Box(modifier = Modifier
-                            .padding(end = 6.dp)
-                            .background(androidx.compose.ui.graphics.Color(0xFFF0F5FF))) {
-                            Text(skill, color = themeColor, fontSize = MaterialTheme.typography.labelSmall.fontSize)
+        Box(Modifier.fillMaxSize()) {
+            // 顶部渐变边框
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(3.dp)
+                    .background(gradient)
+                    .align(Alignment.TopCenter)
+            )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 18.dp, vertical = 16.dp),
+                verticalAlignment = Alignment.Top
+            ) {
+                // 左侧头像区 72dp
+                Box(modifier = Modifier.width(72.dp)) {
+                    Box(
+                        modifier = Modifier
+                            .size(74.dp)
+                            .clip(CircleShape)
+                            .border(3.dp, gradient, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(68.dp)
+                                .clip(CircleShape)
+                                .border(2.dp, ComposeColor.White, CircleShape)
+                        ) {
+                            AsyncImage(
+                                model = c.avatarUrl,
+                                contentDescription = null,
+                                placeholder = painterResource(R.drawable.default_avatar),
+                                error = painterResource(R.drawable.default_avatar),
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize().clip(CircleShape)
+                            )
                         }
                     }
-                    val extra = c.skills.size - skills.size
-                    if (extra > 0) Text("+${extra}", color = themeColor, style = MaterialTheme.typography.labelSmall)
+                    // 在线状态指示（近似为圆形）
+                    Box(
+                        modifier = Modifier
+                            .size(12.dp)
+                            .clip(CircleShape)
+                            .background(if (c.certified) ComposeColor(0xFF10B981) else ComposeColor(0xFFE5E7EB))
+                            .border(1.dp, ComposeColor.White, CircleShape)
+                            .align(Alignment.BottomEnd)
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+
+                // 右侧信息区
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        // 第一层：姓名 + 认证标签 + 职称
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                c.name,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = ComposeColor(0xFF1F2937)
+                            )
+                            if (c.certified) {
+                                Spacer(Modifier.width(4.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(ComposeColor(0xFFE6F0FF))
+                                        .padding(horizontal = 4.dp, vertical = 1.dp)
+                                ) {
+                                    Text(
+                                        "认证咨询师",
+                                        fontSize = 10.sp,
+                                        color = ComposeColor(0xFF2C6ECB),
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            c.title,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Normal,
+                            color = ComposeColor(0xFF6B7280)
+                        )
+
+                        Spacer(Modifier.height(8.dp))
+                        // 第二层：擅长领域标签（最多显示 2/3/4 取决于屏幕宽度）
+                        val conf = LocalConfiguration.current
+                        val maxTags = when {
+                            conf.screenWidthDp in 360..389 -> 2
+                            conf.screenWidthDp >= 410 -> 4
+                            else -> 3
+                        }
+                        val skills = c.skills.take(maxTags)
+                        // 缓存技能标签的渐变，避免每次重组重复创建
+                        val chipGradient = remember {
+                            Brush.horizontalGradient(
+                                listOf(ComposeColor(0xFFF0F7FF), ComposeColor(0xFFE6F0FF))
+                            )
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            skills.forEach { skill ->
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(chipGradient)
+                                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                                ) {
+                                    Text(
+                                        skill,
+                                        fontSize = 12.sp,
+                                        color = ComposeColor(0xFF2C6ECB)
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(Modifier.height(10.dp))
+                        // 第三层：评分 + 咨询量 + 简介（简介数据缺失，使用职称替代作为简要说明）
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("★", color = ComposeColor(0xFFFF9F1C), fontSize = 20.sp)
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                String.format("%.1f", c.rating),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = ComposeColor(0xFFFF9F1C)
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text("•", color = ComposeColor(0xFFD1D5DB), fontSize = 12.sp)
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                "咨询量${c.consultCount}+",
+                                fontSize = 11.sp,
+                                color = ComposeColor(0xFF9CA3AF)
+                            )
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            c.title,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Normal,
+                            color = ComposeColor(0xFF6B7280),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    // 第四层：价格 + 预约按钮
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(
+                            "¥${c.price}",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = ComposeColor(0xFF2C6ECB)
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            "/${c.durationMinutes}分钟",
+                            fontSize = 11.sp,
+                            color = ComposeColor(0xFF9CA3AF)
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        GradientButton(
+                            text = "立即预约",
+                            onClick = onBook,
+                            gradient = gradient,
+                            modifier = Modifier
+                                .width(90.dp)
+                                .height(36.dp)
+                        )
+                    }
                 }
             }
-            Column(horizontalAlignment = Alignment.End) {
-                Text("￥${c.price} / 次", color = themeColor, style = MaterialTheme.typography.titleSmall)
-                Text("${c.durationMinutes} 分钟", color = androidx.compose.ui.graphics.Color(0xFF999999), style = MaterialTheme.typography.labelSmall)
+        }
+    }
+}
+
+@Composable
+fun GradientButton(
+    text: String,
+    onClick: () -> Unit,
+    gradient: Brush,
+    modifier: Modifier = Modifier
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(if (pressed) 0.96f else 1f, label = "btnScale")
+    Box(
+        modifier = modifier
+            .scale(scale)
+            .clip(RoundedCornerShape(18.dp))
+            .background(gradient)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null
+            ) { onClick() },
+        contentAlignment = Alignment.Center
+    ) {
+        Text(text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = ComposeColor.White)
+    }
+}
+
+@Composable
+fun ConsultantCardSkeleton() {
+    val shimmerColors = listOf(
+        ComposeColor(0xFFF3F4F6),
+        ComposeColor(0xFFE5E7EB),
+        ComposeColor(0xFFF3F4F6)
+    )
+    val anim = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            anim.animateTo(
+                targetValue = 1f,
+                animationSpec = androidx.compose.animation.core.tween(durationMillis = 2000)
+            )
+            anim.snapTo(0f)
+        }
+    }
+    val brush = Brush.linearGradient(
+        colors = shimmerColors,
+        start = androidx.compose.ui.geometry.Offset.Zero,
+        end = androidx.compose.ui.geometry.Offset(x = 300f * anim.value, y = 0f)
+    )
+    Card(
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(180.dp)
+            .padding(horizontal = 16.dp)
+    ) {
+        Row(Modifier.fillMaxSize().padding(16.dp)) {
+            // 左侧头像占位
+            Box(
+                modifier = Modifier
+                    .size(68.dp)
+                    .clip(CircleShape)
+                    .background(brush)
+            )
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Box(Modifier.height(22.dp).fillMaxWidth(0.4f).clip(RoundedCornerShape(4.dp)).background(brush))
                 Spacer(Modifier.height(8.dp))
-                Button(onClick = onBook, colors = ButtonDefaults.buttonColors(containerColor = themeColor)) {
-                    Text("立即预约", color = androidx.compose.ui.graphics.Color.White, style = MaterialTheme.typography.labelSmall)
+                Box(Modifier.height(16.dp).fillMaxWidth(0.6f).clip(RoundedCornerShape(4.dp)).background(brush))
+                Spacer(Modifier.height(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    repeat(3) {
+                        Box(Modifier.height(20.dp).width(60.dp).clip(RoundedCornerShape(8.dp)).background(brush))
+                    }
                 }
+                Spacer(Modifier.height(12.dp))
+                Box(Modifier.height(32.dp).fillMaxWidth().clip(RoundedCornerShape(4.dp)).background(brush))
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Box(Modifier.height(20.dp).width(60.dp).clip(RoundedCornerShape(4.dp)).background(brush))
+                Spacer(Modifier.height(8.dp))
+                Box(Modifier.height(36.dp).width(90.dp).clip(RoundedCornerShape(18.dp)).background(brush))
             }
         }
     }

@@ -55,6 +55,9 @@ dependencies {
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.compose.foundation)
     implementation(libs.compose.material3)
+
+    // Images in Compose
+    implementation("io.coil-kt:coil-compose:2.4.0")
     implementation(libs.activity.compose)
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.material.icons.extended)

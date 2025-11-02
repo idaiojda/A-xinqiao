@@ -1,5 +1,8 @@
 package com.example.xinqiao.consultation.pro
 
+import androidx.compose.runtime.Immutable
+
+@Immutable
 data class Consultant(
     val id: String,
     val name: String,

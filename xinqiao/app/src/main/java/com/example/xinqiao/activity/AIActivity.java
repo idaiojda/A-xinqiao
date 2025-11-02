@@ -202,9 +202,8 @@ public class AIActivity extends AppCompatActivity {
      * 保存聊天消息到数据库
      */
     private void saveChatMessage(String content, int type) {
-        String userName = AnalysisUtils.readLoginUserName(this);
-        ChatHistory chatHistory = new ChatHistory(userName, content, type, System.currentTimeMillis(), currentSessionId);
-        chatHistoryDao.saveChatHistory(chatHistory);
+        // 改为异步保存，避免在主线程执行数据库写入导致卡顿/ANR
+        saveChatMessageAsync(content, type);
     }
 
     /**

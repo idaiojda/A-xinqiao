@@ -16,6 +16,15 @@ class ConsultRepository(private val context: Context) {
     // and allow SP override via NetworkConfig.
     private val baseUrl: String by lazy { NetworkConfig.getBaseUrl(context) }
 
+    private fun normalizeCity(name: String): String {
+        var s = name.trim()
+        if (s.endsWith("自治区")) s = s.removeSuffix("自治区")
+        if (s.endsWith("特别行政区")) s = s.removeSuffix("特别行政区")
+        if (s.endsWith("省")) s = s.removeSuffix("省")
+        if (s.endsWith("市")) s = s.removeSuffix("市")
+        return s
+    }
+
     fun fetchConsultants(
         field: String?,
         mode: String?,
@@ -28,11 +37,13 @@ class ConsultRepository(private val context: Context) {
         val url = StringBuilder("$baseUrl/api/consult/pro/list")
             .append("?page=").append(page)
             .append("&size=").append(size)
-        if (!field.isNullOrEmpty()) url.append("&field=").append(field)
-        if (!mode.isNullOrEmpty()) url.append("&mode=").append(mode)
+        // 避免发送“全部”以免后端误判为具体过滤值
+        if (!field.isNullOrEmpty() && field != "全部") url.append("&field=").append(field)
+        if (!mode.isNullOrEmpty() && mode != "全部") url.append("&mode=").append(mode)
         if (!sort.isNullOrEmpty()) url.append("&sort=").append(sort)
         if (!city.isNullOrBlank() && city != "全部") {
-            val encoded = try { URLEncoder.encode(city, "UTF-8") } catch (e: Exception) { city }
+            val norm = normalizeCity(city)
+            val encoded = try { URLEncoder.encode(norm, "UTF-8") } catch (e: Exception) { norm }
             url.append("&city=").append(encoded)
         }
 
