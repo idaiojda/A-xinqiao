@@ -3,11 +3,13 @@ package com.example.xinqiao.consultation.pro
 import android.content.Context
 import android.util.Log
 import com.example.xinqiao.network.NetworkConfig
+import com.example.xinqiao.network.AMapConfig
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 
 class ConsultRepository(private val context: Context) {
     private val client = OkHttpClient()
@@ -23,6 +25,15 @@ class ConsultRepository(private val context: Context) {
         if (s.endsWith("省")) s = s.removeSuffix("省")
         if (s.endsWith("市")) s = s.removeSuffix("市")
         return s
+    }
+
+    // 清洗城市名：过滤 "[]"、空值，统一去后缀
+    private fun sanitizeCity(name: String?): String? {
+        val raw = name?.trim()
+        if (raw.isNullOrEmpty()) return null
+        if (raw == "[]") return null
+        val norm = normalizeCity(raw)
+        return norm.takeIf { it.isNotBlank() }
     }
 
     fun fetchConsultants(
@@ -186,6 +197,30 @@ class ConsultRepository(private val context: Context) {
     }
 
     fun reverseGeocode(lat: Double, lon: Double): Result<String?> {
+        // 1) 优先使用高德逆地理解析
+        val amapKey = AMapConfig.getAmapWebKey(context)
+        if (!amapKey.isNullOrBlank()) {
+            try {
+                val aUrl = "https://restapi.amap.com/v3/geocode/regeo?output=json&location=$lon,$lat&key=$amapKey"
+                val aReq = Request.Builder().url(aUrl).build()
+                client.newCall(aReq).execute().use { resp ->
+                    if (resp.isSuccessful) {
+                        val bodyStr = resp.body?.string() ?: "{}"
+                        val root = JSONObject(bodyStr)
+                        if (root.optString("status") == "1") {
+                            val reg = root.optJSONObject("regeocode") ?: JSONObject()
+                            val comp = reg.optJSONObject("addressComponent") ?: JSONObject()
+                            val cityRaw = comp.optString("city", null)
+                            val provRaw = comp.optString("province", null)
+                            val city = sanitizeCity(cityRaw) ?: sanitizeCity(provRaw)
+                            if (!city.isNullOrBlank()) return Result.success(city)
+                        }
+                    }
+                }
+            } catch (_: Exception) { /* fall back to backend below */ }
+        }
+
+        // 2) 回退到后端 OSM 接口
         val url = "$baseUrl/api/geo/reverse?lat=$lat&lon=$lon"
         val req = Request.Builder().url(url).build()
         return try {
@@ -197,8 +232,54 @@ class ConsultRepository(private val context: Context) {
                     val root = JSONObject(bodyStr)
                     val ok = root.optBoolean("ok", false)
                     val city = if (ok) root.optString("city", null) else null
-                    Result.success(if (city.isNullOrBlank()) null else city)
+                    val norm = sanitizeCity(city)
+                    Result.success(norm)
                 }
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * 按公网 IP 推断城市（兜底，模拟器/无定位服务场景）。
+     * 说明：
+     * - 使用 ipapi.co 免费接口，无需密钥；
+     * - 若无法访问外网或返回为空，返回 null；
+     */
+    fun detectCityByIp(): Result<String?> {
+        // 1) 优先使用高德 IP 定位
+        val amapKey = AMapConfig.getAmapWebKey(context)
+        if (!amapKey.isNullOrBlank()) {
+            try {
+                val aUrl = "https://restapi.amap.com/v3/ip?output=json&key=$amapKey"
+                val aReq = Request.Builder().url(aUrl).build()
+                client.newCall(aReq).execute().use { resp ->
+                    if (!resp.isSuccessful) return Result.failure(RuntimeException("HTTP ${resp.code}"))
+                    val bodyStr = resp.body?.string() ?: "{}"
+                    val root = JSONObject(bodyStr)
+                    if (root.optString("status") == "1") {
+                        val cityRaw = root.optString("city", null)
+                        val provRaw = root.optString("province", null)
+                        val city = sanitizeCity(cityRaw) ?: sanitizeCity(provRaw)
+                        if (!city.isNullOrBlank()) return Result.success(city)
+                    }
+                }
+            } catch (_: Exception) { /* fall through to ipapi */ }
+        }
+
+        // 2) 回退到 ipapi.co
+        return try {
+            val req = Request.Builder().url("https://ipapi.co/json/").build()
+            client.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) {
+                    return Result.failure(RuntimeException("HTTP ${resp.code}"))
+                }
+                val bodyStr = resp.body?.byteString()?.string(StandardCharsets.UTF_8) ?: "{}"
+                val root = JSONObject(bodyStr)
+                val city = root.optString("city", null)
+                val norm = sanitizeCity(city)
+                Result.success(norm)
             }
         } catch (e: Exception) {
             Result.failure(e)

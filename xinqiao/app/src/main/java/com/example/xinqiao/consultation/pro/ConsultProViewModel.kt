@@ -3,6 +3,12 @@ package com.example.xinqiao.consultation.pro
 import android.app.Application
 import android.content.Context
 import android.location.Geocoder
+import android.location.Location
+import android.location.LocationListener
+import android.location.LocationManager
+import android.os.Looper
+import com.google.android.gms.common.ConnectionResult
+import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
@@ -11,10 +17,12 @@ import java.util.Locale
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.coroutines.resume
 
 class ConsultProViewModel(app: Application) : AndroidViewModel(app) {
     private val repo = ConsultRepository(app)
@@ -55,7 +63,8 @@ class ConsultProViewModel(app: Application) : AndroidViewModel(app) {
     var city: String? = sp.getString("city", "全部")
     init {
         // 初始化定位与最近浏览
-        _locationCity.value = sp.getString("location_city", null)
+        val initLc = sp.getString("location_city", null)
+        _locationCity.value = if (initLc == "[]") null else initLc
         _recentCities.value = parseCsv(sp.getString("recent_cities", ""))
     }
 
@@ -75,8 +84,9 @@ class ConsultProViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun setLocationCity(city: String?) {
-        _locationCity.value = city
-        sp.edit().putString("location_city", city).apply()
+        val safe = if (city == "[]") null else city
+        _locationCity.value = safe
+        sp.edit().putString("location_city", safe).apply()
     }
 
     fun clearRecentCities() {
@@ -151,6 +161,37 @@ class ConsultProViewModel(app: Application) : AndroidViewModel(app) {
             try {
                 _locationError.value = null
                 val ctx = getApplication<Application>()
+                // 若 Google Play 服务不可用，则回退到系统 LocationManager
+                val gmsAvailable = GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(ctx) == ConnectionResult.SUCCESS
+                if (!gmsAvailable) {
+                    val loc = getLocationViaLocationManager(ctx)
+                    if (loc != null) {
+                        val apiRes = repo.reverseGeocode(loc.latitude, loc.longitude)
+                        var city: String? = null
+                        if (apiRes.isSuccess) city = apiRes.getOrNull()?.let { normalizeCityName(it) }
+                        if (city.isNullOrBlank()) city = geocodeCity(ctx, loc.latitude, loc.longitude)
+                        // 仍失败则按公网 IP 兜底推断城市
+                        if (city.isNullOrBlank()) {
+                            val ipRes = repo.detectCityByIp()
+                            if (ipRes.isSuccess) city = ipRes.getOrNull()?.let { normalizeCityName(it) }
+                        }
+                        if (!city.isNullOrBlank()) {
+                            setLocationCity(city)
+                        } else {
+                            _locationError.value = "定位失败（无Google服务），请手动选择城市"
+                        }
+                    } else {
+                        // 无最近位置与 provider 时，直接尝试 IP 城市识别
+                        val ipRes = repo.detectCityByIp()
+                        val city = if (ipRes.isSuccess) ipRes.getOrNull()?.let { normalizeCityName(it) } else null
+                        if (!city.isNullOrBlank()) {
+                            setLocationCity(city)
+                        } else {
+                            _locationError.value = "定位不可用（无Google服务），请手动选择城市"
+                        }
+                    }
+                    return@launch
+                }
                 val fused = LocationServices.getFusedLocationProviderClient(ctx)
                 // 优先尝试当前定位，其次回退到最近一次定位
                 val cts = CancellationTokenSource()
@@ -166,12 +207,60 @@ class ConsultProViewModel(app: Application) : AndroidViewModel(app) {
                     var city: String? = null
                     if (apiRes.isSuccess) city = apiRes.getOrNull()?.let { normalizeCityName(it) }
                     if (city.isNullOrBlank()) city = geocodeCity(ctx, loc.latitude, loc.longitude)
+                    // 仍失败则按公网 IP 兜底推断城市
+                    if (city.isNullOrBlank()) {
+                        val ipRes = repo.detectCityByIp()
+                        if (ipRes.isSuccess) city = ipRes.getOrNull()?.let { normalizeCityName(it) }
+                    }
                     city
                 }
                 if (!result.isNullOrBlank()) setLocationCity(result) else _locationError.value = "定位失败，请稍后再试"
             } catch (e: Exception) {
                 // 静默失败，不影响正常功能
                 _locationError.value = "定位失败，请稍后再试"
+            }
+        }
+    }
+
+    // 使用系统 LocationManager 主动获取一次位置，优先 NETWORK，其次 GPS，带超时与取消
+    private suspend fun getLocationViaLocationManager(ctx: Context): Location? {
+        val lm = ctx.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        // 尝试使用最近一次位置作为快速路径
+        val lastNet = runCatching { lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER) }.getOrNull()
+        val lastGps = runCatching { lm.getLastKnownLocation(LocationManager.GPS_PROVIDER) }.getOrNull()
+        if (lastNet != null) return lastNet
+        if (lastGps != null) return lastGps
+
+        // 主动请求网络定位一次
+        val netEnabled = lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+        val gpsEnabled = lm.isProviderEnabled(LocationManager.GPS_PROVIDER)
+        val netLoc = if (netEnabled) requestSingleUpdate(lm, LocationManager.NETWORK_PROVIDER, 7_000) else null
+        if (netLoc != null) return netLoc
+        val gpsLoc = if (gpsEnabled) requestSingleUpdate(lm, LocationManager.GPS_PROVIDER, 10_000) else null
+        return gpsLoc
+    }
+
+    private suspend fun requestSingleUpdate(lm: LocationManager, provider: String, timeoutMs: Long): Location? {
+        return withTimeoutOrNull(timeoutMs) {
+            suspendCancellableCoroutine<Location?> { cont ->
+                val listener = object : LocationListener {
+                    override fun onLocationChanged(location: Location) {
+                        lm.removeUpdates(this)
+                        if (!cont.isCompleted) cont.resume(location)
+                    }
+                    override fun onProviderEnabled(provider: String) {}
+                    override fun onProviderDisabled(provider: String) {}
+                }
+                try {
+                    lm.requestSingleUpdate(provider, listener, Looper.getMainLooper())
+                } catch (_: SecurityException) {
+                    lm.removeUpdates(listener)
+                    if (!cont.isCompleted) cont.resume(null)
+                } catch (_: Exception) {
+                    lm.removeUpdates(listener)
+                    if (!cont.isCompleted) cont.resume(null)
+                }
+                cont.invokeOnCancellation { lm.removeUpdates(listener) }
             }
         }
     }
@@ -186,6 +275,7 @@ class ConsultProViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun normalizeCityName(raw: String?): String? {
         if (raw.isNullOrBlank()) return null
+        if (raw == "[]") return null
         var s = raw
         s = s.replace("自治州", "").replace("地区", "").replace("盟", "")
         if (s.endsWith("市")) s = s.substring(0, s.length - 1)
@@ -209,6 +299,7 @@ class ConsultProViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun addRecentCityInternal(city: String) {
+        if (city.isBlank() || city == "[]") return
         val current = _recentCities.value.toMutableList()
         // 移除重复并放到最前
         current.remove(city)
@@ -221,6 +312,6 @@ class ConsultProViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun parseCsv(csv: String?): List<String> {
         if (csv.isNullOrBlank()) return emptyList()
-        return csv.split(',').map { it.trim() }.filter { it.isNotBlank() }
+        return csv.split(',').map { it.trim() }.filter { it.isNotBlank() && it != "[]" }
     }
 }

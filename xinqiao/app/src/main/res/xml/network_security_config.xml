@@ -8,6 +8,8 @@
     </base-config>
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="true">10.0.2.2</domain>  <!-- Allow emulator access -->
+        <domain includeSubdomains="true">10.0.3.2</domain>  <!-- Allow Genymotion access -->
+        <domain includeSubdomains="true">127.0.0.1</domain> <!-- Allow physical device with adb reverse -->
         <domain includeSubdomains="true">192.168.x.x</domain>  <!-- Allow LAN IP (physical device debugging) -->
     </domain-config>
 </network-security-config>

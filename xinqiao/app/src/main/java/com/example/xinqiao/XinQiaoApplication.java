@@ -7,6 +7,8 @@ import android.os.AsyncTask;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+import android.content.SharedPreferences;
+import android.os.Build;
 
 import com.example.xinqiao.mysql.MySQLHelper;
 import com.example.xinqiao.mysql.DBUpdater;
@@ -42,6 +44,19 @@ public class XinQiaoApplication extends Application {
         super.onCreate();
         // 初始化启动优化器（必须最先初始化）
         initStartupOptimizer();
+        // 调试环境下：若为 Android 模拟器，覆盖后端地址为 10.0.2.2:8081（当前后端端口）
+        try {
+            if (isDebugBuild() && isAndroidEmulator()) {
+                SharedPreferences sp = getSharedPreferences("network_config", MODE_PRIVATE);
+                String override = sp.getString("base_url_override", null);
+                if (override == null || !override.equals("http://10.0.2.2:8081")) {
+                    sp.edit().putString("base_url_override", "http://10.0.2.2:8081").apply();
+                    Log.d(TAG, "Network base URL overridden to http://10.0.2.2:8081 for emulator");
+                }
+            }
+        } catch (Throwable t) {
+            Log.w(TAG, "setup base_url_override failed", t);
+        }
         
         configureSSL();      // 配置全局SSL信任管理器
         initDatabase();      // 初始化数据库
@@ -55,6 +70,28 @@ public class XinQiaoApplication extends Application {
         
         // 注册应用生命周期回调
         registerLifecycleCallbacks();
+    }
+
+    private boolean isDebugBuild() {
+        try {
+            return com.example.xinqiao.BuildConfig.DEBUG;
+        } catch (Throwable t) {
+            return true; // 安全默认：若读取失败，按调试处理
+        }
+    }
+
+    private boolean isAndroidEmulator() {
+        String fingerprint = Build.FINGERPRINT.toLowerCase();
+        String model = Build.MODEL.toLowerCase();
+        String brand = Build.BRAND.toLowerCase();
+        String device = Build.DEVICE.toLowerCase();
+        String product = Build.PRODUCT.toLowerCase();
+        String hardware = Build.HARDWARE.toLowerCase();
+        return fingerprint.contains("generic") || fingerprint.contains("emulator") ||
+                model.contains("emulator") || model.contains("android sdk built for") ||
+                (brand.contains("google") && device.contains("generic")) ||
+                product.contains("sdk_gphone") || hardware.contains("ranchu") ||
+                hardware.contains("goldfish");
     }
 
     /**
