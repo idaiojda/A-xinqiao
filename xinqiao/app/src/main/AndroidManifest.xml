@@ -98,6 +98,10 @@
         <activity
             android:name=".activity.ConsultantDetailActivity"
             android:exported="false" />
+        <activity
+            android:name=".activity.MedicalRecordActivity"
+            android:exported="false"
+            android:label="我的诊疗档案" />
     </application>
 
 </manifest>

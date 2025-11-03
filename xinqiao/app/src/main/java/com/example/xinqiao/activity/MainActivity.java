@@ -22,6 +22,7 @@ import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
 import com.example.xinqiao.R;
+import com.example.xinqiao.fragment.TestRecordFragment;
 import com.example.xinqiao.view.ArticleView;
 import com.example.xinqiao.view.CourseView;
 import com.example.xinqiao.view.ExercisesView;
@@ -110,12 +111,37 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         init();
         initBottomBar();
         setListener();
+
         if (savedInstanceState != null) {
             // 恢复保存的状态
             restoreState(savedInstanceState);
         } else {
-            // 延迟初始化默认视图，避免阻塞主线程
-            mBodyLayout.postDelayed(() -> setInitStatus(), 100);
+            // 深链处理：根据 Intent 指定打开测试记录页
+            String open = getIntent() != null ? getIntent().getStringExtra("open") : null;
+            if ("test_records".equals(open)) {
+                mBodyLayout.post(() -> {
+                    try {
+                        // 先切到习题视图，确保底部导航与标题状态正确
+                        clearBottomImageState();
+                        setSelectedStatus(1);
+                        createView(1);
+                        currentIndex = 1;
+                        // 打开测试记录 Fragment
+                        FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
+                        TestRecordFragment testRecordFragment = new TestRecordFragment();
+                        transaction.replace(getBodyLayout().getId(), testRecordFragment, "TestRecordFragment");
+                        transaction.addToBackStack(null);
+                        transaction.commitAllowingStateLoss();
+                    } catch (Exception e) {
+                        Log.e("MainActivity", "Deep link to TestRecordFragment failed: " + e.getMessage());
+                        // 回退到默认视图
+                        mBodyLayout.postDelayed(() -> setInitStatus(), 100);
+                    }
+                });
+            } else {
+                // 延迟初始化默认视图，避免阻塞主线程
+                mBodyLayout.postDelayed(() -> setInitStatus(), 100);
+            }
         }
     }
 

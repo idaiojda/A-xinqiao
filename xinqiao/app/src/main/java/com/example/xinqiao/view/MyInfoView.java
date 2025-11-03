@@ -34,6 +34,7 @@ public class MyInfoView extends LinearLayout implements com.example.xinqiao.mysq
     private TextView tvBalance;
     private LinearLayout ll_head;
     private RelativeLayout rl_course_history, rl_setting, rl_balance;
+    private RelativeLayout rl_medical_record;
     private Activity mContext;
     private LayoutInflater mInflater;
     private View mCurrentView;
@@ -60,8 +61,13 @@ public class MyInfoView extends LinearLayout implements com.example.xinqiao.mysq
         tvBalance = findViewById(R.id.tv_balance);
         ll_head = findViewById(R.id.ll_head);
         rl_course_history = findViewById(R.id.rl_course_history);
+        // 删除我的页面中的播放记录入口：隐藏并不再设置点击事件
+        if (rl_course_history != null) {
+            rl_course_history.setVisibility(View.GONE);
+        }
         rl_setting = findViewById(R.id.rl_setting);
         rl_balance = findViewById(R.id.rl_balance);
+        rl_medical_record = findViewById(R.id.rl_medical_record);
         paymentUtils = new PaymentUtils(mContext);
         mCurrentView = this;
         setLoginParams(readLoginStatus());
@@ -77,17 +83,7 @@ public class MyInfoView extends LinearLayout implements com.example.xinqiao.mysq
                 }
             }
         });
-        rl_course_history.setOnClickListener(new OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if(readLoginStatus()){
-                    Intent intent = new Intent(mContext, PlayHistoryActivity.class);
-                    mContext.startActivity(intent);
-                }else{
-                    Toast.makeText(mContext, "您还未登录，请先登录", Toast.LENGTH_SHORT).show();
-                }
-            }
-        });
+        // 已移除播放记录入口，不再设置点击事件
         rl_setting.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -120,6 +116,21 @@ public class MyInfoView extends LinearLayout implements com.example.xinqiao.mysq
                 }
             }
         });
+
+        // 诊疗档案入口点击事件
+        if (rl_medical_record != null) {
+            rl_medical_record.setOnClickListener(new OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    if (readLoginStatus()) {
+                        Intent intent = new Intent(mContext, MedicalRecordActivity.class);
+                        mContext.startActivity(intent);
+                    } else {
+                        Toast.makeText(mContext, "您还未登录，请先登录", Toast.LENGTH_SHORT).show();
+                    }
+                }
+            });
+        }
         
         // 更新余额显示
         updateBalance();
