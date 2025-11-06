@@ -157,14 +157,14 @@ class FloatingAiWindowManager(private val activity: Activity) {
                                         stateVM.setExpanded(false)
                                         stateVM.setMinimized(true)
                                         removeChat()
-                                    }) { Icon(Icons.Default.Minimize, contentDescription = "minimize") }
+                                    }) { Icon(Icons.Default.Minimize, contentDescription = "最小化") }
                                     IconButton(onClick = {
                                         stateVM.setExpanded(false)
                                         stateVM.setMinimized(true)
                                         removeChat()
                                         // 会话结束提示
                                         chatVM.endConsultation()
-                                    }) { Icon(Icons.Default.Close, contentDescription = "close") }
+                                    }) { Icon(Icons.Default.Close, contentDescription = "关闭") }
                                 }
                             }
                             // 内容

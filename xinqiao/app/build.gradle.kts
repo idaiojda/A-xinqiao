@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    id("org.jetbrains.kotlin.kapt")
 }
 
 android {
@@ -41,6 +42,12 @@ android {
     }
 }
 
+repositories {
+    google()
+    mavenCentral()
+    maven("https://jitpack.io")
+}
+
 dependencies {
 
     implementation(libs.appcompat)
@@ -66,6 +73,18 @@ dependencies {
     implementation(libs.lifecycle.runtime.ktx)
     implementation(libs.lifecycle.viewmodel)
     implementation(libs.savedstate)
+
+    // Room (database)
+    implementation("androidx.room:room-runtime:2.6.1")
+    implementation("androidx.room:room-ktx:2.6.1")
+    kapt("androidx.room:room-compiler:2.6.1")
+    annotationProcessor("androidx.room:room-compiler:2.6.1")
+
+    // MPAndroidChart for charts
+    implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
+
+    // RecyclerView for lists
+    implementation("androidx.recyclerview:recyclerview:1.3.1")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)

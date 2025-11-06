@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          xmlns:tools="http://schemas.android.com/tools"
-          package="com.example.xinqiao">
+          xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -37,10 +36,7 @@
             android:name=".activity.MainActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustPan" />
-        <activity
-            android:name=".activity.AIActivity"
-            android:exported="false"
-        />
+        <!-- AIActivity 已废弃，入口迁移至 ConsultationView 浮窗架构 -->
         <activity
             android:name=".activity.VideoPlayActivity"
             android:exported="false" />
@@ -102,6 +98,10 @@
             android:name=".activity.MedicalRecordActivity"
             android:exported="false"
             android:label="我的诊疗档案" />
+        <activity
+            android:name=".activity.AuthorizationActivity"
+            android:exported="false"
+            android:label="授权管理" />
     </application>
 
 </manifest>

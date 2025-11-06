@@ -7,12 +7,18 @@ import androidx.lifecycle.SavedStateHandle
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import com.example.xinqiao.utils.DeepSeekClient
 import com.example.xinqiao.utils.AnalysisUtils
 import com.example.xinqiao.dao.ChatHistoryDao
 import com.example.xinqiao.dao.ChatSessionDao
 import com.example.xinqiao.bean.ChatHistory
 import com.example.xinqiao.bean.ChatSession
+import com.example.xinqiao.repository.MedicalRecordRepository
+import com.example.xinqiao.room.entities.ConsultationEntity
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * 可复用的 ChatViewModel：封装 DeepSeekClient 调用，供浮窗与模块复用。
@@ -92,13 +98,48 @@ class ChatViewModel(
         ensureSession { sid ->
             val type = if (fromUser) 1 else 0
             val chatHistory = ChatHistory(userName, content, type, ts, sid)
-            chatHistoryDao.saveChatHistoryAsync(chatHistory) { /* 浮窗场景无需提示 */ }
+            chatHistoryDao.saveChatHistoryAsync(chatHistory) { success ->
+                if (success) {
+                    syncConsultationToArchive(sid, content)
+                }
+            }
             // 首条用户消息作为标题
             if (fromUser) {
                 var title = content
                 if (title.length > 20) title = title.substring(0, 20) + "..."
                 chatSessionDao.updateSessionTitleAsync(sid, title, null)
             }
+        }
+    }
+
+            private fun syncConsultationToArchive(sessionId: Int, content: String) {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val repo = MedicalRecordRepository(getApplication())
+                val userName = this@ChatViewModel.userName
+                val existing = repo.getConsultationBySessionId(userName, sessionId.toString())
+
+                val nowStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+                val entity = ConsultationEntity().apply {
+                    id = existing?.id ?: 0
+                    this.userName = userName
+                    this.sessionId = sessionId.toString()
+                    this.type = "ai"
+                    this.title = if (!content.isNullOrBlank()) content.take(20) else "AI 咨询记录"
+                    this.date = nowStr
+                    this.messageCount = (existing?.messageCount ?: 0) + 1
+                    this.summaryEncrypted = existing?.summaryEncrypted
+                    this.status = "进行中"
+                }
+
+                if (existing == null) {
+                    repo.addConsultation(entity)
+                } else {
+                    repo.updateConsultation(entity)
+                }
+            } catch (_: Exception) {
+                // 不影响主流程
+                }
         }
     }
 
@@ -122,7 +163,7 @@ class ChatViewModel(
                         _messages.value = newList
                         _loading.value = false
                         // 持久化最近一次消息（示例）
-                        savedStateHandle[KEY_LAST_REPLY] = response
+                        savedStateHandle.set(KEY_LAST_REPLY, response)
                         // 自动保存 AI 回复
                         saveMessage(aiMsg.content, fromUser = false, ts = aiMsg.ts)
                     }
@@ -139,12 +180,29 @@ class ChatViewModel(
         }
     }
 
-    fun endConsultation() {
-        // 标记结束并触发3秒提示
+        fun endConsultation() {
+        // 标记结束并弹出跟进提示
         _showFollowUp.value = true
         viewModelScope.launch {
-            kotlinx.coroutines.delay(3000)
+            delay(3000)
             _showFollowUp.value = false
+        }
+
+        // 持久化更新当前会话的咨询状态为已完成
+        val sid = savedStateHandle.get<Int>(sessionIdKey) ?: 0
+        if (sid > 0 && userName.isNotEmpty()) {
+            viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                try {
+                    val repo = MedicalRecordRepository(getApplication())
+                    val entity = repo.getConsultationBySessionId(userName, sid.toString())
+                    if (entity != null) {
+                        entity.status = "已完成"
+                        repo.updateConsultation(entity)
+                    }
+                } catch (_: Exception) {
+                    // 不影响主流程
+                }
+            }
         }
     }
 
@@ -152,3 +210,16 @@ class ChatViewModel(
         const val KEY_LAST_REPLY = "chat_last_reply"
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+

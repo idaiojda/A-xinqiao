@@ -138,6 +138,19 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                         mBodyLayout.postDelayed(() -> setInitStatus(), 100);
                     }
                 });
+            } else if ("consultation".equals(open)) {
+                // 直接打开咨询聚合页（包含AI浮窗），不入Fragment栈
+                mBodyLayout.post(() -> {
+                    try {
+                        clearBottomImageState();
+                        setSelectedStatus(4);
+                        createView(4);
+                        currentIndex = 4;
+                    } catch (Exception e) {
+                        Log.e("MainActivity", "Deep link to ConsultationView failed: " + e.getMessage());
+                        mBodyLayout.postDelayed(() -> setInitStatus(), 100);
+                    }
+                });
             } else {
                 // 延迟初始化默认视图，避免阻塞主线程
                 mBodyLayout.postDelayed(() -> setInitStatus(), 100);
