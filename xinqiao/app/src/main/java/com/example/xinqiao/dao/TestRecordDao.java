@@ -394,6 +394,38 @@ public class TestRecordDao {
         }
         return status;
     }
+
+    // 新增：按 reportId 获取完整测评记录
+    public TestRecord getTestRecordById(String reportId) {
+        TestRecord r = null;
+        Connection conn = null;
+        try {
+            conn = helper.getConnection();
+            String sql = "SELECT userName, title, `desc`, imageResId, date, status, isFree, reportId, currentIndex, answers FROM test_record WHERE reportId=?";
+            PreparedStatement pstmt = conn.prepareStatement(sql);
+            pstmt.setString(1, reportId);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                r = new TestRecord();
+                r.title = rs.getString("title");
+                r.desc = rs.getString("desc");
+                r.imageResId = rs.getInt("imageResId");
+                r.date = rs.getString("date");
+                r.status = rs.getInt("status");
+                r.isFree = rs.getBoolean("isFree");
+                r.reportId = rs.getString("reportId");
+                r.currentIndex = rs.getInt("currentIndex");
+                r.answers = rs.getString("answers");
+            }
+            rs.close();
+            pstmt.close();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        } finally {
+            if (conn != null) helper.releaseConnection(conn);
+        }
+        return r;
+    }
     
     // 新增：删除指定reportId的记录
     public boolean deleteTestRecordById(String reportId) {

@@ -22,6 +22,8 @@ import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
 import com.example.xinqiao.bean.TestRecord;
 import com.example.xinqiao.dao.TestRecordDao;
+import com.example.xinqiao.repository.MedicalRecordRepository;
+import com.example.xinqiao.room.entities.TestReportEntity;
 import com.example.xinqiao.utils.AnalysisUtils;
 
 public class ExercisesDetailActivity extends AppCompatActivity {
@@ -308,6 +310,27 @@ public class ExercisesDetailActivity extends AppCompatActivity {
             // 直接使用saveTestRecord方法内部的事务机制来处理去重
             dao.saveTestRecord(userName, record);
             
+            // 如果为免费测评，直接生成并保存报告
+            if (!needPayment) {
+                try {
+                    MedicalRecordRepository repo = new MedicalRecordRepository(ExercisesDetailActivity.this);
+                    TestReportEntity entity = new TestReportEntity();
+                    entity.userName = userName != null ? userName : "";
+                    entity.reportId = record.reportId;
+                    entity.type = currentExercisesBean != null ? currentExercisesBean.title : "心理测评";
+                    entity.score = score;
+                    entity.riskLevel = (score >= 80) ? "高风险" : (score >= 60 ? "中风险" : "低风险");
+                    entity.date = record.date;
+                    String detailsPlain = "测评名称: " + entity.type +
+                            "\n分数: " + score +
+                            "\n等级: " + getGrade(score) +
+                            "\n建议: " + getAdvice(score) +
+                            "\n报告生成于: " + entity.date +
+                            "\n报告ID: " + entity.reportId;
+                    repo.addTestReport(entity, detailsPlain);
+                } catch (Exception ignore) {}
+            }
+
             // 如果是待支付状态，提示用户
             if (needPayment) {
                 mainHandler.post(() -> {

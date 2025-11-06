@@ -15,4 +15,20 @@
         <item>律师</item>
         <item>其他</item>
     </string-array>
+
+    <string-array name="test_report_types">
+        <item>全部</item>
+        <item>抑郁</item>
+        <item>焦虑</item>
+        <item>性格</item>
+        <item>认知</item>
+        <item>其他</item>
+    </string-array>
+
+    <string-array name="risk_levels">
+        <item>全部</item>
+        <item>低</item>
+        <item>中</item>
+        <item>高</item>
+    </string-array>
 </resources> 
