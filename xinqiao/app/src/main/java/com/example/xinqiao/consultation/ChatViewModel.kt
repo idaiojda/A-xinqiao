@@ -59,8 +59,18 @@ class ChatViewModel(
             )
             _messages.value = listOf(hello)
             savedStateHandle[greetingShownKey] = true
-            // 保存首次问候到历史（需登录）
-            saveMessage(hello.content, fromUser = false, ts = hello.ts)
+            // 仅在会话首次出现时保存问候到历史，避免重复
+            if (userName.isNotEmpty()) {
+                ensureSession { sid ->
+                    chatHistoryDao.getChatHistoryAsync(userName, sid, object : ChatHistoryDao.ChatHistoryCallback {
+                        override fun onResult(history: List<ChatHistory>) {
+                            if (history.isEmpty()) {
+                                saveMessage(hello.content, fromUser = false, ts = hello.ts)
+                            }
+                        }
+                    })
+                }
+            }
         }
     }
 
@@ -210,8 +220,6 @@ class ChatViewModel(
         const val KEY_LAST_REPLY = "chat_last_reply"
     }
 }
-
-
 
 
 

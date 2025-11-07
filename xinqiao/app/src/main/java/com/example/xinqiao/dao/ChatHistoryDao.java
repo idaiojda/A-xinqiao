@@ -115,6 +115,25 @@ public class ChatHistoryDao {
     }
 
     /**
+     * 删除单条消息（根据主键ID）
+     */
+    public boolean deleteMessageById(int id) {
+        boolean flag = false;
+        String sql = "DELETE FROM chat_history WHERE _id=?";
+        try (Connection conn = helper.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, id);
+            int result = pstmt.executeUpdate();
+            if (result > 0) {
+                flag = true;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return flag;
+    }
+
+    /**
      * 异步保存聊天记录
      */
     public void saveChatHistoryAsync(ChatHistory chatHistory, SimpleResultCallback callback) {
@@ -144,6 +163,19 @@ public class ChatHistoryDao {
             List<ChatHistory> result = getChatHistory(userName, sessionId);
             android.os.Handler mainHandler = new android.os.Handler(android.os.Looper.getMainLooper());
             mainHandler.post(() -> callback.onResult(result));
+        }).start();
+    }
+
+    /**
+     * 异步删除单条消息
+     */
+    public void deleteMessageByIdAsync(int id, SimpleResultCallback callback) {
+        new Thread(() -> {
+            boolean result = deleteMessageById(id);
+            android.os.Handler mainHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+            mainHandler.post(() -> {
+                if (callback != null) callback.onResult(result);
+            });
         }).start();
     }
 

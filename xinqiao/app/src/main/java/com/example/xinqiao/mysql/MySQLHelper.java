@@ -644,6 +644,17 @@ public class MySQLHelper {
                 "description TEXT" +
                 ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
                 
+            // 创建支付交易记录表
+            conn.createStatement().execute(
+                "CREATE TABLE IF NOT EXISTS payment_transaction (" +
+                "id INT AUTO_INCREMENT PRIMARY KEY, " +
+                "user_id INT NOT NULL, " +
+                "amount DECIMAL(10,2) NOT NULL, " +
+                "transaction_type VARCHAR(50) NOT NULL, " +
+                "transaction_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
+                "FOREIGN KEY (user_id) REFERENCES user_info(user_id)" +
+                ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
             // 创建习题购买记录表
             conn.createStatement().execute(
                 "CREATE TABLE IF NOT EXISTS exercise_purchase (" +

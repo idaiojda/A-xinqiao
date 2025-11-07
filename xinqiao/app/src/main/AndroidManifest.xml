@@ -102,6 +102,9 @@
             android:name=".activity.AuthorizationActivity"
             android:exported="false"
             android:label="授权管理" />
+        <activity android:name=".activity.OrderQueryActivity"
+            android:exported="false"
+            android:label="订单查询" />
     </application>
 
 </manifest>

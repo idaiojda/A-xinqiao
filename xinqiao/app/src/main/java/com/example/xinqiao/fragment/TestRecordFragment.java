@@ -79,6 +79,10 @@ public class TestRecordFragment extends Fragment {
         emptyView.setVisibility(View.GONE);
         tvTitle.setText("测试记录");
         tvOrderTip.setText("查不到测评完成的报告？请点击此处进行订单查询");
+        tvOrderTip.setOnClickListener(v -> {
+            Intent intent = new Intent(getContext(), com.example.xinqiao.activity.OrderQueryActivity.class);
+            startActivity(intent);
+        });
         tvTabUnfinished.setOnClickListener(v -> switchTab(0));
         tvTabFinished.setOnClickListener(v -> switchTab(1));
         tvTabPending.setOnClickListener(v -> switchTab(2));
@@ -88,7 +92,11 @@ public class TestRecordFragment extends Fragment {
                 getActivity().getSupportFragmentManager().popBackStack();
             }
         });
-        view.findViewById(R.id.btn_more_test).setOnClickListener(v -> Toast.makeText(getContext(), "查看更多精彩测评", Toast.LENGTH_SHORT).show());
+        view.findViewById(R.id.btn_more_test).setOnClickListener(v -> {
+            // 打开测评搜索/列表页，便于用户探索更多测评
+            Intent intent = new Intent(getContext(), com.example.xinqiao.activity.ExercisesSearchActivity.class);
+            startActivity(intent);
+        });
         progressBar = view.findViewById(R.id.progressBar);
         testRecordDao = new TestRecordDao(requireContext());
         userName = AnalysisUtils.readLoginUserName(requireContext());
@@ -245,7 +253,8 @@ public class TestRecordFragment extends Fragment {
                     intent.putExtra("reportId", r.reportId);
                     intent.putExtra("currentIndex", r.currentIndex);
                     intent.putExtra("answers", r.answers);
-                    intent.putExtra("id", 0); // 可选：传递测评id
+                    // 传递对应的测评id，避免题库为空导致“暂无题目”
+                    intent.putExtra("id", getExerciseIdByTitle(r.title));
                     intent.putExtra("title", r.title);
                     // 其它必要参数
                     v.getContext().startActivity(intent);

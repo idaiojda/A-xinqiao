@@ -2,10 +2,12 @@ package com.example.xinqiao.util;
 
 import android.content.Context;
 import android.widget.ImageView;
+import android.util.Base64;
 
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.bumptech.glide.request.RequestOptions;
+import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions;
 import com.example.xinqiao.R;
 
 /**
@@ -32,6 +34,7 @@ public class ImageLoader {
         Glide.with(context)
                 .load(resId)
                 .apply(options)
+                .transition(DrawableTransitionOptions.withCrossFade())
                 .into(imageView);
     }
 
@@ -75,6 +78,7 @@ public class ImageLoader {
         Glide.with(context)
                 .load(url)
                 .apply(options)
+                .transition(DrawableTransitionOptions.withCrossFade())
                 .into(imageView);
     }
 
@@ -97,6 +101,7 @@ public class ImageLoader {
         Glide.with(context)
                 .load(resId)
                 .apply(options)
+                .transition(DrawableTransitionOptions.withCrossFade())
                 .into(imageView);
     }
 
@@ -118,7 +123,78 @@ public class ImageLoader {
         Glide.with(context)
                 .load(resId)
                 .apply(options)
+                .transition(DrawableTransitionOptions.withCrossFade())
                 .into(imageView);
+    }
+
+    /**
+     * 加载网络圆形图片（头像）
+     */
+    public static void loadCircleImageFromUrl(Context context, String url, ImageView imageView, int fallbackResId) {
+        if (context == null || imageView == null) return;
+        RequestOptions options = new RequestOptions()
+                .placeholder(R.drawable.loading_placeholder)
+                .error(fallbackResId)
+                .diskCacheStrategy(DiskCacheStrategy.DATA)
+                .circleCrop();
+
+        Glide.with(context)
+                .load(url)
+                .apply(options)
+                .transition(DrawableTransitionOptions.withCrossFade())
+                .into(imageView);
+    }
+
+    /**
+     * 从本地路径加载圆形图片（支持 file://、content://、绝对路径）
+     */
+    public static void loadCircleImageFromPath(Context context, String path, ImageView imageView, int fallbackResId) {
+        if (context == null || imageView == null) return;
+        RequestOptions options = new RequestOptions()
+                .placeholder(R.drawable.loading_placeholder)
+                .error(fallbackResId)
+                .diskCacheStrategy(DiskCacheStrategy.NONE)
+                .circleCrop();
+
+        Glide.with(context)
+                .load(path)
+                .apply(options)
+                .transition(DrawableTransitionOptions.withCrossFade())
+                .into(imageView);
+    }
+
+    /**
+     * 从Base64数据URI加载圆形图片（如：data:image/jpeg;base64,...）
+     */
+    public static void loadCircleImageFromBase64(Context context, String base64DataUri, ImageView imageView, int fallbackResId) {
+        if (context == null || imageView == null) return;
+        if (base64DataUri == null || base64DataUri.isEmpty()) {
+            loadCircleImage(context, fallbackResId, imageView);
+            return;
+        }
+
+        try {
+            String data = base64DataUri;
+            int commaIdx = data.indexOf(',');
+            if (commaIdx >= 0) {
+                data = data.substring(commaIdx + 1);
+            }
+            byte[] bytes = Base64.decode(data, Base64.DEFAULT);
+
+            RequestOptions options = new RequestOptions()
+                    .placeholder(R.drawable.loading_placeholder)
+                    .error(fallbackResId)
+                    .diskCacheStrategy(DiskCacheStrategy.NONE)
+                    .circleCrop();
+
+            Glide.with(context)
+                    .load(bytes)
+                    .apply(options)
+                    .transition(DrawableTransitionOptions.withCrossFade())
+                    .into(imageView);
+        } catch (Throwable t) {
+            loadCircleImage(context, fallbackResId, imageView);
+        }
     }
 
     /**

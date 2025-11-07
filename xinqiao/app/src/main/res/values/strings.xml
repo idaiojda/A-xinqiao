@@ -2,13 +2,10 @@
     <string name="app_name">心桥</string>
     <string name="logout">退出登录</string>
     <string name="app_display_name">心桥</string>
-    <string name="welcome_back">欢迎回来</string>
     <string name="login">登录</string>
     <string name="register">注册新账户</string>
-    <string name="username">用户名</string>
     <string name="password">密码</string>
     <string name="remember_password">记住密码</string>
-    <string name="create_account">创建新账户</string>
     <string name="confirm_password">确认密码</string>
     <string name="nickname">昵称</string>
     <string name="select_avatar">选择头像</string>
@@ -19,7 +16,6 @@
     <string name="input_code">输入验证码</string>
     <string name="new_password">新密码</string>
     <string name="confirm">确认</string>
-    <string name="code_sent">验证码已发送</string>
     <string name="send_again">重新发送</string>
     <string name="password_reset_success">密码重置成功！</string>
     <string name="password_reset_failed">手机号未注册或重置失败</string>
@@ -37,4 +33,9 @@
     <string name="phone_format_error">请输入正确的手机号格式</string>
     <string name="login_with_phone">使用手机号登录</string>
     <string name="register_with_phone">使用手机号注册</string>
+    <!-- AI头像网络地址（暖色友好风格），作为运行时加载来源 -->
+    <string name="ai_avatar_url">https://picsum.photos/seed/xinqiao-warm-ai/200</string>
+    <!-- 显示名资源，便于国际化与配置 -->
+    <string name="ai_display_name">灵灵</string>
+    <string name="user_display_name_default">我</string>
 </resources>
