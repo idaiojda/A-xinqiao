@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          xmlns:tools="http://schemas.android.com/tools">
+          xmlns:tools="http://schemas.android.com/tools"
+          >
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -83,6 +84,10 @@
             android:name=".activity.ExercisesSearchActivity"
             android:exported="false" />
         <activity
+            android:name=".activity.CourseSearchActivity"
+            android:exported="true"
+            android:label="课程搜索" />
+        <activity
             android:name=".activity.RechargeActivity"
             android:exported="false" />
         <activity
@@ -99,12 +104,25 @@
             android:exported="false"
             android:label="我的诊疗档案" />
         <activity
+            android:name="com.example.xinqiao.activity.ConsultationDetailActivity"
+            android:exported="false"
+            android:label="咨询详情" />
+        <activity
             android:name=".activity.AuthorizationActivity"
             android:exported="false"
             android:label="授权管理" />
-        <activity android:name=".activity.OrderQueryActivity"
+        <activity
+            android:name=".activity.OrderQueryActivity"
             android:exported="false"
             android:label="订单查询" />
+        <activity
+            android:name=".activity.EmotionDialogPreviewActivity"
+            android:exported="true"
+            android:label="情绪卡片预览" />
+        <activity
+            android:name=".activity.EmotionDiaryPreviewActivity"
+            android:exported="true"
+            android:label="心情日记预览" />
     </application>
 
 </manifest>

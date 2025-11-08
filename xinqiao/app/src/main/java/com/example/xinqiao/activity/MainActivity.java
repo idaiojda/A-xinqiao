@@ -6,15 +6,20 @@ import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.view.MotionEvent;
+import android.graphics.drawable.Drawable;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
 import android.widget.FrameLayout;
+import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
 
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -74,6 +79,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private TextView tv_back;
     private TextView tv_main_title;
     private RelativeLayout rl_title_bar;
+    // 课程页顶部搜索与播放历史
+    private EditText et_search_course;
+    private View ll_play_history_top;
+    private View btn_search_top;
     // 用于后台任务的线程池
     private ExecutorService executorService;
     // 记录当前显示的视图索引（0:课程,1:习题,2:我,3:文章,4:咨询）
@@ -191,6 +200,84 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         tv_main_title.setText("心理课程");
         rl_title_bar = (RelativeLayout) findViewById(R.id.title_bar);
         tv_back.setVisibility(View.GONE);
+        // 顶部课程搜索与播放历史（默认隐藏，课程页显示）
+        et_search_course = (EditText) findViewById(R.id.et_search_course);
+        ll_play_history_top = findViewById(R.id.ll_play_history_top);
+        btn_search_top = findViewById(R.id.btn_search_top);
+        if (et_search_course != null) et_search_course.setVisibility(View.GONE);
+        if (ll_play_history_top != null) ll_play_history_top.setVisibility(View.GONE);
+        if (btn_search_top != null) btn_search_top.setVisibility(View.GONE);
+        // 课程搜索框加入回车/搜索IME行为：跳转到课程搜索页
+        if (et_search_course != null) {
+            et_search_course.setOnEditorActionListener((v, actionId, event) -> {
+                boolean isEnter = event != null && event.getKeyCode() == KeyEvent.KEYCODE_ENTER && event.getAction() == KeyEvent.ACTION_UP;
+                boolean isSearchAction = actionId == EditorInfo.IME_ACTION_SEARCH;
+                if (isEnter || isSearchAction) {
+                    String query = v.getText() != null ? v.getText().toString().trim() : "";
+                    if (query.isEmpty()) {
+                        Toast.makeText(MainActivity.this, "请输入搜索关键词", Toast.LENGTH_SHORT).show();
+                        return true;
+                    }
+                    try {
+                        InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+                        if (imm != null) {
+                            imm.hideSoftInputFromWindow(v.getWindowToken(), 0);
+                        }
+                    } catch (Exception ignore) {}
+                    Intent intent = new Intent(MainActivity.this, CourseSearchActivity.class);
+                    intent.putExtra("query", query);
+                    startActivity(intent);
+                    return true;
+                }
+                return false;
+            });
+            // 右侧搜索按钮点击：触发搜索
+            et_search_course.setOnTouchListener((v, event) -> {
+                if (event.getAction() == MotionEvent.ACTION_UP) {
+                    Drawable right = et_search_course.getCompoundDrawables()[2];
+                    if (right != null) {
+                        int rightAreaStart = et_search_course.getWidth() - et_search_course.getPaddingRight() - right.getBounds().width();
+                        if (event.getX() >= rightAreaStart) {
+                            String query = et_search_course.getText() != null ? et_search_course.getText().toString().trim() : "";
+                            if (query.isEmpty()) {
+                                Toast.makeText(MainActivity.this, "请输入搜索关键词", Toast.LENGTH_SHORT).show();
+                                return true;
+                            }
+                            try {
+                                InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+                                if (imm != null) {
+                                    imm.hideSoftInputFromWindow(v.getWindowToken(), 0);
+                                }
+                            } catch (Exception ignore) {}
+                            Intent intent = new Intent(MainActivity.this, CourseSearchActivity.class);
+                            intent.putExtra("query", query);
+                            startActivity(intent);
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            });
+        }
+        // 顶部外置“搜索”按钮点击：触发课程搜索
+        if (btn_search_top != null && et_search_course != null) {
+            btn_search_top.setOnClickListener(v -> {
+                String query = et_search_course.getText() != null ? et_search_course.getText().toString().trim() : "";
+                if (query.isEmpty()) {
+                    Toast.makeText(MainActivity.this, "请输入搜索关键词", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                try {
+                    InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+                    if (imm != null) {
+                        imm.hideSoftInputFromWindow(et_search_course.getWindowToken(), 0);
+                    }
+                } catch (Exception ignore) {}
+                Intent intent = new Intent(MainActivity.this, CourseSearchActivity.class);
+                intent.putExtra("query", query);
+                startActivity(intent);
+            });
+        }
         initBodyLayout();
     }
 
@@ -261,6 +348,21 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         for (int i = 0; i < mBottomLayout.getChildCount(); i++) {
             mBottomLayout.getChildAt(i).setOnClickListener(this);
         }
+        // 顶部播放历史点击
+        if (ll_play_history_top != null) {
+            ll_play_history_top.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    boolean isLogin = readLoginStatus();
+                    if (isLogin) {
+                        Intent intent = new Intent(MainActivity.this, com.example.xinqiao.activity.PlayHistoryActivity.class);
+                        startActivity(intent);
+                    } else {
+                        Toast.makeText(MainActivity.this, "您还未登录，请先登录", Toast.LENGTH_SHORT).show();
+                    }
+                }
+            });
+        }
     }
 
     /**
@@ -290,27 +392,50 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 tv_course.setTextColor(getResources().getColor(R.color.bottom_nav_selected_healing));
                 rl_title_bar.setVisibility(View.VISIBLE);
                 tv_main_title.setText("心理课程");
+                // 课程页显示搜索与播放历史，隐藏居中标题
+                if (et_search_course != null) et_search_course.setVisibility(View.VISIBLE);
+                if (ll_play_history_top != null) ll_play_history_top.setVisibility(View.VISIBLE);
+                if (btn_search_top != null) btn_search_top.setVisibility(View.VISIBLE);
+                if (tv_main_title != null) tv_main_title.setVisibility(View.GONE);
                 break;
             case 1:
                 iv_exercises.setImageResource(R.drawable.main_exercises_icon);
                 tv_exercises.setTextColor(getResources().getColor(R.color.bottom_nav_selected_healing));
                 rl_title_bar.setVisibility(View.GONE); // 习题页面隐藏顶部栏
+                // 清理显示状态
+                if (et_search_course != null) et_search_course.setVisibility(View.GONE);
+                if (ll_play_history_top != null) ll_play_history_top.setVisibility(View.GONE);
+                if (btn_search_top != null) btn_search_top.setVisibility(View.GONE);
+                if (tv_main_title != null) tv_main_title.setVisibility(View.VISIBLE);
                 break;
             case 2:
                 iv_myInfo.setImageResource(R.drawable.main_my_icon);
                 tv_myInfo.setTextColor(getResources().getColor(R.color.bottom_nav_selected_healing));
                 rl_title_bar.setVisibility(View.GONE);
+                if (et_search_course != null) et_search_course.setVisibility(View.GONE);
+                if (ll_play_history_top != null) ll_play_history_top.setVisibility(View.GONE);
+                if (btn_search_top != null) btn_search_top.setVisibility(View.GONE);
+                if (tv_main_title != null) tv_main_title.setVisibility(View.VISIBLE);
                 break;
             case 3:
                 iv_article.setImageResource(R.drawable.main_article_icon);
                 tv_article.setTextColor(getResources().getColor(R.color.bottom_nav_selected_healing));
                 rl_title_bar.setVisibility(View.VISIBLE);
                 tv_main_title.setText("心理文章");
+                // 文章页显示居中标题，隐藏搜索与播放历史
+                if (et_search_course != null) et_search_course.setVisibility(View.GONE);
+                if (ll_play_history_top != null) ll_play_history_top.setVisibility(View.GONE);
+                if (btn_search_top != null) btn_search_top.setVisibility(View.GONE);
+                if (tv_main_title != null) tv_main_title.setVisibility(View.VISIBLE);
                 break;
             case 4:
                 iv_ai.setImageResource(R.drawable.main_ai_icon);
                 tv_ai.setTextColor(getResources().getColor(R.color.bottom_nav_selected_healing));
                 rl_title_bar.setVisibility(View.GONE);
+                if (et_search_course != null) et_search_course.setVisibility(View.GONE);
+                if (ll_play_history_top != null) ll_play_history_top.setVisibility(View.GONE);
+                if (btn_search_top != null) btn_search_top.setVisibility(View.GONE);
+                if (tv_main_title != null) tv_main_title.setVisibility(View.VISIBLE);
                 break;
         }
     }

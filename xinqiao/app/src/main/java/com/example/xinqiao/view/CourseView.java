@@ -148,8 +148,8 @@ public class CourseView {
             adapter.submitList(new ArrayList<com.example.xinqiao.bean.CourseBean>());
         }
         
-        // 初始化播放历史按钮
-        View playHistoryBtn = mCurrentView.findViewById(R.id.ll_play_history);
+        // 初始化播放历史按钮（已迁移到全局标题栏）
+        View playHistoryBtn = mContext.findViewById(R.id.ll_play_history_top);
         if (playHistoryBtn != null) {
             // 添加调试日志
             android.util.Log.d("CourseView", "播放历史按钮找到，设置点击事件");
@@ -172,7 +172,7 @@ public class CourseView {
             });
         } else {
             // 调试信息：如果找不到控件，输出日志
-            android.util.Log.e("CourseView", "播放历史按钮未找到，请检查布局文件");
+            android.util.Log.e("CourseView", "播放历史按钮未找到（全局标题栏），请检查布局或可忽略，MainActivity 已处理点击");
         }
         
         // 初始化广告轮播ViewPager
