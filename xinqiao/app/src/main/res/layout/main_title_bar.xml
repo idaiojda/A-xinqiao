@@ -3,7 +3,7 @@
     android:id="@+id/title_bar"
     android:layout_width="match_parent"
     android:layout_height="56dp"
-    android:background="@color/white" >
+    android:background="@android:color/transparent" >
     <TextView
         android:id="@+id/tv_back"
         android:layout_width="50dp"
@@ -23,42 +23,26 @@
     <EditText
         android:id="@+id/et_search_course"
         android:layout_width="match_parent"
-        android:layout_height="36dp"
+        android:layout_height="40dp"
         android:layout_centerVertical="true"
         android:layout_toRightOf="@id/tv_back"
-        android:layout_toLeftOf="@id/btn_search_top"
+        android:layout_toLeftOf="@id/ll_play_history_top"
         android:layout_marginStart="8dp"
         android:layout_marginEnd="8dp"
         android:hint="搜索课程"
         android:singleLine="true"
         android:imeOptions="actionSearch"
-        android:drawableLeft="@drawable/ic_search_gray"
+        android:drawableLeft="@drawable/ic_search_blue"
         android:drawablePadding="8dp"
         android:paddingLeft="12dp"
         android:paddingRight="12dp"
-        android:background="@drawable/bg_search_input"
-        android:textColor="@color/colorOnSecondary"
-        android:textColorHint="@color/hint_text"
+        android:background="@drawable/bg_searchbar_pill_selector"
+        android:textColor="#4E5969"
+        android:textColorHint="#99B8FF"
         android:textSize="14sp"
         android:visibility="gone"/>
 
-    <!-- 右侧搜索按钮（圆角矩形，文本“搜索”，淡蓝底白字） -->
-    <TextView
-        android:id="@+id/btn_search_top"
-        android:layout_width="wrap_content"
-        android:layout_height="36dp"
-        android:layout_centerVertical="true"
-        android:layout_toRightOf="@id/tv_back"
-        android:layout_toLeftOf="@id/ll_play_history_top"
-        android:layout_marginEnd="8dp"
-        android:paddingLeft="14dp"
-        android:paddingRight="14dp"
-        android:gravity="center"
-        android:text="搜索"
-        android:textSize="14sp"
-        android:textColor="@color/topBarOnPrimary"
-        android:background="@drawable/bg_search_button_primary"
-        android:visibility="gone"/>
+    <!-- 删除外置搜索按钮，改为输入框右侧内置图标按钮 -->
 
     <!-- 课程页右侧播放历史（默认隐藏，课程页显示） -->
     <LinearLayout
@@ -80,7 +64,7 @@
             android:layout_height="wrap_content"
             android:layout_marginLeft="4dp"
             android:text="播放历史"
-            android:textColor="@color/topBarPrimary"
+            android:textColor="#99B8FF"
             android:textSize="14sp"/>
     </LinearLayout>
     <TextView

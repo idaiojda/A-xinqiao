@@ -123,6 +123,22 @@
             android:name=".activity.EmotionDiaryPreviewActivity"
             android:exported="true"
             android:label="心情日记预览" />
+        <activity
+            android:name=".activity.CourseSearchHostActivity"
+            android:exported="true"
+            android:label="课程搜索预览" />
+        <activity
+            android:name=".activity.ArticleSearchActivity"
+            android:exported="true"
+            android:label="文章搜索" />
+        <activity
+            android:name=".activity.ArticleSearchHostActivity"
+            android:exported="true"
+            android:label="文章搜索预览" />
+        <activity
+            android:name=".activity.ArticleHistoryActivity"
+            android:exported="false"
+            android:label="阅读历史" />
     </application>
 
 </manifest>

@@ -5,20 +5,46 @@
     android:layout_height="match_parent"
     android:orientation="vertical">
 
-    <!-- 顶部栏：固定 -->
+    <!-- 顶部栏：搜索框 + 我的测评 -->
     <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="60dp"
-        android:background="@color/topBarPrimary"
+        android:background="@color/white"
         android:elevation="2dp">
 
-        <TextView
-            android:id="@+id/tv_title"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_centerInParent="true"
-            android:text="心理测评"
-            style="@style/TopBarTitleText"/>
+        <LinearLayout
+            android:id="@+id/ll_search_bar"
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:layout_centerVertical="true"
+            android:layout_toStartOf="@id/ll_my_test"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="12dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/bg_searchbar_pill_selector"
+            android:paddingHorizontal="12dp">
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/ic_search_blue"
+                android:tint="#99B8FF"
+                android:contentDescription="搜索"/>
+            <EditText
+                android:id="@+id/et_search_top"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:background="@android:color/transparent"
+                android:hint="搜索测评"
+                android:textColor="#4E5969"
+                android:textColorHint="#99B8FF"
+                android:textSize="14sp"
+                android:padding="0dp"
+                android:singleLine="true"
+                android:focusable="false"
+                android:clickable="true"/>
+        </LinearLayout>
         <LinearLayout
             android:id="@+id/ll_my_test"
             android:layout_width="wrap_content"
@@ -28,21 +54,13 @@
             android:layout_alignParentEnd="true"
             android:layout_marginEnd="16dp">
             <ImageView
-                android:id="@+id/iv_my_test"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:src="@drawable/bt_heart"
-                android:tint="@color/topBarOnPrimary"
-                android:layout_marginTop="6dp"
-                android:contentDescription="我的测评"/>
-            <TextView
-                android:id="@+id/tv_my_test"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="我的测评"
-                android:textColor="#30B4FF"
-                android:textSize="13sp"
-                android:layout_marginTop="2dp"/>
+                    android:id="@+id/iv_my_test"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:src="@drawable/bt_heart"
+                    android:tint="#99B8FF"
+                    android:layout_marginTop="15dp"
+                    android:contentDescription="我的测评"/>
         </LinearLayout>
     </RelativeLayout>
 

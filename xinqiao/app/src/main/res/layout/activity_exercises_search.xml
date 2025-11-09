@@ -7,34 +7,40 @@
     android:layout_height="match_parent"
     android:background="#F8F9FB">
 
-    <!-- 顶部搜索栏 -->
+    <!-- 顶部搜索栏（圆角搜索框 + 取消） -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="56dp"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:background="@color/topBarPrimary"
-        android:elevation="2dp"
-        android:padding="8dp">
+        android:background="#F8F9FB"
+        android:elevation="0dp"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp">
         <ImageButton
             android:id="@+id/iv_back"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
             android:layout_alignParentStart="true"
             android:layout_centerVertical="true"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="返回"
             android:src="@drawable/ic_back"
-            android:tint="@color/topBarOnPrimary"/>
+            android:tint="@color/topBarOnPrimary"
+            android:visibility="gone"/>
         <EditText
             android:id="@+id/et_search"
             android:layout_width="0dp"
             android:layout_weight="1"
             android:layout_height="40dp"
-            android:background="@drawable/input_field_bg"
-            android:hint="搜索测评"
-            android:textSize="16sp"
+            android:background="@drawable/bg_searchbar_pill_selector"
+            android:hint="搜索关键词"
+            android:textSize="14sp"
+            android:textColor="#4E5969"
+            android:textColorHint="#99B8FF"
             android:paddingHorizontal="12dp"
+            android:drawableLeft="@drawable/ic_search_blue"
+            android:drawablePadding="8dp"
             android:singleLine="true"
             android:imeOptions="actionSearch"/>
         <ImageView
@@ -44,6 +50,15 @@
             android:src="@drawable/ic_delete"
             android:tint="#999"
             android:visibility="gone"/>
+        <TextView
+            android:id="@+id/tv_cancel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="取消"
+            android:textColor="#666666"
+            android:textSize="14sp"
+            android:paddingStart="12dp"
+            android:paddingEnd="4dp"/>
     </LinearLayout>
 
     <!-- 热搜区块 -->

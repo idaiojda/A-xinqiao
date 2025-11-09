@@ -28,6 +28,7 @@ import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
 import com.example.xinqiao.R;
 import com.example.xinqiao.fragment.TestRecordFragment;
+import com.example.xinqiao.fragment.CourseSearchFragment;
 import com.example.xinqiao.view.ArticleView;
 import com.example.xinqiao.view.CourseView;
 import com.example.xinqiao.view.ExercisesView;
@@ -82,7 +83,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     // 课程页顶部搜索与播放历史
     private EditText et_search_course;
     private View ll_play_history_top;
-    private View btn_search_top;
     // 用于后台任务的线程池
     private ExecutorService executorService;
     // 记录当前显示的视图索引（0:课程,1:习题,2:我,3:文章,4:咨询）
@@ -203,10 +203,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         // 顶部课程搜索与播放历史（默认隐藏，课程页显示）
         et_search_course = (EditText) findViewById(R.id.et_search_course);
         ll_play_history_top = findViewById(R.id.ll_play_history_top);
-        btn_search_top = findViewById(R.id.btn_search_top);
         if (et_search_course != null) et_search_course.setVisibility(View.GONE);
         if (ll_play_history_top != null) ll_play_history_top.setVisibility(View.GONE);
-        if (btn_search_top != null) btn_search_top.setVisibility(View.GONE);
         // 课程搜索框加入回车/搜索IME行为：跳转到课程搜索页
         if (et_search_course != null) {
             et_search_course.setOnEditorActionListener((v, actionId, event) -> {
@@ -231,52 +229,19 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 }
                 return false;
             });
-            // 右侧搜索按钮点击：触发搜索
+            // 触摸即跳转：拦截触摸，防止获取焦点与弹出键盘
             et_search_course.setOnTouchListener((v, event) -> {
-                if (event.getAction() == MotionEvent.ACTION_UP) {
-                    Drawable right = et_search_course.getCompoundDrawables()[2];
-                    if (right != null) {
-                        int rightAreaStart = et_search_course.getWidth() - et_search_course.getPaddingRight() - right.getBounds().width();
-                        if (event.getX() >= rightAreaStart) {
-                            String query = et_search_course.getText() != null ? et_search_course.getText().toString().trim() : "";
-                            if (query.isEmpty()) {
-                                Toast.makeText(MainActivity.this, "请输入搜索关键词", Toast.LENGTH_SHORT).show();
-                                return true;
-                            }
-                            try {
-                                InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
-                                if (imm != null) {
-                                    imm.hideSoftInputFromWindow(v.getWindowToken(), 0);
-                                }
-                            } catch (Exception ignore) {}
-                            Intent intent = new Intent(MainActivity.this, CourseSearchActivity.class);
-                            intent.putExtra("query", query);
-                            startActivity(intent);
-                            return true;
-                        }
+                if (event != null && event.getAction() == MotionEvent.ACTION_DOWN) {
+                    try {
+                        openCourseSearchFragment();
+                    } catch (Exception e) {
+                        Log.e("MainActivity", "open CourseSearchFragment failed: " + e.getMessage());
                     }
+                    return true; // 消耗事件，避免弹出键盘
                 }
                 return false;
             });
-        }
-        // 顶部外置“搜索”按钮点击：触发课程搜索
-        if (btn_search_top != null && et_search_course != null) {
-            btn_search_top.setOnClickListener(v -> {
-                String query = et_search_course.getText() != null ? et_search_course.getText().toString().trim() : "";
-                if (query.isEmpty()) {
-                    Toast.makeText(MainActivity.this, "请输入搜索关键词", Toast.LENGTH_SHORT).show();
-                    return;
-                }
-                try {
-                    InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
-                    if (imm != null) {
-                        imm.hideSoftInputFromWindow(et_search_course.getWindowToken(), 0);
-                    }
-                } catch (Exception ignore) {}
-                Intent intent = new Intent(MainActivity.this, CourseSearchActivity.class);
-                intent.putExtra("query", query);
-                startActivity(intent);
-            });
+            // 移除右侧按钮点击逻辑：保留键盘搜索/回车触发
         }
         initBodyLayout();
     }
@@ -395,7 +360,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 // 课程页显示搜索与播放历史，隐藏居中标题
                 if (et_search_course != null) et_search_course.setVisibility(View.VISIBLE);
                 if (ll_play_history_top != null) ll_play_history_top.setVisibility(View.VISIBLE);
-                if (btn_search_top != null) btn_search_top.setVisibility(View.VISIBLE);
                 if (tv_main_title != null) tv_main_title.setVisibility(View.GONE);
                 break;
             case 1:
@@ -405,7 +369,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 // 清理显示状态
                 if (et_search_course != null) et_search_course.setVisibility(View.GONE);
                 if (ll_play_history_top != null) ll_play_history_top.setVisibility(View.GONE);
-                if (btn_search_top != null) btn_search_top.setVisibility(View.GONE);
                 if (tv_main_title != null) tv_main_title.setVisibility(View.VISIBLE);
                 break;
             case 2:
@@ -414,19 +377,16 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 rl_title_bar.setVisibility(View.GONE);
                 if (et_search_course != null) et_search_course.setVisibility(View.GONE);
                 if (ll_play_history_top != null) ll_play_history_top.setVisibility(View.GONE);
-                if (btn_search_top != null) btn_search_top.setVisibility(View.GONE);
                 if (tv_main_title != null) tv_main_title.setVisibility(View.VISIBLE);
                 break;
             case 3:
                 iv_article.setImageResource(R.drawable.main_article_icon);
                 tv_article.setTextColor(getResources().getColor(R.color.bottom_nav_selected_healing));
-                rl_title_bar.setVisibility(View.VISIBLE);
-                tv_main_title.setText("心理文章");
-                // 文章页显示居中标题，隐藏搜索与播放历史
+                // 文章页顶部应为自身搜索框与标签栏，隐藏全局标题栏
+                rl_title_bar.setVisibility(View.GONE);
                 if (et_search_course != null) et_search_course.setVisibility(View.GONE);
                 if (ll_play_history_top != null) ll_play_history_top.setVisibility(View.GONE);
-                if (btn_search_top != null) btn_search_top.setVisibility(View.GONE);
-                if (tv_main_title != null) tv_main_title.setVisibility(View.VISIBLE);
+                if (tv_main_title != null) tv_main_title.setVisibility(View.GONE);
                 break;
             case 4:
                 iv_ai.setImageResource(R.drawable.main_ai_icon);
@@ -434,7 +394,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 rl_title_bar.setVisibility(View.GONE);
                 if (et_search_course != null) et_search_course.setVisibility(View.GONE);
                 if (ll_play_history_top != null) ll_play_history_top.setVisibility(View.GONE);
-                if (btn_search_top != null) btn_search_top.setVisibility(View.GONE);
                 if (tv_main_title != null) tv_main_title.setVisibility(View.VISIBLE);
                 break;
         }
@@ -807,6 +766,46 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         if (!hasVisibleView) {
             int targetIndex = (currentIndex != -1) ? currentIndex : 0;
             selectDisplayViewInternal(targetIndex, false);
+        }
+
+        // 若当前顶部是课程搜索Fragment，则确保标题栏与课程页特有控件保持隐藏，避免返回后出现双搜索框
+        try {
+            Fragment f = getSupportFragmentManager().findFragmentByTag("CourseSearchFragment");
+            if (f != null && f.isVisible()) {
+                if (rl_title_bar != null) rl_title_bar.setVisibility(View.GONE);
+                if (et_search_course != null) et_search_course.setVisibility(View.GONE);
+                if (ll_play_history_top != null) ll_play_history_top.setVisibility(View.GONE);
+            } else {
+                // 当搜索 Fragment 已关闭时，根据当前页面状态恢复标题栏
+                // 若课程页可见或当前索引为课程页，则显示课程搜索框与播放历史
+                boolean courseVisible = false;
+                try {
+                    courseVisible = (mCourseView != null && mCourseView.getView() != null
+                            && mCourseView.getView().getVisibility() == View.VISIBLE);
+                } catch (Exception ignore2) {}
+
+                if (courseVisible || currentIndex == 0) {
+                    if (rl_title_bar != null) rl_title_bar.setVisibility(View.VISIBLE);
+                    if (et_search_course != null) et_search_course.setVisibility(View.VISIBLE);
+                    if (ll_play_history_top != null) ll_play_history_top.setVisibility(View.VISIBLE);
+                    if (tv_main_title != null) tv_main_title.setVisibility(View.GONE);
+                }
+            }
+        } catch (Exception ignore) {}
+    }
+    
+    /**
+     * 打开课程搜索 Fragment 页面
+     */
+    private void openCourseSearchFragment() {
+        try {
+            FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
+            CourseSearchFragment fragment = new CourseSearchFragment();
+            transaction.replace(getBodyLayout().getId(), fragment, "CourseSearchFragment");
+            transaction.addToBackStack(null);
+            transaction.commitAllowingStateLoss();
+        } catch (Exception e) {
+            Log.e("MainActivity", "openCourseSearchFragment error: " + e.getMessage());
         }
     }
 }

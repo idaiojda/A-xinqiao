@@ -1,10 +1,14 @@
 package com.example.xinqiao.view;
 
 import android.content.Context;
-import android.graphics.Color;
+import android.os.Handler;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -14,21 +18,36 @@ import com.example.xinqiao.R;
 import com.example.xinqiao.adapter.ArticleAdapter;
 import com.example.xinqiao.bean.ArticleBean;
 import com.example.xinqiao.dao.ArticleHistoryDao;
+import com.example.xinqiao.util.ArticleImageResolver;
 import com.example.xinqiao.utils.AnalysisUtils;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class ArticleView extends FrameLayout implements View.OnClickListener {
+public class ArticleView extends FrameLayout {
 
     private View mView;
     private Context mContext;
-    private TextView tvAllArticles, tvReadHistory;
+    private EditText etSearch;
+    private ImageView ivReadHistory;
+    private TextView tagAll, tagEmotion, tagGrowth, tagStress, tagRelationship;
     private RecyclerView rvArticleList;
     private ArticleAdapter mAdapter;
     private ArticleHistoryDao articleHistoryDao;
-    private List<ArticleBean> mArticleList;
+    private List<ArticleBean> mArticleList; // 当前显示的数据
+    private List<ArticleBean> mAllArticles; // 全部文章数据
+    private List<ArticleBean> mHistoryArticles; // 阅读历史数据
     private boolean isShowingHistory = false;
+    private String currentCategory = null; // 当前标签筛选（null=全部）
+    private String currentKeyword = "";
+    private final Handler searchHandler = new Handler();
+    private final Runnable searchRunnable = new Runnable() {
+        @Override
+        public void run() {
+            mAdapter.setHighlightKeyword(currentKeyword);
+            applyFilterAndRefresh();
+        }
+    };
 
     public ArticleView(Context context) {
         super(context);
@@ -41,17 +60,56 @@ public class ArticleView extends FrameLayout implements View.OnClickListener {
         mView = inflater.inflate(R.layout.main_view_article, this, true);
         
         // 初始化控件
-        tvAllArticles = findViewById(R.id.tv_all_articles);
-        tvReadHistory = findViewById(R.id.tv_read_history);
+        etSearch = findViewById(R.id.et_article_search);
+        ivReadHistory = findViewById(R.id.iv_read_history);
+        tagAll = findViewById(R.id.tag_all);
+        tagEmotion = findViewById(R.id.tag_emotion);
+        tagGrowth = findViewById(R.id.tag_growth);
+        tagStress = findViewById(R.id.tag_stress);
+        tagRelationship = findViewById(R.id.tag_relationship);
         rvArticleList = findViewById(R.id.rv_article_list);
         
-        // 设置点击事件
-        tvAllArticles.setOnClickListener(this);
-        tvReadHistory.setOnClickListener(this);
+        // 顶部阅读历史入口：跳转到独立历史页面
+        ivReadHistory.setOnClickListener(v -> {
+            android.content.Intent intent = new android.content.Intent(mContext, com.example.xinqiao.activity.ArticleHistoryActivity.class);
+            mContext.startActivity(intent);
+        });
+        // 标签点击：切回全部文章并筛选类别
+        View.OnClickListener tagClick = v -> {
+            isShowingHistory = false; // 标签属于全部文章视图
+            if (v.getId() == R.id.tag_all) {
+                currentCategory = null;
+            } else if (v.getId() == R.id.tag_emotion) {
+                currentCategory = "情绪管理";
+            } else if (v.getId() == R.id.tag_growth) {
+                currentCategory = "自我成长";
+            } else if (v.getId() == R.id.tag_stress) {
+                currentCategory = "压力管理";
+            } else if (v.getId() == R.id.tag_relationship) {
+                currentCategory = "关系经营";
+            }
+            updateTagSelection();
+            applyFilterAndRefreshFromSource();
+        };
+        tagAll.setOnClickListener(tagClick);
+        tagEmotion.setOnClickListener(tagClick);
+        tagGrowth.setOnClickListener(tagClick);
+        tagStress.setOnClickListener(tagClick);
+        tagRelationship.setOnClickListener(tagClick);
+        
+        // 顶部搜索框：点击跳转到文章搜索页（不在本页直接输入）
+        etSearch.setFocusable(false);
+        etSearch.setClickable(true);
+        etSearch.setOnClickListener(v -> {
+            android.content.Intent intent = new android.content.Intent(mContext, com.example.xinqiao.activity.ArticleSearchHostActivity.class);
+            mContext.startActivity(intent);
+        });
         
         // 初始化RecyclerView
         rvArticleList.setLayoutManager(new LinearLayoutManager(context));
         mArticleList = new ArrayList<>();
+        mAllArticles = new ArrayList<>();
+        mHistoryArticles = new ArrayList<>();
         mAdapter = new ArticleAdapter(context, mArticleList, false);
         rvArticleList.setAdapter(mAdapter);
         
@@ -64,7 +122,7 @@ public class ArticleView extends FrameLayout implements View.OnClickListener {
             // 这里需要实现文章详情页面的跳转逻辑
         });
         
-        // 加载全部文章列表
+        // 默认加载全部文章
         loadAllArticles();
     }
 
@@ -87,38 +145,25 @@ public class ArticleView extends FrameLayout implements View.OnClickListener {
         }
     }
 
-    @Override
-    public void onClick(View v) {
-        if (v.getId() == R.id.tv_all_articles) {
-            if (isShowingHistory) {
-                isShowingHistory = false;
-                updateTabStyle();
-                loadAllArticles();
-            }
-        } else if (v.getId() == R.id.tv_read_history) {
-            if (!isShowingHistory) {
-                isShowingHistory = true;
-                updateTabStyle();
-                loadReadHistory();
-            }
-        }
-    }
-
-    private void updateTabStyle() {
-        if (isShowingHistory) {
-            tvAllArticles.setTextColor(Color.parseColor("#666666"));
-            tvReadHistory.setTextColor(Color.parseColor("#0097F7"));
-            mAdapter = new ArticleAdapter(mContext, mArticleList, true);
-        } else {
-            tvAllArticles.setTextColor(Color.parseColor("#0097F7"));
-            tvReadHistory.setTextColor(Color.parseColor("#666666"));
-            mAdapter = new ArticleAdapter(mContext, mArticleList, false);
-        }
-        rvArticleList.setAdapter(mAdapter);
+    private void updateTagSelection() {
+        // 选中样式：selected背景，文字高亮；其他为未选中
+        tagAll.setBackgroundResource(currentCategory == null ? R.drawable.bg_chip_selected : R.drawable.bg_chip_unselected);
+        tagEmotion.setBackgroundResource("情绪管理".equals(currentCategory) ? R.drawable.bg_chip_selected : R.drawable.bg_chip_unselected);
+        tagGrowth.setBackgroundResource("自我成长".equals(currentCategory) ? R.drawable.bg_chip_selected : R.drawable.bg_chip_unselected);
+        tagStress.setBackgroundResource("压力管理".equals(currentCategory) ? R.drawable.bg_chip_selected : R.drawable.bg_chip_unselected);
+        tagRelationship.setBackgroundResource("关系经营".equals(currentCategory) ? R.drawable.bg_chip_selected : R.drawable.bg_chip_unselected);
+        // 文字颜色：选中为蓝色，未选中为灰色
+        int sel = android.graphics.Color.parseColor("#2C6ECB");
+        int unsel = android.graphics.Color.parseColor("#4E5969");
+        tagAll.setTextColor(currentCategory == null ? sel : unsel);
+        tagEmotion.setTextColor("情绪管理".equals(currentCategory) ? sel : unsel);
+        tagGrowth.setTextColor("自我成长".equals(currentCategory) ? sel : unsel);
+        tagStress.setTextColor("压力管理".equals(currentCategory) ? sel : unsel);
+        tagRelationship.setTextColor("关系经营".equals(currentCategory) ? sel : unsel);
     }
 
     private void loadAllArticles() {
-        mArticleList = new ArrayList<>();
+        mAllArticles = new ArrayList<>();
         // 心理健康相关文章
         String[] titles = {
             "如何应对焦虑情绪",
@@ -134,7 +179,7 @@ public class ArticleView extends FrameLayout implements View.OnClickListener {
         };
         String[] categories = {
             "情绪管理", "自我成长", "压力管理", "健康生活", "社交心理",
-            "青少年", "抑郁应对", "正念冥想", "亲密关系", "网络心理"
+            "青少年", "抑郁应对", "正念冥想", "关系经营", "网络心理"
         };
         String[] summaries = {
             "焦虑是常见的情绪体验，学会识别和接纳焦虑，掌握呼吸放松等技巧，有助于缓解焦虑带来的困扰。",
@@ -173,18 +218,52 @@ public class ArticleView extends FrameLayout implements View.OnClickListener {
             article.content = contents[i];
             article.imageResId = imageResIds[i];
             article.readTimestamp = System.currentTimeMillis();
-            mArticleList.add(article);
+            mAllArticles.add(article);
         }
-        mAdapter.setData(mArticleList);
+        applyFilterAndRefreshFromSource();
     }
 
     private void loadReadHistory() {
         String userName = AnalysisUtils.readLoginUserName(mContext);
         if (userName != null && !userName.isEmpty()) {
             articleHistoryDao.getArticleHistoryAsync(userName, history -> {
-                mArticleList = history;
-                mAdapter.setData(mArticleList);
+                mHistoryArticles = history != null ? history : new ArrayList<>();
+                // 补全历史条目的图片资源，确保每条都有对应图片
+                ArticleImageResolver.enrichImages(mHistoryArticles);
+                applyFilterAndRefreshFromSource();
             });
         }
+    }
+
+    private void applyFilterAndRefreshFromSource() {
+        // 基于当前视图选择（全部/历史）得到源列表
+        List<ArticleBean> source = isShowingHistory ? mHistoryArticles : mAllArticles;
+        if (source == null) source = new ArrayList<>();
+        mArticleList = filterList(source, currentKeyword, currentCategory);
+        mAdapter.setData(mArticleList);
+    }
+
+    private void applyFilterAndRefresh() {
+        List<ArticleBean> source = isShowingHistory ? mHistoryArticles : mAllArticles;
+        if (source == null) source = new ArrayList<>();
+        mArticleList = filterList(source, currentKeyword, currentCategory);
+        mAdapter.setData(mArticleList);
+    }
+
+    private List<ArticleBean> filterList(List<ArticleBean> source, String keyword, String category) {
+        List<ArticleBean> result = new ArrayList<>();
+        String lowerKey = keyword == null ? "" : keyword.toLowerCase();
+        for (ArticleBean a : source) {
+            boolean matchCategory = (category == null) || (a.category != null && a.category.equals(category));
+            boolean matchKeyword = (lowerKey.isEmpty())
+                    || (a.title != null && a.title.toLowerCase().contains(lowerKey))
+                    || (a.summary != null && a.summary.toLowerCase().contains(lowerKey))
+                    || (a.content != null && a.content.toLowerCase().contains(lowerKey))
+                    || (a.category != null && a.category.toLowerCase().contains(lowerKey));
+            if (matchCategory && matchKeyword) {
+                result.add(a);
+            }
+        }
+        return result;
     }
 }

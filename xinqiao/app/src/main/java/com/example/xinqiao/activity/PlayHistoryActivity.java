@@ -138,6 +138,15 @@ public class PlayHistoryActivity extends AppCompatActivity {
     private void showEmptyView() {
         lvHistory.setVisibility(View.GONE);
         llEmpty.setVisibility(View.VISIBLE);
+
+        View btnExplore = findViewById(R.id.btn_explore);
+        if (btnExplore != null) {
+            btnExplore.setOnClickListener(v -> {
+                // 跳转到视频列表页进行探索
+                Intent intent = new Intent(PlayHistoryActivity.this, VideoListActivity.class);
+                startActivity(intent);
+            });
+        }
     }
 
     private void showDeleteHistoryDialog(VideoBean videoBean, int position) {

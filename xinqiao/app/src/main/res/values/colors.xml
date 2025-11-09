@@ -38,4 +38,10 @@
     <!-- TopBar 统一品牌色 -->
     <color name="topBarPrimary">#2F54EB</color>
     <color name="topBarOnPrimary">#FFFFFF</color>
+    <!-- 播放历史图表主色（与视频相关界面保持统一） -->
+    <color name="play_history_primary">#30B4FF</color>
+    
+    <!-- 历史页面专用顶栏色（阅读/播放），按需使用，不影响全局色板 -->
+    <color name="historyTopBarPrimary">#99B8FF</color>
+    <color name="historyTopBarOnPrimary">#FFFFFF</color>
 </resources>

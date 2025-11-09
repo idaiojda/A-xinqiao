@@ -28,6 +28,8 @@ public class ArticleAdapter extends RecyclerView.Adapter<ArticleAdapter.ViewHold
     private OnItemClickListener mListener;
     // 是否显示阅读进度
     private boolean mShowReadProgress;
+    // 关键字高亮
+    private String highlightKeyword = null;
 
     /**
      * 构造方法，初始化适配器
@@ -57,13 +59,22 @@ public class ArticleAdapter extends RecyclerView.Adapter<ArticleAdapter.ViewHold
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         ArticleBean article = mArticleList.get(position);
-        holder.tvTitle.setText(article.title);
+        // 标题（支持高亮）
+        if (highlightKeyword != null && !highlightKeyword.isEmpty() && article.title != null) {
+            holder.tvTitle.setText(applyHighlight(article.title, highlightKeyword));
+        } else {
+            holder.tvTitle.setText(article.title);
+        }
         holder.tvCategory.setText(article.category);
 
         // 摘要显示与隐藏
         if (article.summary != null && !article.summary.isEmpty()) {
             holder.tvSummary.setVisibility(View.VISIBLE);
-            holder.tvSummary.setText(article.summary);
+            if (highlightKeyword != null && !highlightKeyword.isEmpty()) {
+                holder.tvSummary.setText(applyHighlight(article.summary, highlightKeyword));
+            } else {
+                holder.tvSummary.setText(article.summary);
+            }
         } else {
             holder.tvSummary.setVisibility(View.GONE);
         }
@@ -127,6 +138,14 @@ public class ArticleAdapter extends RecyclerView.Adapter<ArticleAdapter.ViewHold
     }
 
     /**
+     * 设置高亮关键字
+     */
+    public void setHighlightKeyword(String keyword) {
+        this.highlightKeyword = (keyword == null) ? null : keyword.trim();
+        notifyDataSetChanged();
+    }
+
+    /**
      * 设置item点击事件监听器
      */
     public void setOnItemClickListener(OnItemClickListener listener) {
@@ -160,5 +179,26 @@ public class ArticleAdapter extends RecyclerView.Adapter<ArticleAdapter.ViewHold
      */
     public interface OnItemClickListener {
         void onItemClick(ArticleBean article);
+    }
+
+    private CharSequence applyHighlight(String text, String keyword) {
+        try {
+            if (text == null || keyword == null || keyword.isEmpty()) return text;
+            String lowerText = text.toLowerCase();
+            String lowerKey = keyword.toLowerCase();
+            android.text.SpannableString spannable = new android.text.SpannableString(text);
+            int index = 0;
+            while (true) {
+                int start = lowerText.indexOf(lowerKey, index);
+                if (start < 0) break;
+                int end = start + lowerKey.length();
+                spannable.setSpan(new android.text.style.ForegroundColorSpan(android.graphics.Color.parseColor("#2C6ECB")), start, end, android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                spannable.setSpan(new android.text.style.StyleSpan(android.graphics.Typeface.BOLD), start, end, android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                index = end;
+            }
+            return spannable;
+        } catch (Exception e) {
+            return text;
+        }
     }
 }

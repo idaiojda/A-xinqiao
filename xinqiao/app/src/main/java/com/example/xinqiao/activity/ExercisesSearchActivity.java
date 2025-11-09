@@ -32,6 +32,7 @@ import com.example.xinqiao.utils.AnalysisUtils;
 public class ExercisesSearchActivity extends Activity {
     private EditText etSearch;
     private ImageView ivBack, ivClear;
+    private TextView tvCancel;
     private RecyclerView rvResult;
     private RecyclerView rvHotRank;
     private TextView tvEmpty;
@@ -55,6 +56,7 @@ public class ExercisesSearchActivity extends Activity {
         etSearch = findViewById(R.id.et_search);
         ivBack = findViewById(R.id.iv_back);
         ivClear = findViewById(R.id.iv_clear);
+        tvCancel = findViewById(R.id.tv_cancel);
         rvResult = findViewById(R.id.rv_search_result);
         rvHotRank = findViewById(R.id.rv_hot_rank);
         tvEmpty = findViewById(R.id.tv_empty);
@@ -87,8 +89,15 @@ public class ExercisesSearchActivity extends Activity {
         });
         // 加载排行榜数据（基于MySQL的test_record聚合）
         loadHotRank();
-        // 顶部返回
-        ivBack.setOnClickListener(v -> finish());
+        // 顶部返回（隐藏并保留逻辑）
+        if (ivBack != null) {
+            ivBack.setVisibility(View.GONE);
+            ivBack.setOnClickListener(v -> finish());
+        }
+        // 取消按钮
+        if (tvCancel != null) {
+            tvCancel.setOnClickListener(v -> finish());
+        }
         // 清除输入
         ivClear.setOnClickListener(v -> etSearch.setText(""));
         // 输入框自动获取焦点并弹出键盘

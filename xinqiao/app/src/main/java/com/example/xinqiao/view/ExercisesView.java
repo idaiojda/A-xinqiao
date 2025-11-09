@@ -2,9 +2,11 @@ package com.example.xinqiao.view;
 
 import android.app.Activity;
 import android.view.LayoutInflater;
+import android.content.Intent;
 import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.TextView;
 
@@ -69,19 +71,27 @@ public class ExercisesView {
         initData();
         adapter.setData(ebl);
         rv_list.setAdapter(adapter);
-        // 绑定"我的测评"点击事件
-        TextView tvMyTest = mCurrentView.findViewById(R.id.tv_my_test);
-        tvMyTest.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                onMyTestClick(v);
-            }
-        });
+//        // 绑定"我的测评"点击事件
+//        TextView tvMyTest = mCurrentView.findViewById(R.id.tv_my_test);
+//        tvMyTest.setOnClickListener(new View.OnClickListener() {
+//            @Override
+//            public void onClick(View v) {
+//                onMyTestClick(v);
+//            }
+//        });
         ImageView ivMyTest = mCurrentView.findViewById(R.id.iv_my_test);
         ivMyTest.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 onMyTestClick(v);
+            }
+        });
+
+        EditText etSearchTop = mCurrentView.findViewById(R.id.et_search_top);
+        etSearchTop.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mContext.startActivity(new Intent(mContext, com.example.xinqiao.activity.ExercisesSearchActivity.class));
             }
         });
     }
