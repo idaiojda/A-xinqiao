@@ -24,7 +24,7 @@ import java.util.Locale
  * 可复用的 ChatViewModel：封装 DeepSeekClient 调用，供浮窗与模块复用。
  * 增强：自动保存历史对话，懒创建会话并更新标题。
  */
-class ChatViewModel(
+class               ChatViewModel(
     app: Application,
     private val savedStateHandle: SavedStateHandle
 ) : AndroidViewModel(app) {

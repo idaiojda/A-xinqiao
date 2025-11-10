@@ -1,4 +1,4 @@
-package com.example.xinqiao.consultation.pro
+﻿package com.example.xinqiao.consultation.pro
 
 import android.app.Activity
 import android.Manifest
@@ -139,27 +139,97 @@ fun ConsultProScreen(vm: ConsultProViewModel = viewModel()) {
         topBar = {
             TopAppBar(
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = themeColor,
+                    containerColor = androidx.compose.ui.graphics.Color.White,
                     titleContentColor = androidx.compose.ui.graphics.Color.White,
                     actionIconContentColor = androidx.compose.ui.graphics.Color.White,
                     navigationIconContentColor = androidx.compose.ui.graphics.Color.White,
                 ),
-                title = { 
-                    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        Text("咨询", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                title = {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // 复刻文章页搜索框样式：白底、蓝色边框、蓝色放大镜图标、蓝色提示文字
+                        val borderColor = androidx.compose.ui.graphics.Color(0xFF99B8FF)
+                        val hintColor = androidx.compose.ui.graphics.Color(0xFF99B8FF)
+                        val textColor = androidx.compose.ui.graphics.Color(0xFF4E5969)
+                        androidx.compose.foundation.layout.Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(40.dp)
+                                .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+                                .background(androidx.compose.ui.graphics.Color.White)
+                                .border(
+                                    width = 1.dp,
+                                    color = borderColor,
+                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
+                                )
+                                .padding(horizontal = 12.dp)
+                        ) {
+                            androidx.compose.foundation.text.BasicTextField(
+                                value = query,
+                                onValueChange = { query = it },
+                                singleLine = true,
+                                cursorBrush = androidx.compose.ui.graphics.SolidColor(borderColor),
+                                textStyle = androidx.compose.ui.text.TextStyle(
+                                    color = textColor,
+                                    fontSize = 14.sp,
+                                    platformStyle = androidx.compose.ui.text.PlatformTextStyle(
+                                        includeFontPadding = false
+                                    )
+                                ),
+                                modifier = Modifier.fillMaxSize(),
+                                decorationBox = { innerTextField ->
+                                    Row(
+                                        modifier = Modifier.fillMaxSize(),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            painter = androidx.compose.ui.res.painterResource(id = com.example.xinqiao.R.drawable.ic_search_blue),
+                                            contentDescription = "搜索",
+                                            tint = borderColor,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        androidx.compose.foundation.layout.Box(
+                                            modifier = Modifier.weight(1f),
+                                            contentAlignment = Alignment.CenterStart
+                                        ) {
+                                            if (query.isEmpty()) {
+                                                Text(
+                                                    text = "搜索咨询师、城市或标签",
+                                                    color = hintColor,
+                                                    fontSize = 14.sp
+                                                )
+                                            }
+                                            innerTextField()
+                                        }
+                                    }
+                                }
+                            )
+                        }
                     }
                 },
                 actions = {
-                    IconButton(onClick = {
-                        if (ctx is Activity) {
-                            if (readLoginStatus(ctx)) {
-                                ctx.startActivity(Intent(ctx, MyAppointmentsActivity::class.java))
-                            } else {
-                                Toast.makeText(ctx, "请先登录", Toast.LENGTH_SHORT).show()
-                                ctx.startActivity(Intent(ctx, LoginActivity::class.java))
+                    IconButton(
+                        onClick = {
+                            if (ctx is Activity) {
+                                if (readLoginStatus(ctx)) {
+                                    ctx.startActivity(Intent(ctx, MyAppointmentsActivity::class.java))
+                                } else {
+                                    Toast.makeText(ctx, "请先登录", Toast.LENGTH_SHORT).show()
+                                    ctx.startActivity(Intent(ctx, LoginActivity::class.java))
+                                }
                             }
                         }
-                    }) { Icon(Icons.Default.List, contentDescription = "咨询记录") }
+                    ) {
+                        Icon(
+                            painter = androidx.compose.ui.res.painterResource(id = com.example.xinqiao.R.drawable.ic_history),
+                            contentDescription = "我的预约",
+                            tint = androidx.compose.ui.graphics.Color(0xFF99B8FF)
+                        )
+                    }
                 }
             )
         }
@@ -167,19 +237,7 @@ fun ConsultProScreen(vm: ConsultProViewModel = viewModel()) {
         Column(modifier = Modifier
             .fillMaxSize()
             .padding(padding)) {
-            // 搜索
-            Row(modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(
-                    value = query,
-                    onValueChange = { query = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = "搜索") },
-                    placeholder = { Text("搜索咨询师、城市或标签") }
-                )
-            }
+            // 顶部标题栏已包含搜索框，此处移除原搜索区块
 
             // 底部筛选弹层：咨询方式
             if (showFilterSheet) {

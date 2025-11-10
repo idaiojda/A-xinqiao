@@ -18,6 +18,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import android.view.View
 
 class MyAppointmentsActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -32,12 +34,20 @@ private fun MyAppointmentsScreen(onBack: () -> Unit) {
     val themeColor = Color(0xFF2F54EB)
     val ctx = androidx.compose.ui.platform.LocalContext.current
     Scaffold(topBar = {
-        TopAppBar(colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = themeColor,
-            titleContentColor = Color.White,
-            navigationIconContentColor = Color.White,
-        ), title = { Text("我的预约", style = MaterialTheme.typography.titleMedium) },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, contentDescription = "返回") } })
+        androidx.compose.foundation.layout.Box {
+            AndroidView(
+                factory = { ctx ->
+                    View(ctx).apply { setBackgroundResource(com.example.xinqiao.R.drawable.topbar_history_bg) }
+                },
+                modifier = Modifier.matchParentSize()
+            )
+            TopAppBar(colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = Color.Transparent,
+                titleContentColor = Color.White,
+                navigationIconContentColor = Color.White,
+            ), title = { Text("我的预约", style = MaterialTheme.typography.titleMedium) },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, contentDescription = "返回") } })
+        }
     }) { padding ->
         val items = remember {
             listOf(

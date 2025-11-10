@@ -589,7 +589,7 @@ public class MySQLHelper {
             }
             // 其他表的创建
 
-            // 创建视频播放记录表
+            // 创建视频播放记录表（新增playTimestamp用于记录最近播放时间）
             conn.createStatement().execute(
                 "CREATE TABLE IF NOT EXISTS videoplaylist (" +
                 "_id INT AUTO_INCREMENT PRIMARY KEY, " +
@@ -598,8 +598,31 @@ public class MySQLHelper {
                 "videoId INT, " +
                 "videoPath VARCHAR(200), " +
                 "title VARCHAR(100), " +
-                "secondTitle VARCHAR(100)" +
+                "secondTitle VARCHAR(100), " +
+                "playTimestamp BIGINT" +
                 ") ENGINE=InnoDB DEFAULT CHARSET=utf8;");
+
+            // 确保videoplaylist表存在playTimestamp列（老版本表需要迁移）
+            try {
+                android.util.Log.d("MySQLHelper", "开始检查videoplaylist.playTimestamp列是否存在...");
+                String checkPlayTsColumn = "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = '" + dbName + "' AND table_name = 'videoplaylist' AND column_name = 'playTimestamp'";
+                android.util.Log.d("MySQLHelper", "执行SQL: " + checkPlayTsColumn);
+                ResultSet rsTs = conn.createStatement().executeQuery(checkPlayTsColumn);
+                rsTs.next();
+                boolean hasPlayTs = rsTs.getInt(1) > 0;
+                android.util.Log.d("MySQLHelper", "videoplaylist.playTimestamp列存在: " + hasPlayTs);
+                if (!hasPlayTs) {
+                    String addPlayTs = "ALTER TABLE videoplaylist ADD COLUMN playTimestamp BIGINT DEFAULT 0";
+                    android.util.Log.d("MySQLHelper", "执行SQL: " + addPlayTs);
+                    conn.createStatement().executeUpdate(addPlayTs);
+                    android.util.Log.i("MySQLHelper", "已为videoplaylist添加playTimestamp列");
+                } else {
+                    android.util.Log.i("MySQLHelper", "videoplaylist.playTimestamp列已存在，无需添加");
+                }
+            } catch (SQLException e) {
+                android.util.Log.e("MySQLHelper", "检查或添加playTimestamp列时出错: " + e.getMessage());
+                e.printStackTrace();
+            }
 
             // 创建AI聊天历史记录表
             conn.createStatement().execute(

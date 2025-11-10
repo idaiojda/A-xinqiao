@@ -196,18 +196,45 @@ public class DBUtils {
                 @Override
                 public void onSuccess(Connection conn) {
                     try {
-                        String sql = "INSERT INTO videoplaylist (userName, chapterId, videoId, videoPath, title, secondTitle) VALUES (?, ?, ?, ?, ?, ?);";
-                        PreparedStatement stmt = conn.prepareStatement(sql);
-                        stmt.setString(1, userName);
-                        stmt.setInt(2, chapterId);
-                        stmt.setInt(3, videoId);
-                        stmt.setString(4, videoPath);
-                        stmt.setString(5, title);
-                        stmt.setString(6, secondTitle);
-                        boolean success = stmt.executeUpdate() > 0;
+                        // 先删除旧记录，保证同一视频只有一条最新记录
+                        String delSql = "DELETE FROM videoplaylist WHERE userName=? AND chapterId=? AND videoId=?";
+                        PreparedStatement delStmt = conn.prepareStatement(delSql);
+                        delStmt.setString(1, userName);
+                        delStmt.setInt(2, chapterId);
+                        delStmt.setInt(3, videoId);
+                        delStmt.executeUpdate();
+
+                        long now = System.currentTimeMillis();
+                        boolean success;
+                        try {
+                            // 带播放时间戳的插入（新表结构）
+                            String insertSql = "INSERT INTO videoplaylist (userName, chapterId, videoId, videoPath, title, secondTitle, playTimestamp) VALUES (?, ?, ?, ?, ?, ?, ?)";
+                            PreparedStatement stmt = conn.prepareStatement(insertSql);
+                            stmt.setString(1, userName);
+                            stmt.setInt(2, chapterId);
+                            stmt.setInt(3, videoId);
+                            stmt.setString(4, videoPath);
+                            stmt.setString(5, title);
+                            stmt.setString(6, secondTitle);
+                            stmt.setLong(7, now);
+                            success = stmt.executeUpdate() > 0;
+                        } catch (SQLException ie) {
+                            // 老表结构兼容插入（无playTimestamp列）
+                            android.util.Log.w("DBUtils", "插入包含播放时间戳失败，降级到旧结构: " + ie.getMessage());
+                            String insertSqlLegacy = "INSERT INTO videoplaylist (userName, chapterId, videoId, videoPath, title, secondTitle) VALUES (?, ?, ?, ?, ?, ?)";
+                            PreparedStatement stmt = conn.prepareStatement(insertSqlLegacy);
+                            stmt.setString(1, userName);
+                            stmt.setInt(2, chapterId);
+                            stmt.setInt(3, videoId);
+                            stmt.setString(4, videoPath);
+                            stmt.setString(5, title);
+                            stmt.setString(6, secondTitle);
+                            success = stmt.executeUpdate() > 0;
+                        }
                         
                         android.os.Handler mainHandler = new android.os.Handler(android.os.Looper.getMainLooper());
-                        mainHandler.post(() -> callback.onResult(success));
+                        final boolean successFinal = success;
+                        mainHandler.post(() -> callback.onResult(successFinal));
                     } catch (SQLException e) {
                         e.printStackTrace();
                         android.os.Handler mainHandler = new android.os.Handler(android.os.Looper.getMainLooper());
@@ -245,15 +272,38 @@ public class DBUtils {
                 android.util.Log.e("DBUtils", "无法获取数据库连接");
                 return false;
             }
-            String sql = "INSERT INTO videoplaylist (userName, chapterId, videoId, videoPath, title, secondTitle) VALUES (?, ?, ?, ?, ?, ?);";
-            PreparedStatement stmt = conn.prepareStatement(sql);
-            stmt.setString(1, userName);
-            stmt.setInt(2, chapterId);
-            stmt.setInt(3, videoId);
-            stmt.setString(4, videoPath);
-            stmt.setString(5, title);
-            stmt.setString(6, secondTitle);
-            return stmt.executeUpdate() > 0;
+            // 先删除旧记录，再插入新记录（尽量写入时间戳）
+            String delSql = "DELETE FROM videoplaylist WHERE userName=? AND chapterId=? AND videoId=?";
+            PreparedStatement delStmt = conn.prepareStatement(delSql);
+            delStmt.setString(1, userName);
+            delStmt.setInt(2, chapterId);
+            delStmt.setInt(3, videoId);
+            delStmt.executeUpdate();
+
+            long now = System.currentTimeMillis();
+            try {
+                String insertSql = "INSERT INTO videoplaylist (userName, chapterId, videoId, videoPath, title, secondTitle, playTimestamp) VALUES (?, ?, ?, ?, ?, ?, ?)";
+                PreparedStatement stmt = conn.prepareStatement(insertSql);
+                stmt.setString(1, userName);
+                stmt.setInt(2, chapterId);
+                stmt.setInt(3, videoId);
+                stmt.setString(4, videoPath);
+                stmt.setString(5, title);
+                stmt.setString(6, secondTitle);
+                stmt.setLong(7, now);
+                return stmt.executeUpdate() > 0;
+            } catch (SQLException ie) {
+                android.util.Log.w("DBUtils", "插入包含播放时间戳失败，降级到旧结构: " + ie.getMessage());
+                String insertSqlLegacy = "INSERT INTO videoplaylist (userName, chapterId, videoId, videoPath, title, secondTitle) VALUES (?, ?, ?, ?, ?, ?)";
+                PreparedStatement stmt = conn.prepareStatement(insertSqlLegacy);
+                stmt.setString(1, userName);
+                stmt.setInt(2, chapterId);
+                stmt.setInt(3, videoId);
+                stmt.setString(4, videoPath);
+                stmt.setString(5, title);
+                stmt.setString(6, secondTitle);
+                return stmt.executeUpdate() > 0;
+            }
         } catch (SQLException e) {
             e.printStackTrace();
             return false;
@@ -686,9 +736,15 @@ public class DBUtils {
                 @Override
                 public void onSuccess(Connection conn) {
                     try {
-                        String sql = "SELECT * FROM videoplaylist WHERE userName = ? ORDER BY _id DESC";
+                        // 对同一视频去重，取最新一条，并按播放时间排序
+                        String sql = "SELECT vp.* FROM videoplaylist vp " +
+                                "INNER JOIN (SELECT chapterId, videoId, MAX(_id) AS max_id FROM videoplaylist WHERE userName = ? GROUP BY chapterId, videoId) t " +
+                                "ON vp.chapterId = t.chapterId AND vp.videoId = t.videoId AND vp._id = t.max_id " +
+                                "WHERE vp.userName = ? " +
+                                "ORDER BY IFNULL(vp.playTimestamp, 0) DESC, vp._id DESC";
                         PreparedStatement stmt = conn.prepareStatement(sql);
                         stmt.setString(1, userName);
+                        stmt.setString(2, userName);
                         ResultSet rs = stmt.executeQuery();
                         
                         while (rs.next()) {
@@ -698,8 +754,13 @@ public class DBUtils {
                             videoBean.title = rs.getString("title");
                             videoBean.secondTitle = rs.getString("secondTitle");
                             videoBean.videoPath = rs.getString("videoPath");
-                            // 使用当前时间作为播放时间（实际项目中应该存储真实的播放时间）
-                            videoBean.playTime = System.currentTimeMillis();
+                            // 优先使用真实播放时间戳，兼容无该列的旧结构
+                            try {
+                                long ts = rs.getLong("playTimestamp");
+                                videoBean.playTime = ts;
+                            } catch (SQLException ignoreColumn) {
+                                videoBean.playTime = 0L;
+                            }
                             historyList.add(videoBean);
                         }
                         
@@ -708,7 +769,7 @@ public class DBUtils {
                     } catch (SQLException e) {
                         e.printStackTrace();
                         android.os.Handler mainHandler = new android.os.Handler(android.os.Looper.getMainLooper());
-                        mainHandler.post(() -> callback.onResult(new ArrayList<>()));
+                        mainHandler.post(() -> callback.onResult(historyList));
                     } finally {
                         helper.releaseConnection(conn);
                     }

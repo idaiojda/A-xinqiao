@@ -33,7 +33,7 @@
             <EditText
                 android:id="@+id/et_search_top"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:background="@android:color/transparent"
                 android:hint="搜索测评"
@@ -42,6 +42,8 @@
                 android:textSize="14sp"
                 android:padding="0dp"
                 android:singleLine="true"
+                android:gravity="center_vertical"
+                android:includeFontPadding="false"
                 android:focusable="false"
                 android:clickable="true"/>
         </LinearLayout>

@@ -23,7 +23,7 @@
             android:layout_width="24dp"
             android:layout_height="24dp"
             android:src="@drawable/ic_back"
-            android:tint="@color/topBarOnPrimary"
+            app:tint="@color/topBarOnPrimary"
             android:contentDescription="返回" />
 
         <TextView

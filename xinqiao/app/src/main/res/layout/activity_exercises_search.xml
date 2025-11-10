@@ -42,6 +42,8 @@
             android:drawableLeft="@drawable/ic_search_blue"
             android:drawablePadding="8dp"
             android:singleLine="true"
+            android:gravity="center_vertical"
+            android:includeFontPadding="false"
             android:imeOptions="actionSearch"/>
         <ImageView
             android:id="@+id/iv_clear"
