@@ -35,3 +35,62 @@ xinqiao/app/build2/  # 若存在多个 build 目录，单独列出
 
 *.apk
 *.mp4
+# IDE 配置文件
+.idea/
+xinqiao/.idea/
+
+# 构建产物目录（所有 build 相关）
+build/
+build2/
+build3/
+build4/
+build5/
+build6/
+build7/
+build8/
+build_old/
+build_old2/
+app/build/
+xinqiao/app/build/
+xinqiao/app/build2/
+xinqiao/app/build3/
+xinqiao/app/build4/
+xinqiao/app/build5/
+xinqiao/app/build6/
+xinqiao/app/build7/
+xinqiao/app/build8/
+xinqiao/app/build_old/
+xinqiao/app/build_old2/
+
+# 调试/测试文件
+src/debug/
+PATCH_TEST_MARKER.txt
+scripts/
+tasks_all.txt
+ui_dump.xml
+window_dump.xml
+*_dump.xml
+
+# 截图/预览文件
+screenshots/
+xinqiao/screenshots/
+*.png
+*.jpg
+*.jpeg
+preview_*.png
+verify_*.png
+
+# HTML 预览文件（非后端静态资源）
+preview/
+xinqiao/preview/
+index.html
+xinqiao/index.html
+xinqiao/community.html
+xinqiao/preview_*.html
+
+# 中文文档（如果不需要提交）
+xinqiao/*.md
+"xinqiao/*.md"
+
+# 其他冗余目录
+app/

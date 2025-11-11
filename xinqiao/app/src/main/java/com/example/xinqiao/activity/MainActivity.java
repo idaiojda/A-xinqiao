@@ -2,6 +2,7 @@ package com.example.xinqiao.activity;
 
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.PorterDuff;
 import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.graphics.Color;
@@ -34,6 +35,7 @@ import com.example.xinqiao.view.CourseView;
 import com.example.xinqiao.view.ExercisesView;
 import com.example.xinqiao.view.MyInfoView;
 import com.example.xinqiao.view.ConsultationView;
+import com.example.xinqiao.view.CommunityView;
 import com.example.xinqiao.mysql.MySQLHelper;
 import com.example.xinqiao.mysql.DBUtils;
 
@@ -51,6 +53,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private MyInfoView mMyInfoView;
     private ArticleView mArticleView;
     private ConsultationView mConsultationView;
+    private CommunityView mCommunityView;
     /**
      * 中间内容栏
      */
@@ -67,16 +70,19 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private View mMyInfoBtn;
     private View mArticleBtn;
     private View mAiBtn;
+    private View mCommunityBtn;
     private TextView tv_course;
     private TextView tv_exercises;
     private TextView tv_myInfo;
     private TextView tv_article;
     private TextView tv_ai;
+    private TextView tv_community;
     private ImageView iv_course;
     private ImageView iv_exercises;
     private ImageView iv_myInfo;
     private ImageView iv_article;
     private ImageView iv_ai;
+    private ImageView iv_community;
     private TextView tv_back;
     private TextView tv_main_title;
     private RelativeLayout rl_title_bar;
@@ -254,12 +260,15 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         mCourseBtn = findViewById(R.id.bottom_bar_course_btn);
         mExercisesBtn = findViewById(R.id.bottom_bar_exercises_btn);
         mMyInfoBtn = findViewById(R.id.bottom_bar_myinfo_btn);
+        mCommunityBtn = findViewById(R.id.bottom_bar_community_btn);
         tv_course = (TextView) findViewById(R.id.bottom_bar_text_course);
         tv_exercises = (TextView) findViewById(R.id.bottom_bar_text_exercises);
         tv_myInfo = (TextView) findViewById(R.id.bottom_bar_text_myinfo);
+        tv_community = (TextView) findViewById(R.id.bottom_bar_text_community);
         iv_course = (ImageView) findViewById(R.id.bottom_bar_image_course);
         iv_exercises = (ImageView) findViewById(R.id.bottom_bar_image_exercises);
         iv_myInfo = (ImageView) findViewById(R.id.bottom_bar_image_myinfo);
+        iv_community = (ImageView) findViewById(R.id.bottom_bar_image_community);
         mArticleBtn = findViewById(R.id.bottom_bar_article_btn);
         mAiBtn = findViewById(R.id.bottom_bar_ai_btn);
         tv_article = (TextView) findViewById(R.id.bottom_bar_text_article);
@@ -291,6 +300,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         } else if (viewId == R.id.bottom_bar_exercises_btn) {
             clearBottomImageState();
             selectDisplayView(1);
+        } else if (viewId == R.id.bottom_bar_community_btn) {
+            clearBottomImageState();
+            selectDisplayView(5);
         } else if (viewId == R.id.bottom_bar_myinfo_btn) {
             clearBottomImageState();
             selectDisplayView(2);
@@ -339,11 +351,18 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         tv_myInfo.setTextColor(getResources().getColor(R.color.bottom_nav_unselected_healing));
         tv_article.setTextColor(getResources().getColor(R.color.bottom_nav_unselected_healing));
         tv_ai.setTextColor(getResources().getColor(R.color.bottom_nav_unselected_healing));
+        if (tv_community != null) {
+            tv_community.setTextColor(getResources().getColor(R.color.bottom_nav_unselected_healing));
+        }
         iv_course.setImageResource(R.drawable.main_course_icon);
         iv_exercises.setImageResource(R.drawable.main_exercises_icon);
         iv_article.setImageResource(R.drawable.main_article_icon);
         iv_ai.setImageResource(R.drawable.main_ai_icon);
         iv_myInfo.setImageResource(R.drawable.main_my_icon);
+        if (iv_community != null) {
+            iv_community.setImageResource(R.mipmap.main_community_icon);
+            iv_community.clearColorFilter();
+        }
     }
 
     /**
@@ -370,6 +389,21 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 if (et_search_course != null) et_search_course.setVisibility(View.GONE);
                 if (ll_play_history_top != null) ll_play_history_top.setVisibility(View.GONE);
                 if (tv_main_title != null) tv_main_title.setVisibility(View.VISIBLE);
+                break;
+            case 5:
+                if (iv_community != null) {
+                    iv_community.setImageResource(R.mipmap.main_community_icon);
+                    // 使用颜色滤镜突出选中态，避免资源缺失导致无选中外观
+                    iv_community.setColorFilter(getResources().getColor(R.color.bottom_nav_selected_healing), PorterDuff.Mode.SRC_IN);
+                }
+                if (tv_community != null) {
+                    tv_community.setTextColor(getResources().getColor(R.color.bottom_nav_selected_healing));
+                }
+                // 社区页面隐藏全局标题栏，使用页面内部头部
+                rl_title_bar.setVisibility(View.GONE);
+                if (et_search_course != null) et_search_course.setVisibility(View.GONE);
+                if (ll_play_history_top != null) ll_play_history_top.setVisibility(View.GONE);
+                if (tv_main_title != null) tv_main_title.setVisibility(View.GONE);
                 break;
             case 2:
                 iv_myInfo.setImageResource(R.drawable.main_my_icon);
@@ -491,6 +525,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             if (mConsultationView != null && mConsultationView.getView() != null) {
                 mConsultationView.hideView();
             }
+            if (mCommunityView != null && mCommunityView.getView() != null) {
+                mCommunityView.hideView();
+            }
         } catch (Exception e) {
             Log.e("MainActivity", "Error hiding views: " + e.getMessage());
             e.printStackTrace();
@@ -558,6 +595,16 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     }
                     mConsultationView.showView();
                     break;
+                case 5:
+                    // 社区界面（Compose）
+                    if (mCommunityView == null) {
+                        mCommunityView = new CommunityView(this);
+                    }
+                    if (mCommunityView.getView().getParent() == null) {
+                        mBodyLayout.addView(mCommunityView.getView());
+                    }
+                    mCommunityView.showView();
+                    break;
             }
         } catch (Exception e) {
             Log.e("MainActivity", "Error creating view: " + e.getMessage());
@@ -586,6 +633,17 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         if (keyCode == KeyEvent.KEYCODE_BACK && event.getAction() == KeyEvent.ACTION_DOWN) {
+            // 优先让社区页面内部处理返回（例如从详情回到列表）
+            try {
+                if (mCommunityView != null && mCommunityView.getView() != null && mCommunityView.getView().getVisibility() == View.VISIBLE) {
+                    boolean consumed = false;
+                    try { consumed = mCommunityView.handleBackPressed(); } catch (Exception ignore) {}
+                    if (consumed) {
+                        setSelectedStatus(5);
+                        return true;
+                    }
+                }
+            } catch (Exception ignore) {}
             // 先检查是否有Fragment在返回栈中
             if (getSupportFragmentManager().getBackStackEntryCount() > 0) {
                 // 有Fragment在返回栈中，先处理Fragment的返回
@@ -602,6 +660,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     setSelectedStatus(3);
                 } else if (mConsultationView != null && mConsultationView.getView() != null && mConsultationView.getView().getVisibility() == View.VISIBLE) {
                     setSelectedStatus(4);
+                } else if (mCommunityView != null && mCommunityView.getView() != null && mCommunityView.getView().getVisibility() == View.VISIBLE) {
+                    setSelectedStatus(5);
                 } else {
                     // 如果没有视图可见，回退到历史中的上一个视图或默认课程
                     if (!viewHistory.isEmpty()) {
@@ -725,9 +785,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         if (mConsultationView != null && mConsultationView.getView() != null) {
             mConsultationView.hideView();
         }
-        
+
         if (mMyInfoView != null && mMyInfoView.getView() != null) {
             mMyInfoView.getView().setVisibility(View.GONE);
+        }
+
+        if (mCommunityView != null && mCommunityView.getView() != null) {
+            mCommunityView.hideView();
         }
     }
     
@@ -759,6 +823,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         
         if (mMyInfoView != null && mMyInfoView.getView() != null && mMyInfoView.getView().getVisibility() == View.VISIBLE) {
             mMyInfoView.showView();
+            hasVisibleView = true;
+        }
+
+        if (mCommunityView != null && mCommunityView.getView() != null && mCommunityView.getView().getVisibility() == View.VISIBLE) {
+            mCommunityView.showView();
             hasVisibleView = true;
         }
         

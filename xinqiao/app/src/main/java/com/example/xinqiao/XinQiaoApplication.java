@@ -31,6 +31,11 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509TrustManager;
+import com.example.xinqiao.network.NetworkConfig;
+import com.example.xinqiao.community.CommunityRepositoryProvider;
+import com.example.xinqiao.community.CommunityServiceFactory;
+import com.example.xinqiao.community.RemoteCommunityRepository;
+import com.example.xinqiao.community.CommunityApi;
 
 public class XinQiaoApplication extends Application {
     // 日志标签
@@ -67,6 +72,16 @@ public class XinQiaoApplication extends Application {
         initThreadOptimizer();
         initNetworkOptimizer();
         initMemoryOptimizer();
+
+        // 社区模块：接入远端仓库（Retrofit）
+        try {
+            String baseUrl = NetworkConfig.getBaseUrl(this);
+            CommunityApi api = CommunityServiceFactory.INSTANCE.create(baseUrl);
+            CommunityRepositoryProvider.INSTANCE.setCurrent(new RemoteCommunityRepository(api));
+            Log.d(TAG, "CommunityRepository initialized with remote backend: " + baseUrl);
+        } catch (Throwable t) {
+            Log.w(TAG, "Init remote CommunityRepository failed, fallback to Fake", t);
+        }
         
         // 注册应用生命周期回调
         registerLifecycleCallbacks();
