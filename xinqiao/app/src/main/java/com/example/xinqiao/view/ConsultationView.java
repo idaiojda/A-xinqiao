@@ -78,8 +78,11 @@ public class ConsultationView extends FrameLayout {
     }
 
     public void hideView() {
-        // 隐藏整个容器，底部悬浮窗保持当前状态（不主动移除）
+        // 隐藏容器并移除 AI 悬浮窗，确保只在咨询页面显示
         setVisibility(View.GONE);
+        if (floatingManager != null) {
+            floatingManager.detach();
+        }
     }
 
     @Override

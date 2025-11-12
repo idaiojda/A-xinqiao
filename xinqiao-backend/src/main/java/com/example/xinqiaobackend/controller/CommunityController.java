@@ -46,6 +46,16 @@ public class CommunityController {
         return service.applyJoin(name);
     }
 
+    // 新增：创建小组
+    @PostMapping("/groups")
+    public GroupCreateResultDto createGroup(@RequestBody CreateGroupRequest req) {
+        String name = req.getName();
+        String description = req.getDescription();
+        String schedule = req.getSchedule();
+        int capacity = req.getCapacity();
+        return service.createGroup(name, description, schedule, capacity);
+    }
+
     // 新增：创建匿名问题
     @PostMapping("/questions")
     public QuestionDto createQuestion(@RequestBody NewQuestionRequest req) {
@@ -61,4 +71,14 @@ public class CommunityController {
     // 新增：健康检查
     @GetMapping("/health")
     public HealthDto health() { return service.health(); }
+
+    // 新增：主题交流区帖子流
+    @GetMapping("/posts")
+    public List<PostDto> posts(
+            @RequestParam(name = "category", required = false) String category,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size
+    ) {
+        return service.getPosts(category, page, size);
+    }
 }

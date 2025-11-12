@@ -96,4 +96,4 @@ xinqiao/*.md
 app/
 # 临时UI调试文件
 xinqiao/ui_*.xml
-xinqiao/window_dump_*.xml
+xinqiao/window_dump_*.xml".idea/deploymentTargetDropDown.xml" 
