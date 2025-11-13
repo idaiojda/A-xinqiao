@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/chat_history_item_bg"
+    android:padding="8dp">
+
+    <TextView
+        android:id="@+id/action_copy"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="复制"
+        android:textSize="14sp"
+        android:textColor="#333333"
+        android:padding="8dp"
+        android:gravity="center_vertical"
+        android:drawableStart="@drawable/ic_copy"
+        android:drawablePadding="8dp"
+        app:drawableTint="@color/topBarPrimary" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#EEEEEE" />
+
+    <TextView
+        android:id="@+id/action_share"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="分享"
+        android:textSize="14sp"
+        android:textColor="#333333"
+        android:padding="8dp"
+        android:gravity="center_vertical"
+        android:drawableStart="@drawable/ic_share"
+        android:drawablePadding="8dp"
+        app:drawableTint="@color/topBarPrimary" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#EEEEEE" />
+
+    <TextView
+        android:id="@+id/action_delete"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="删除"
+        android:textSize="14sp"
+        android:textColor="#D84A4A"
+        android:padding="8dp"
+        android:gravity="center_vertical"
+        android:drawableStart="@drawable/ic_delete"
+        android:drawablePadding="8dp"
+        app:drawableTint="@color/colorError" />
+
+</LinearLayout>

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 高德 Web 服务 API 的 Key，请替换为你自己的正式密钥 -->
+    <string name="amap_web_key">	d71cd5095bd90ead30e08ce4c68208e9</string>
+</resources>

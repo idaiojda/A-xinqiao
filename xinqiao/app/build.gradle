@@ -1,0 +1,186 @@
+apply plugin: 'com.android.application'
+apply plugin: 'org.jetbrains.kotlin.android'
+apply plugin: 'kotlin-kapt'
+
+// 使用默认构建目录以避免 AGP 在最终产物输出上的路径不一致问题
+//（某些版本在重写 buildDir 后不会在 outputs 下生成标准 APK/AAB）
+// 如需清理旧产物，请使用 :app:clean 任务
+
+android {
+    namespace 'com.example.xinqiao'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.example.xinqiao"
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        // 仅打包中文与英文资源，减少无用语言的体积
+        resConfigs 'zh', 'en'
+    }
+
+    // 使用调试签名为 release 输出生成已签名 APK，便于测量体积
+    signingConfigs {
+        release {
+            // Windows 环境下使用用户目录的 debug.keystore
+            storeFile file(System.getenv("USERPROFILE") + "/.android/debug.keystore")
+            storePassword "android"
+            keyAlias "androiddebugkey"
+            keyPassword "android"
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    buildFeatures {
+        viewBinding true
+        dataBinding true
+        buildConfig true
+        compose true
+    }
+
+    composeOptions {
+        kotlinCompilerExtensionVersion "1.5.14"
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+
+    packagingOptions {
+        exclude 'META-INF/DEPENDENCIES'
+        exclude 'META-INF/LICENSE'
+        exclude 'META-INF/LICENSE.txt'
+        exclude 'META-INF/license.txt'
+        exclude 'META-INF/NOTICE'
+        exclude 'META-INF/NOTICE.txt'
+        exclude 'META-INF/notice.txt'
+        exclude 'META-INF/ASL2.0'
+        exclude '**/default_avatar.jpg'
+        exclude '**/avatar_*.jpg'
+    }
+
+    aaptOptions {
+
+    }
+}
+
+// 这里添加一个配置，运行时忽�?Java 版本检�?
+tasks.withType(JavaCompile) {
+    options.compilerArgs << '-XDignore.symbol.file'
+}
+
+// 调试辅助任务：打印 release 变体的输出文件路径（用于定位 APK/AAB）
+afterEvaluate {
+    if (project.plugins.hasPlugin('com.android.application')) {
+        tasks.register('printReleaseOutputs') {
+            doLast {
+                android.applicationVariants.all { variant ->
+                    if (variant.buildType.name == 'release') {
+                        println "[Variant] ${variant.name}"
+                        try {
+                            variant.outputs.each { out ->
+                                try {
+                                    println "  - outputFile: ${out.outputFile}"
+                                } catch (ignore) {
+                                }
+                            }
+                        } catch (ignore) {
+                            println "  (No outputs info via old API)"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+dependencies {
+    implementation 'com.google.android.flexbox:flexbox:3.0.0'
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.11.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    implementation 'androidx.recyclerview:recyclerview:1.3.2'
+    implementation 'androidx.viewpager2:viewpager2:1.1.0'
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+    implementation 'com.squareup.retrofit2:retrofit:2.11.0'
+    implementation 'com.squareup.retrofit2:converter-gson:2.11.0'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
+    implementation 'androidx.core:core-ktx:1.12.0'
+    implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0'
+    implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.7.0'
+    implementation 'androidx.activity:activity-ktx:1.8.2'
+    implementation 'androidx.fragment:fragment-ktx:1.6.2'
+    
+    // Charts (MPAndroidChart)
+    implementation 'com.github.PhilJay:MPAndroidChart:v3.1.0'
+    
+    // Compose 依赖
+    implementation 'androidx.activity:activity-compose:1.9.2'
+    implementation 'androidx.compose.ui:ui:1.6.7'
+    implementation 'androidx.compose.foundation:foundation:1.6.7'
+    implementation 'androidx.compose.material3:material3:1.3.0'
+    implementation 'androidx.compose.material:material-icons-extended:1.6.7'
+    implementation 'androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0'
+    implementation 'com.google.accompanist:accompanist-swiperefresh:0.34.0'
+    implementation 'androidx.compose.material:material:1.6.7'
+    implementation 'androidx.compose.animation:animation:1.6.7'
+    implementation 'androidx.compose.animation:animation-core:1.6.7'
+    
+    // Coil for image loading
+    implementation 'io.coil-kt:coil-compose:2.4.0'
+    
+    // Remove incorrect artifact and use lifecycle-runtime-ktx instead
+    
+    implementation 'androidx.savedstate:savedstate:1.2.1'
+    // 核心依赖
+    
+
+    // 安装库级 Baseline Profiles，减少 Compose 等库的首帧开销
+    implementation 'androidx.profileinstaller:profileinstaller:1.3.1'
+    
+    // Room数据库依�?
+    def room_version = "2.6.1"
+    implementation "androidx.room:room-runtime:$room_version"
+    kapt "androidx.room:room-compiler:$room_version"
+    implementation "androidx.room:room-ktx:$room_version"
+    
+    // 测试依赖
+    testImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
+    
+    // MySQL连接�?(迁移期间保留)
+    implementation files('libs/mysql-connector-java-5.1.49.jar') // 添加本地MySQL JDBC驱动
+    
+    // 图片加载和裁剪相关依赖?
+    implementation 'de.hdodenhof:circleimageview:3.1.0'
+    implementation 'com.github.bumptech.glide:glide:4.12.0'
+    kapt 'com.github.bumptech.glide:compiler:4.12.0'
+    implementation 'com.github.yalantis:ucrop:2.2.8'
+    
+    
+    // WorkManager依赖
+    implementation 'androidx.work:work-runtime:2.9.0'
+
+    // 位置服务（FusedLocationProviderClient�?
+    implementation 'com.google.android.gms:play-services-location:21.3.0'
+    
+    // Media3 ExoPlayer（用于稳定的网络视频播放）
+    implementation 'androidx.media3:media3-exoplayer:1.3.1'
+    implementation 'androidx.media3:media3-ui:1.3.1'
+    implementation 'androidx.media3:media3-datasource-okhttp:1.3.1'
+}

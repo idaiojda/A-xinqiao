@@ -1,0 +1,4 @@
+dependencies {
+    // 其他依赖
+    implementation 'androidx.core:core:1.12.0' // 确保使用最新版本的 androidx.core 库
+}

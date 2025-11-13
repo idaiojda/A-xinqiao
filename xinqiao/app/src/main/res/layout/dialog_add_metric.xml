@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="指标类型"
+            android:textColor="#111827"
+            android:textSize="14sp"/>
+
+        <Spinner
+            android:id="@+id/sp_metric_type"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:spinnerMode="dropdown"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="数值"
+            android:textColor="#111827"
+            android:textSize="14sp"
+            android:layout_marginTop="12dp"/>
+
+        <EditText
+            android:id="@+id/et_metric_value"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="请输入数值"
+            android:inputType="numberDecimal"
+            android:textColor="#111827"
+            android:textColorHint="#9CA3AF"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="单位"
+            android:textColor="#111827"
+            android:textSize="14sp"
+            android:layout_marginTop="12dp"/>
+
+        <EditText
+            android:id="@+id/et_metric_unit"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="例如 bpm / mmHg / °C"
+            android:inputType="text"
+            android:textColor="#111827"
+            android:textColorHint="#9CA3AF"/>
+
+    </LinearLayout>
+
+</ScrollView>

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="12dp"
+    android:background="@android:color/white">
+
+    <TextView
+        android:id="@+id/tv_metric_date"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="2025-01-01 12:00"
+        android:textColor="#6B7280"
+        android:textSize="12sp"/>
+
+    <TextView
+        android:id="@+id/tv_metric_type"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="类型：心率"
+        android:textColor="#111827"
+        android:textSize="15sp"
+        android:layout_marginTop="4dp"/>
+
+    <TextView
+        android:id="@+id/tv_metric_value"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="数值：75 bpm"
+        android:textColor="#374151"
+        android:textSize="14sp"
+        android:layout_marginTop="2dp"/>
+
+    <TextView
+        android:id="@+id/tv_metric_eval"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="评判：正常"
+        android:textColor="#10B981"
+        android:textSize="13sp"
+        android:layout_marginTop="2dp"/>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#F3F4F6"
+        android:layout_marginTop="10dp"/>
+
+</LinearLayout>
