@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 柔暖渐变圆形底色 -->
+    <item>
+        <shape android:shape="oval">
+            <gradient
+                android:type="radial"
+                android:gradientRadius="28dp"
+                android:startColor="#FFF3D6"
+                android:centerColor="#FFE0B2"
+                android:endColor="#FFCC80" />
+        </shape>
+    </item>
+    <!-- 中心轻微高光，营造柔和友好气质 -->
+    <item>
+        <shape android:shape="oval">
+            <gradient
+                android:type="radial"
+                android:gradientRadius="18dp"
+                android:startColor="#33FFFFFF"
+                android:endColor="#00FFFFFF"/>
+        </shape>
+    </item>
+    <!-- 内部简洁图形（聊天气泡轮廓）以表达AI聊天伙伴形象 -->
+    <item>
+        <shape android:shape="rectangle">
+            <size android:width="20dp" android:height="14dp"/>
+            <solid android:color="#804F2F"/>
+            <corners android:radius="7dp"/>
+            <padding android:left="10dp" android:top="13dp"/>
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="oval">
+            <size android:width="6dp" android:height="6dp"/>
+            <solid android:color="#804F2F"/>
+            <padding android:left="6dp" android:top="19dp"/>
+        </shape>
+    </item>
+</layer-list>

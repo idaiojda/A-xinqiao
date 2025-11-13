@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 基底：历史页专用品牌浅蓝 -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/historyTopBarPrimary" />
+        </shape>
+    </item>
+
+    <!-- 顶部轻微暗角渐变，增强与状态栏图标的对比度 -->
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="270"
+                android:startColor="#33000000"
+                android:endColor="#00000000"
+                android:type="linear" />
+        </shape>
+    </item>
+
+    <!-- 底部分隔线：半透明同色，视觉更精致 -->
+    <item android:gravity="bottom" android:height="1dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#8099B8FF" />
+        </shape>
+    </item>
+</layer-list>

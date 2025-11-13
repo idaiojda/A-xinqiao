@@ -1,99 +1,66 @@
-# 前端忽略（Android 项目，xinqiao 文件夹）
-xinqiao/.idea/          # Android 项目的 IDE 配置
-xinqiao/.gradle/        # Gradle 构建缓存
-xinqiao/app/build/      # Android 编译产物（class、apk 等）
-xinqiao/app/release/    # 打包生成的 apk 文件夹
-xinqiao/build/          # 项目根目录编译缓存
-xinqiao/captures/       # 截图/调试捕获文件
-xinqiao/gradlew.bat     # Gradle 脚本（可选，若团队统一环境可忽略）
-xinqiao/local.properties # 本地配置（包含 Android SDK 路径，每个人不同）
-xinqiao/*.iml           # IDEA 项目标识文件
-xinqiao/app/*.iml       # 子模块标识文件
-
-# 后端忽略（Java 项目，xinqiao-backend 文件夹）
-xinqiao-backend/target/  # Java 编译产物（jar、class 等）
-xinqiao-backend/.idea/   # IDE 配置
-xinqiao-backend/.gradle/ # Gradle 缓存
-xinqiao-backend/*.log    # 日志文件
-xinqiao-backend/*.iml    # 项目标识文件
-xinqiao-backend/local.properties # 本地配置
-
-# 通用忽略
-.DS_Store               # Mac 系统文件
-Thumbs.db               # Windows 缩略图文件
-*.tmp                   # 临时文件
-
-# IDE配置
-.vscode/
-# 预览文件
-preview/
-xinqiao/preview/
-
-# Android/Kotlin 构建产物
-xinqiao/app/build/
-xinqiao/app/build2/  # 若存在多个 build 目录，单独列出
-
-*.apk
-*.mp4
-# IDE 配置文件
+# ============== IDE 配置（通用+项目特定）==============
+# IntelliJ IDEA/Android Studio
 .idea/
 xinqiao/.idea/
+*.iml
+*.iws
+*.ipr
+.gradle/
 
-# 构建产物目录（所有 build 相关）
-build/
-build2/
-build3/
-build4/
-build5/
-build6/
-build7/
-build8/
-build_old/
-build_old2/
-app/build/
-xinqiao/app/build/
-xinqiao/app/build2/
-xinqiao/app/build3/
-xinqiao/app/build4/
-xinqiao/app/build5/
-xinqiao/app/build6/
-xinqiao/app/build7/
-xinqiao/app/build8/
-xinqiao/app/build_old/
-xinqiao/app/build_old2/
+# VS Code
+.vscode/
+*.code-workspace
 
-# 调试/测试文件
-src/debug/
-PATCH_TEST_MARKER.txt
-scripts/
-tasks_all.txt
-ui_dump.xml
-window_dump.xml
-*_dump.xml
+# ============== 构建产物（统一匹配所有 build 变体）==============
+# 根目录及所有子目录的 build 相关目录（含数字后缀、old 后缀）
+**/build/
+**/build[0-9]/
+**/build_old/
+**/build_old[0-9]/
+# 排除后端静态资源目录（避免误忽略业务静态文件）
+!xinqiao-backend/src/main/resources/static/
 
-# 截图/预览文件
+# ============== 预览/截图（只忽略冗余图，保留核心资源）==============
+# 预览目录（纯预览文件，不含核心资源）
+preview/
+xinqiao/preview/
+# 截图目录（测试截图，非代码资源）
 screenshots/
 xinqiao/screenshots/
-*.png
-*.jpg
-*.jpeg
+# 特定命名的预览/测试图片（如 preview_xxx.png、verify_xxx.png）
 preview_*.png
 verify_*.png
 
-# HTML 预览文件（非后端静态资源）
-preview/
-xinqiao/preview/
+# ============== 临时文件/调试文件 ==============
+# 调试目录
+src/debug/
+# 特定临时文件
+PATCH_TEST_MARKER.txt
+scripts/
+tasks_all.txt
+# _dump 类调试文件
+*_dump.xml
+xinqiao/ui_*.xml
+xinqiao/window_dump_*.xml
+
+# ============== 文档/HTML（按需忽略）==============
+# 中文文档（如果需要提交核心 README，删除此行或改为具体文件名）
+xinqiao/*.md
+# 预览型 HTML（不忽略后端业务静态资源）
 index.html
 xinqiao/index.html
-xinqiao/community.html
-xinqiao/preview_*.html
+# （可选）如果 community.html 是后端核心静态资源，注释此行
+# xinqiao/community.html
 
-# 中文文档（如果不需要提交）
-xinqiao/*.md
-"xinqiao/*.md"
-
-# 其他冗余目录
-app/
-# 临时UI调试文件
-xinqiao/ui_*.xml
-xinqiao/window_dump_*.xml".idea/deploymentTargetDropDown.xml" 
+# ============== 系统/其他冗余 ==============
+# Windows 系统文件
+Thumbs.db
+Desktop.ini
+# Mac 系统文件
+.DS_Store
+# 日志文件
+*.log
+# 敏感配置文件（按需添加）
+.env
+*.ini
+*.properties.local
