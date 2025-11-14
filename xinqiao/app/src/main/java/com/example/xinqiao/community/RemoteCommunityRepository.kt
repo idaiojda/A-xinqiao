@@ -13,8 +13,26 @@ class RemoteCommunityRepository(
 
     override suspend fun applyJoin(groupName: String): GroupApplyResult = api.applyJoin(groupName)
 
-    override suspend fun createGroup(name: String, description: String, schedule: String, capacity: Int): GroupCreateResult =
-        api.createGroup(CreateGroupRequest(name = name, description = description, schedule = schedule, capacity = capacity))
+    override suspend fun createGroup(name: String, description: String, schedule: String, capacity: Int, creatorName: String): GroupCreateResult =
+        try {
+            val res = api.createGroup(CreateGroupRequest(name = name, description = description, schedule = schedule, capacity = capacity, creator = creatorName))
+            try {
+                CommunityLocalCache.database()?.groupDao()?.upsert(
+                    GroupInfoEntity(
+                        name = name,
+                        memberCount = 1,
+                        rulesJson = com.google.gson.Gson().toJson(listOf("友善沟通", "禁止外传", "支持鼓励")),
+                        joined = true,
+                        adminName = creatorName,
+                        frequency = "待设置",
+                        schedule = schedule
+                    )
+                )
+            } catch (_: Exception) { }
+            res
+        } catch (_: Exception) {
+            FakeCommunityRepository.createGroup(name, description, schedule, capacity, creatorName)
+        }
 
     override suspend fun createQuestion(title: String, content: String): Question =
         api.createQuestion(NewQuestionRequest(title = title, content = content))
@@ -107,7 +125,14 @@ class RemoteCommunityRepository(
         CommunityLocalCache.database()?.postDao()?.getAll()?.map { it.toThemePost() }?.filter { it.bookmarked } ?: emptyList()
     }
 
-    override suspend fun getSharedGroups(name: String): List<String> = try { api.getSharedGroups(name) } catch (_: Exception) { emptyList() }
+    override suspend fun getSharedGroups(name: String): List<String> = try {
+        val remote = api.getSharedGroups(name)
+        if (remote.isNotEmpty()) remote else {
+            CommunityLocalCache.database()?.groupDao()?.listNamesByOwnerOrJoined(name) ?: emptyList()
+        }
+    } catch (_: Exception) {
+        CommunityLocalCache.database()?.groupDao()?.listNamesByOwnerOrJoined(name) ?: emptyList()
+    }
 
     override suspend fun getNotifications(): List<NotificationItem> = try { api.getNotifications().map { NotificationItem(it.id, it.title, it.content, it.read) } } catch (_: Exception) { emptyList() }
 
@@ -120,6 +145,40 @@ class RemoteCommunityRepository(
     }
 
     override suspend fun deletePost(id: String): Boolean = try { api.deletePost(id).ok } catch (_: Exception) { false }
+    override suspend fun getGroupMessages(groupName: String): List<GroupMessage> = try {
+        // 后端暂未提供端点，使用本地模拟实现作为兜底
+        FakeCommunityRepository.getGroupMessages(groupName)
+    } catch (_: Exception) { emptyList() }
+
+    override suspend fun postGroupMessage(groupName: String, content: String, author: String, images: List<String>, mentions: List<String>, voiceUrl: String?, voiceDurationSec: Int?): GroupMessage = try {
+        FakeCommunityRepository.postGroupMessage(groupName, content, author, images, mentions, voiceUrl, voiceDurationSec)
+    } catch (_: Exception) {
+        GroupMessage(
+            id = "gm" + System.currentTimeMillis(),
+            groupName = groupName,
+            author = author,
+            authorAvatar = null,
+            content = content,
+            images = images,
+            mentions = mentions,
+            voiceUrl = voiceUrl,
+            voiceDurationSec = voiceDurationSec,
+            timestamp = System.currentTimeMillis(),
+            recalled = false
+        )
+    }
+
+    override suspend fun checkIn(groupName: String, userName: String): BadgeAwardResult = try {
+        FakeCommunityRepository.checkIn(groupName, userName)
+    } catch (_: Exception) { BadgeAwardResult(ok = true, message = "已打卡", badge = null) }
+
+    override suspend fun getBadges(userName: String): List<Badge> = try {
+        FakeCommunityRepository.getBadges(userName)
+    } catch (_: Exception) { emptyList() }
+
+    override suspend fun recallGroupMessage(groupName: String, id: String): Boolean = try {
+        FakeCommunityRepository.recallGroupMessage(groupName, id)
+    } catch (_: Exception) { false }
 }
 
 /** 工厂：提供默认 Retrofit 构建，可在应用初始化时传入自定义 baseUrl。 */

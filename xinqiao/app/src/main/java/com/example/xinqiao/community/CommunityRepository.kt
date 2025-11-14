@@ -7,7 +7,7 @@ interface CommunityRepository {
     suspend fun getGroups(): List<String>
     // 新增：申请加入、创建问题、时间线、健康检查
     suspend fun applyJoin(groupName: String): GroupApplyResult
-    suspend fun createGroup(name: String, description: String, schedule: String, capacity: Int): GroupCreateResult
+    suspend fun createGroup(name: String, description: String, schedule: String, capacity: Int, creatorName: String): GroupCreateResult
     suspend fun createQuestion(title: String, content: String): Question
     suspend fun getMyTimeline(): List<TimelineItem>
     suspend fun health(): Health
@@ -29,6 +29,21 @@ interface CommunityRepository {
     suspend fun markNotificationRead(id: String): Boolean
     suspend fun updatePost(id: String, title: String, content: String, tags: List<String>): ThemePost
     suspend fun deletePost(id: String): Boolean
+
+    // 互助小组：群聊与打卡徽章
+    suspend fun getGroupMessages(groupName: String): List<GroupMessage>
+    suspend fun postGroupMessage(
+        groupName: String,
+        content: String,
+        author: String = "我",
+        images: List<String> = emptyList(),
+        mentions: List<String> = emptyList(),
+        voiceUrl: String? = null,
+        voiceDurationSec: Int? = null
+    ): GroupMessage
+    suspend fun checkIn(groupName: String, userName: String): BadgeAwardResult
+    suspend fun getBadges(userName: String): List<Badge>
+    suspend fun recallGroupMessage(groupName: String, id: String): Boolean
 }
 
 object FakeCommunityRepository : CommunityRepository {
@@ -92,13 +107,38 @@ object FakeCommunityRepository : CommunityRepository {
         return GroupApplyResult(accepted, msg)
     }
 
-    override suspend fun createGroup(name: String, description: String, schedule: String, capacity: Int): GroupCreateResult {
+    override suspend fun createGroup(name: String, description: String, schedule: String, capacity: Int, creatorName: String): GroupCreateResult {
         return if (name.isBlank()) {
             GroupCreateResult(false, "小组名称不能为空")
         } else if (groups.contains(name)) {
             GroupCreateResult(false, "小组已存在：$name")
         } else {
             groups.add(name)
+            val defaultRules = listOf("友善沟通", "禁止外传", "支持鼓励")
+            groupInfoMap[name] = GroupInfo(
+                name = name,
+                memberCount = 1,
+                rules = defaultRules,
+                joined = true,
+                adminName = creatorName,
+                frequency = "待设置",
+                schedule = schedule
+            )
+            val mine = sharedGroupsMap[creatorName] ?: emptyList()
+            sharedGroupsMap[creatorName] = (mine + name).distinct()
+            try {
+                CommunityLocalCache.database()?.groupDao()?.upsert(
+                    GroupInfoEntity(
+                        name = name,
+                        memberCount = 1,
+                        rulesJson = com.google.gson.Gson().toJson(defaultRules),
+                        joined = true,
+                        adminName = creatorName,
+                        frequency = "待设置",
+                        schedule = schedule
+                    )
+                )
+            } catch (_: Exception) { }
             GroupCreateResult(true, "已创建：$name")
         }
     }
@@ -247,6 +287,82 @@ object FakeCommunityRepository : CommunityRepository {
         }
         return false
     }
+
+    // --- Group chat & badges ---
+    private val groupMessagesMap: MutableMap<String, MutableList<GroupMessage>> = mutableMapOf(
+        "考研互助小组" to mutableListOf(
+            GroupMessage(
+                id = "gm1",
+                groupName = "考研互助小组",
+                author = "小桥",
+                content = "欢迎加入，一起坚持打卡！",
+                images = emptyList(),
+                mentions = emptyList(),
+                timestamp = System.currentTimeMillis() - 3600000L,
+                recalled = false
+            )
+        ),
+        "社恐成长圈" to mutableListOf(),
+        "恋爱关系修复" to mutableListOf()
+    )
+    private val userBadgesMap: MutableMap<String, MutableList<Badge>> = mutableMapOf()
+    private val userCheckinsMap: MutableMap<String, Int> = mutableMapOf()
+
+    override suspend fun getGroupMessages(groupName: String): List<GroupMessage> {
+        return groupMessagesMap[groupName]?.toList() ?: emptyList()
+    }
+
+    override suspend fun postGroupMessage(groupName: String, content: String, author: String, images: List<String>, mentions: List<String>, voiceUrl: String?, voiceDurationSec: Int?): GroupMessage {
+        val list = groupMessagesMap.getOrPut(groupName) { mutableListOf() }
+        val msg = GroupMessage(
+            id = "gm" + System.currentTimeMillis(),
+            groupName = groupName,
+            author = author,
+            authorAvatar = "https://trae-api-sg.mchost.guru/api/ide/v1/text_to_image?prompt=${author}头像&image_size=square",
+            content = content,
+            images = images,
+            mentions = mentions,
+            voiceUrl = voiceUrl,
+            voiceDurationSec = voiceDurationSec,
+            timestamp = System.currentTimeMillis(),
+            recalled = false
+        )
+        list.add(msg)
+        CommunityLocalCache.database()?.groupChatDao()?.upsertAll(listOf(msg.toEntity()))
+        return msg
+    }
+
+    override suspend fun checkIn(groupName: String, userName: String): BadgeAwardResult {
+        val c = (userCheckinsMap[userName] ?: 0) + 1
+        userCheckinsMap[userName] = c
+        var badge: Badge? = null
+        if (c == 7) {
+            badge = Badge("b7", "坚持一周", "连续 7 天打卡")
+        } else if (c == 30) {
+            badge = Badge("b30", "打卡达人", "30 天打卡")
+        }
+        if (badge != null) {
+            val list = userBadgesMap.getOrPut(userName) { mutableListOf() }
+            list.add(badge)
+        }
+        return BadgeAwardResult(ok = true, message = if (badge != null) "获得徽章：${badge.name}" else "已打卡，第 ${c} 天", badge = badge)
+    }
+
+    override suspend fun getBadges(userName: String): List<Badge> {
+        val cached = CommunityLocalCache.database()?.badgeDao()?.getByUser(userName)?.map { Badge(it.id, it.name, it.description) } ?: emptyList()
+        if (cached.isNotEmpty()) return cached
+        return userBadgesMap[userName]?.toList() ?: emptyList()
+    }
+
+    override suspend fun recallGroupMessage(groupName: String, id: String): Boolean {
+        CommunityLocalCache.database()?.groupChatDao()?.recall(id)
+        val list = groupMessagesMap[groupName]
+        if (list != null) {
+            val idx = list.indexOfFirst { it.id == id }
+            if (idx >= 0) list[idx] = list[idx].copy(recalled = true)
+        }
+        return true
+    }
 }
 
 data class GroupApplyResult(val accepted: Boolean, val message: String)
@@ -260,3 +376,19 @@ data class NotificationItem(val id: String, val title: String, val content: Stri
         NotificationItem("n1", "评论提醒", "有人回复了你的帖子", false),
         NotificationItem("n2", "系统消息", "社区规则更新", false)
     )
+
+data class GroupMessage(
+    val id: String,
+    val groupName: String,
+    val author: String,
+    val authorAvatar: String? = null,
+    val content: String,
+    val images: List<String> = emptyList(),
+    val mentions: List<String> = emptyList(),
+    val voiceUrl: String? = null,
+    val voiceDurationSec: Int? = null,
+    val timestamp: Long,
+    val recalled: Boolean = false
+)
+data class Badge(val id: String, val name: String, val description: String)
+data class BadgeAwardResult(val ok: Boolean, val message: String, val badge: Badge?)

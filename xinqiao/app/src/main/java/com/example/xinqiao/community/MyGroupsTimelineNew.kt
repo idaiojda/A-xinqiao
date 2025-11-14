@@ -11,12 +11,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Chat
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MyGroupsTimelineNew(controller: CommunityController) {
+fun MyGroupsTimelineNew(controller: CommunityController, onGroupCreated: (String) -> Unit = {}) {
     val tokens = CommunityTokensInstance
-    val timeline = remember { mutableStateListOf<TimelineItem>() }
     var error by remember { mutableStateOf<String?>(null) }
     var showCreateSheet by remember { mutableStateOf(false) }
     var groupName by remember { mutableStateOf("") }
@@ -25,15 +26,22 @@ fun MyGroupsTimelineNew(controller: CommunityController) {
     var groupCapacity by remember { mutableStateOf("") }
     var creating by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-
+    val appCtx = androidx.compose.ui.platform.LocalContext.current
+    var dbGroups by remember { mutableStateOf<List<String>>(emptyList()) }
+    var myGroups by remember { mutableStateOf<List<String>>(emptyList()) }
     LaunchedEffect(Unit) {
         try {
-            timeline.clear()
-            timeline.addAll(CommunityRepositoryProvider.current.getMyTimeline())
-        } catch (e: Exception) {
-            error = "时间线加载失败：" + (e.message ?: "网络异常")
-        }
+            val user = com.example.xinqiao.utils.AnalysisUtils.readLoginUserName(appCtx)
+            val dao = CommunityLocalCache.database()?.groupDao()
+            val localJoined = try { dao?.listJoinedNames() ?: emptyList() } catch (_: Exception) { emptyList() }
+            val localByOwner = try { dao?.listNamesByOwnerOrJoined(user) ?: emptyList() } catch (_: Exception) { emptyList() }
+            val sp = appCtx.getSharedPreferences("loginInfo", android.content.Context.MODE_PRIVATE)
+            val raw = sp.getString("joinedGroups_" + user, "[]")
+            val fromSp = try { com.google.gson.Gson().fromJson(raw, java.util.ArrayList::class.java) as List<String> } catch (_: Exception) { emptyList() }
+            dbGroups = (localJoined + localByOwner + fromSp).distinct()
+        } catch (_: Exception) { dbGroups = emptyList() }
     }
+
 
     Card(
         shape = RoundedCornerShape(tokens.corner.Card),
@@ -58,29 +66,50 @@ fun MyGroupsTimelineNew(controller: CommunityController) {
                         color = tokens.color.Neutral900
                     )
                 )
-                Button(
-                    onClick = { showCreateSheet = true },
-                    shape = RoundedCornerShape(tokens.corner.Button)
-                ) {
-                    Text("创建小组")
+                Row(horizontalArrangement = Arrangement.spacedBy(tokens.spacing.S), verticalAlignment = Alignment.CenterVertically) {
+                    if (dbGroups.isNotEmpty()) {
+                        TextButton(onClick = {
+                            val intent = android.content.Intent(appCtx, com.example.xinqiao.activity.GroupChatActivity::class.java)
+                            intent.putExtra("group", dbGroups.first())
+                            appCtx.startActivity(intent)
+                        }) { Text("进入会话") }
+                    }
+                    Button(
+                        onClick = { showCreateSheet = true },
+                        shape = RoundedCornerShape(tokens.corner.Button)
+                    ) {
+                        Text("创建小组")
+                    }
                 }
             }
             Divider(color = tokens.color.Neutral200)
+            val ctx = androidx.compose.ui.platform.LocalContext.current
+            LaunchedEffect(dbGroups) {
+                try {
+                    val user = com.example.xinqiao.utils.AnalysisUtils.readLoginUserName(ctx)
+                    val remote = try { CommunityRepositoryProvider.current.getSharedGroups(user) } catch (_: Exception) { emptyList() }
+                    myGroups = (dbGroups + remote).distinct()
+                } catch (_: Exception) { myGroups = dbGroups }
+            }
             if (error != null) {
                 Text(error!!, color = tokens.color.Danger, style = MaterialTheme.typography.bodySmall)
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(tokens.spacing.M)) {
-                    timeline.forEach { item ->
-                        val emoji = when (item.type) {
-                            "checkin" -> "🧘"
-                            "share"   -> "🎵"
-                            "badge"   -> "🏅"
-                            else      -> "•"
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(emoji, modifier = Modifier.width(24.dp))
-                            Spacer(modifier = Modifier.width(tokens.spacing.S))
-                            Text(item.text, style = MaterialTheme.typography.bodySmall, color = tokens.color.Neutral700)
+                    if (myGroups.isNotEmpty()) {
+                        Text("我创建/加入的小组", style = MaterialTheme.typography.titleSmall)
+                        Column(verticalArrangement = Arrangement.spacedBy(tokens.spacing.S)) {
+                            myGroups.forEach { g ->
+                                Surface(onClick = {
+                                    val intent = android.content.Intent(ctx, com.example.xinqiao.activity.GroupChatActivity::class.java)
+                                    intent.putExtra("group", g)
+                                    ctx.startActivity(intent)
+                                }, shape = RoundedCornerShape(tokens.corner.Button)) {
+                                    Row(modifier = Modifier.padding(tokens.spacing.M), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                        Text(g)
+                                        Icon(Icons.Default.Chat, contentDescription = null)
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -90,6 +119,7 @@ fun MyGroupsTimelineNew(controller: CommunityController) {
 
     if (showCreateSheet) {
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        val ctx = androidx.compose.ui.platform.LocalContext.current
         ModalBottomSheet(onDismissRequest = { showCreateSheet = false }, sheetState = sheetState) {
             Column(modifier = Modifier.fillMaxWidth().padding(tokens.spacing.L), verticalArrangement = Arrangement.spacedBy(tokens.spacing.M)) {
                 Text("创建小组", style = MaterialTheme.typography.titleMedium)
@@ -105,13 +135,21 @@ fun MyGroupsTimelineNew(controller: CommunityController) {
                         // 调用仓库创建
                         scope.launch {
                             try {
-                                val res = CommunityRepositoryProvider.current.createGroup(groupName.trim(), groupDesc.trim(), groupSchedule.trim(), cap)
+                                val userName = com.example.xinqiao.utils.AnalysisUtils.readLoginUserName(ctx)
+                                val res = CommunityRepositoryProvider.current.createGroup(groupName.trim(), groupDesc.trim(), groupSchedule.trim(), cap, userName)
                                 if (res.ok) {
-                                    val now = System.currentTimeMillis()
-                                    // 插入到时间线顶部
-                                    timeline.add(0, TimelineItem("badge", "创建小组：${groupName.trim()}", now))
                                     // 标记加入状态（用于其它展示）
                                     controller.setJoined(groupName.trim(), true)
+                                    // 立即更新本地列表（上方 LaunchedEffect 会合并远端并刷新展示）
+                                    dbGroups = (dbGroups + groupName.trim()).distinct()
+                                    myGroups = (myGroups + groupName.trim()).distinct()
+                                    val sp = ctx.getSharedPreferences("loginInfo", android.content.Context.MODE_PRIVATE)
+                                    val key = "joinedGroups_" + userName
+                                    val oldJson = sp.getString(key, "[]")
+                                    val oldList = try { com.google.gson.Gson().fromJson(oldJson, java.util.ArrayList::class.java) as List<String> } catch (_: Exception) { emptyList() }
+                                    val newJson = com.google.gson.Gson().toJson((oldList + groupName.trim()).distinct())
+                                    sp.edit().putString(key, newJson).apply()
+                                    onGroupCreated(groupName.trim())
                                     showCreateSheet = false
                                     groupName = ""; groupDesc = ""; groupSchedule = ""; groupCapacity = ""
                                 } else {

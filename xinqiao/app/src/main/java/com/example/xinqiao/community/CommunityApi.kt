@@ -84,7 +84,7 @@ interface CommunityApi {
 
 data class NewCommentRequest(val author: String, val text: String)
 data class NewQuestionRequest(val title: String, val content: String)
-data class CreateGroupRequest(val name: String, val description: String, val schedule: String, val capacity: Int)
+data class CreateGroupRequest(val name: String, val description: String, val schedule: String, val capacity: Int, val creator: String? = null)
 data class CreatePostRequest(val title: String, val content: String, val tags: List<String>, val images: List<String> = emptyList(), val anonymous: Boolean = false)
 data class UpdatePostRequest(val title: String, val content: String, val tags: List<String>)
 data class UserProfileDto(val name: String, val avatar: String, val bio: String, val following: Boolean, val postsCount: Int, val followersCount: Int, val followingCount: Int)

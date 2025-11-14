@@ -61,6 +61,37 @@ data class GroupInfoEntity(
     val schedule: String
 )
 
+@Entity(tableName = "group_messages")
+data class GroupMessageEntity(
+    @PrimaryKey val id: String,
+    val groupName: String,
+    val author: String,
+    val authorAvatar: String?,
+    val content: String,
+    val imagesJson: String,
+    val mentionsJson: String,
+    val voiceUrl: String?,
+    val voiceDurationSec: Int?,
+    val timestamp: Long,
+    val recalled: Boolean
+)
+
+@Entity(tableName = "badges")
+data class BadgeEntity(
+    @PrimaryKey val id: String,
+    val userName: String,
+    val name: String,
+    val description: String,
+    val awardedAt: Long
+)
+
+@Entity(tableName = "checkin_status")
+data class CheckinStatusEntity(
+    @PrimaryKey val userName: String,
+    val lastDate: String,
+    val streakDays: Int
+)
+
 @Dao
 interface PostDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -98,11 +129,50 @@ interface GroupDao {
 
     @Query("SELECT * FROM groups WHERE name = :name LIMIT 1")
     suspend fun get(name: String): GroupInfoEntity?
+
+    @Query("SELECT name FROM groups WHERE adminName = :user OR joined = 1")
+    suspend fun listNamesByOwnerOrJoined(user: String): List<String>
+
+    @Query("SELECT name FROM groups WHERE joined = 1")
+    suspend fun listJoinedNames(): List<String>
+}
+
+@Dao
+interface GroupChatDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(items: List<GroupMessageEntity>)
+
+    @Query("SELECT * FROM group_messages WHERE groupName = :group ORDER BY timestamp ASC")
+    suspend fun getByGroup(group: String): List<GroupMessageEntity>
+
+    @Query("UPDATE group_messages SET recalled = 1 WHERE id = :id")
+    suspend fun recall(id: String): Int
+
+    @Query("DELETE FROM group_messages WHERE id = :id")
+    suspend fun delete(id: String): Int
+}
+
+@Dao
+interface BadgeDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(items: List<BadgeEntity>)
+
+    @Query("SELECT * FROM badges WHERE userName = :user ORDER BY awardedAt DESC")
+    suspend fun getByUser(user: String): List<BadgeEntity>
+}
+
+@Dao
+interface CheckinDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(status: CheckinStatusEntity)
+
+    @Query("SELECT * FROM checkin_status WHERE userName = :user LIMIT 1")
+    suspend fun get(user: String): CheckinStatusEntity?
 }
 
 @Database(
-    entities = [PostEntity::class, CommentEntity::class, UserProfileEntity::class, GroupInfoEntity::class],
-    version = 1,
+    entities = [PostEntity::class, CommentEntity::class, UserProfileEntity::class, GroupInfoEntity::class, GroupMessageEntity::class, BadgeEntity::class, CheckinStatusEntity::class],
+    version = 3,
     exportSchema = false
 )
 abstract class CommunityDatabase : RoomDatabase() {
@@ -110,6 +180,9 @@ abstract class CommunityDatabase : RoomDatabase() {
     abstract fun commentDao(): CommentDao
     abstract fun profileDao(): ProfileDao
     abstract fun groupDao(): GroupDao
+    abstract fun groupChatDao(): GroupChatDao
+    abstract fun badgeDao(): BadgeDao
+    abstract fun checkinDao(): CheckinDao
 }
 
 object CommunityLocalCache {
@@ -172,3 +245,6 @@ fun PostEntity.toThemePost(): ThemePost = ThemePost(
     bookmarked = bookmarked
 )
 
+fun GroupMessageEntity.toDomain(): GroupMessage = GroupMessage(id = id, groupName = groupName, author = author, authorAvatar = authorAvatar, content = content, images = imagesJson.fromJsonList(), mentions = mentionsJson.fromJsonList(), voiceUrl = voiceUrl, voiceDurationSec = voiceDurationSec, timestamp = timestamp, recalled = recalled)
+
+fun GroupMessage.toEntity(): GroupMessageEntity = GroupMessageEntity(id = id, groupName = groupName, author = author, authorAvatar = authorAvatar, content = content, imagesJson = images.toJson(), mentionsJson = mentions.toJson(), voiceUrl = voiceUrl, voiceDurationSec = voiceDurationSec, timestamp = timestamp, recalled = recalled)

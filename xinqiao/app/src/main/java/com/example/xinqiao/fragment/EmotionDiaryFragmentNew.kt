@@ -149,50 +149,6 @@ fun EmotionDiaryScreen() {
                     )
                 )
             }
-        },
-        floatingActionButton = {
-            var fabVisible by remember { mutableStateOf(false) }
-            
-            LaunchedEffect(Unit) {
-                fabVisible = true
-            }
-            
-            AnimatedVisibility(
-                visible = fabVisible,
-                enter = scaleIn(animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessLow
-                )) + fadeIn(),
-                exit = scaleOut() + fadeOut()
-            ) {
-                ExtendedFloatingActionButton(
-                    onClick = { showAddDialog = true },
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                    icon = { 
-                        Icon(
-                            Icons.Default.AddCircle,
-                            contentDescription = null,
-                            modifier = Modifier
-                                .size(24.dp)
-                                .scale(
-                                    animateFloatAsState(
-                                        targetValue = 1f,
-                                        animationSpec = spring(
-                                            dampingRatio = Spring.DampingRatioMediumBouncy
-                                        )
-                                    ).value
-                                )
-                        )
-                    },
-                    text = { 
-                        Text(
-                            "记录心情",
-                            modifier = Modifier.animateContentSize()
-                        )
-                    }
-                )
-            }
         }
     ) { paddingValues ->
         Column(
@@ -223,7 +179,8 @@ fun EmotionDiaryScreen() {
                     startDate = startDate,
                     endDate = endDate,
                     onStartDateChange = { startDate = it },
-                    onEndDateChange = { endDate = it }
+                    onEndDateChange = { endDate = it },
+                    onAddClick = { showAddDialog = true }
                 )
             }
             
@@ -345,7 +302,8 @@ fun DateRangeSelector(
     startDate: String,
     endDate: String,
     onStartDateChange: (String) -> Unit,
-    onEndDateChange: (String) -> Unit
+    onEndDateChange: (String) -> Unit,
+    onAddClick: () -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -407,12 +365,12 @@ fun DateRangeSelector(
                 }
             }
             
-            // Filter Button
+            // Replace filter with icon-only add button
             FilledIconButton(
-                onClick = { /* Filter logic */ },
+                onClick = onAddClick,
                 modifier = Modifier.size(48.dp)
             ) {
-                Icon(Icons.Default.FilterList, contentDescription = "筛选")
+                Icon(Icons.Default.AddCircle, contentDescription = "记录心情")
             }
         }
     }

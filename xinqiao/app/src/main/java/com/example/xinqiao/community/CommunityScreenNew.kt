@@ -6,6 +6,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.*
@@ -17,6 +18,8 @@ import kotlinx.coroutines.launch
 import coil.compose.rememberAsyncImagePainter
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.work.*
 import androidx.compose.ui.platform.LocalContext
 import java.util.concurrent.TimeUnit
@@ -76,6 +79,25 @@ fun CommunityScreenNew(controller: CommunityController) {
     var editTitle by remember { mutableStateOf("") }
     var editContent by remember { mutableStateOf("") }
     var editTags by remember { mutableStateOf("") }
+    // 我的小组（新会话入口）
+    var myGroups by remember { mutableStateOf<List<String>>(emptyList()) }
+    suspend fun reloadMyGroups() {
+        val user = com.example.xinqiao.utils.AnalysisUtils.readLoginUserName(ctx)
+        try {
+            val dao = CommunityLocalCache.database()?.groupDao()
+            val localJoined: List<String> = try { dao?.listJoinedNames() ?: emptyList() } catch (_: Exception) { emptyList() }
+            val localByOwner: List<String> = try { dao?.listNamesByOwnerOrJoined(user) ?: emptyList() } catch (_: Exception) { emptyList() }
+            val remote: List<String> = try { CommunityRepositoryProvider.current.getSharedGroups(user) } catch (_: Exception) { emptyList() }
+            val sp = ctx.getSharedPreferences("loginInfo", android.content.Context.MODE_PRIVATE)
+            val raw = sp.getString("joinedGroups_" + user, "[]")
+            val fromSp: List<String> = try { com.google.gson.Gson().fromJson(raw, java.util.ArrayList::class.java) as List<String> } catch (_: Exception) { emptyList() }
+            myGroups = (localJoined + localByOwner + remote + fromSp).distinct()
+        } catch (_: Exception) {
+            myGroups = emptyList()
+        }
+    }
+    LaunchedEffect(Unit) { reloadMyGroups() }
+    LaunchedEffect(controller.selectedTab) { if (controller.selectedTab == 0) reloadMyGroups() }
 
     // 加载帖子
     LaunchedEffect(controller.selectedTab, controller.searchText, controller.selectedCategoryIndex) {
@@ -141,7 +163,43 @@ fun CommunityScreenNew(controller: CommunityController) {
                 0 -> {
                     item { EmotionChallengeCardNew() }
                     item { RecommendedGroupCardNew(controller) }
-                    item { MyGroupsTimelineNew(controller) }
+                    if (myGroups.isNotEmpty()) {
+                        item {
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = MaterialTheme.shapes.large,
+                                tonalElevation = 1.dp
+                            ) {
+                                Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                                        Text("我创建/加入的小组", style = MaterialTheme.typography.titleMedium)
+                                        TextButton(onClick = {
+                                            val intent = android.content.Intent(ctx, com.example.xinqiao.activity.GroupChatActivity::class.java)
+                                            intent.putExtra("group", myGroups.first())
+                                            ctx.startActivity(intent)
+                                        }) { Text("进入会话") }
+                                    }
+                                    myGroups.forEach { g ->
+                                        Surface(onClick = {
+                                            val intent = android.content.Intent(ctx, com.example.xinqiao.activity.GroupChatActivity::class.java)
+                                            intent.putExtra("group", g)
+                                            ctx.startActivity(intent)
+                                        }, shape = MaterialTheme.shapes.medium, tonalElevation = 0.dp) {
+                                            Row(modifier = Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                                Text(g, style = MaterialTheme.typography.bodyMedium)
+                                                Icon(Icons.Default.Chat, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    item {
+                        MyGroupsTimelineNew(controller) { _ ->
+                            scope.launch { reloadMyGroups() }
+                        }
+                    }
                     item { HotTopicCardNew() }
                 }
             }
@@ -441,38 +499,72 @@ fun CommunityScreenNew(controller: CommunityController) {
                             } else {
                                 LazyColumn(verticalArrangement = Arrangement.spacedBy(tokens.spacing.M)) {
                                     itemsIndexed(searchGroups) { _, g ->
+                                        // 获取当前小组信息以显示创建者与控制加入按钮
+                                        val ctxLocal = androidx.compose.ui.platform.LocalContext.current
+                                        val ownerName = com.example.xinqiao.utils.AnalysisUtils.readLoginUserName(ctxLocal) ?: "我"
+                                        var info by remember(g) { mutableStateOf<GroupInfo?>(null) }
+                                        LaunchedEffect(g) {
+                                            try { info = CommunityRepositoryProvider.current.getGroupInfo(g) } catch (_: Exception) { info = null }
+                                        }
+                                        val creator = when {
+                                            (info?.adminName?.isNotBlank() == true) -> info!!.adminName
+                                            g == ownerName -> ownerName
+                                            (info?.adminName.isNullOrBlank() && (info?.memberCount ?: 0) == 0) -> ownerName
+                                            else -> null
+                                        }
+                                        val isOwner = creator?.equals(ownerName, ignoreCase = true) == true
+
                                         Surface(tonalElevation = 1.dp) {
-                                            Row(modifier = Modifier.fillMaxWidth().padding(tokens.spacing.M), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                                                Text(g, style = MaterialTheme.typography.bodyLarge)
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth().padding(tokens.spacing.M),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                    Text(g, style = MaterialTheme.typography.bodyLarge)
+                                                    if (!creator.isNullOrBlank()) {
+                                                        Text(
+                                                            text = "创建者：$creator",
+                                                            style = MaterialTheme.typography.labelSmall,
+                                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                        )
+                                                    }
+                                                }
                                                 Row(horizontalArrangement = Arrangement.spacedBy(tokens.spacing.S)) {
-                                                    TextButton(onClick = {
-                                                        scope.launch {
-                                                            try {
-                                                                val r = CommunityRepositoryProvider.current.applyJoin(g)
-                                                                snackbarHostState.showSnackbar(r.message)
-                                                            } catch (_: Exception) {
-                                                                snackbarHostState.showSnackbar("申请失败")
+                                                    if (!isOwner) {
+                                                        TextButton(onClick = {
+                                                            scope.launch {
+                                                                try {
+                                                                    val r = CommunityRepositoryProvider.current.applyJoin(g)
+                                                                    snackbarHostState.showSnackbar(r.message)
+                                                                    if (r.accepted) {
+                                                                        controller.setJoined(g, true)
+                                                                        reloadMyGroups()
+                                                                    }
+                                                                } catch (_: Exception) {
+                                                                    snackbarHostState.showSnackbar("申请失败")
+                                                                }
                                                             }
-                                                        }
-                                                    }) { Text("申请加入") }
+                                                        }) { Text("申请加入") }
+                                                    }
                                                     TextButton(onClick = {
                                                         selectedGroupIntro = g
                                                         selectedGroupInfo = null
-                    scope.launch {
-                        try {
-                            selectedGroupInfo = CommunityRepositoryProvider.current.getGroupInfo(g)
-                        } catch (_: Exception) {
-                            selectedGroupInfo = com.example.xinqiao.community.GroupInfo(
-                                name = g,
-                                memberCount = 0,
-                                rules = listOf("友善沟通", "禁止外传", "支持鼓励"),
-                                joined = false,
-                                adminName = "",
-                                frequency = "",
-                                schedule = ""
-                            )
-                        }
-                    }
+                                                        scope.launch {
+                                                            try {
+                                                                selectedGroupInfo = CommunityRepositoryProvider.current.getGroupInfo(g)
+                                                            } catch (_: Exception) {
+                                                                selectedGroupInfo = com.example.xinqiao.community.GroupInfo(
+                                                                    name = g,
+                                                                    memberCount = 0,
+                                                                    rules = listOf("友善沟通", "禁止外传", "支持鼓励"),
+                                                                    joined = false,
+                                                                    adminName = "",
+                                                                    frequency = "",
+                                                                    schedule = ""
+                                                                )
+                                                            }
+                                                        }
                                                     }) { Text("查看介绍") }
                                                 }
                                             }
@@ -611,40 +703,974 @@ fun CommunityScreenNew(controller: CommunityController) {
         if (selectedGroupIntro != null) {
             Surface(modifier = Modifier.fillMaxSize()) {
                 Column(modifier = Modifier.fillMaxSize().padding(tokens.spacing.L), verticalArrangement = Arrangement.spacedBy(tokens.spacing.M)) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text(selectedGroupIntro!!, style = MaterialTheme.typography.titleMedium)
-                        TextButton(onClick = { selectedGroupIntro = null }) { Text("关闭") }
-                    }
-                    Text("小组介绍", style = MaterialTheme.typography.titleSmall)
-                    Text("成员数：${selectedGroupInfo?.memberCount ?: 0}", style = MaterialTheme.typography.bodyMedium)
-                    Text("管理员：${selectedGroupInfo?.adminName ?: ""}", style = MaterialTheme.typography.bodyMedium)
-                    Text("打卡频率：${selectedGroupInfo?.frequency ?: ""}", style = MaterialTheme.typography.bodyMedium)
-                    Text("日程安排：${selectedGroupInfo?.schedule ?: ""}", style = MaterialTheme.typography.bodyMedium)
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("规则：", style = MaterialTheme.typography.bodyMedium)
-                        val rules = selectedGroupInfo?.rules ?: emptyList()
-                        if (rules.isEmpty()) {
-                            Text("暂无规则", style = MaterialTheme.typography.bodySmall)
-                        } else {
-                            rules.forEachIndexed { i, r -> Text("${i+1}. $r", style = MaterialTheme.typography.bodySmall) }
-                        }
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(tokens.spacing.S), verticalAlignment = Alignment.CenterVertically) {
-                        val joined = selectedGroupInfo?.joined ?: false
-                        TextButton(onClick = {
-                            scope.launch {
-                                try {
-                                    val ok = CommunityRepositoryProvider.current.setGroupJoin(selectedGroupIntro!!, !joined)
-                                    if (ok) {
-                                        selectedGroupInfo = selectedGroupInfo?.copy(joined = !joined, memberCount = if (!joined) (selectedGroupInfo?.memberCount ?: 0) + 1 else (selectedGroupInfo?.memberCount ?: 0) - 1)
-                                        snackbarHostState.showSnackbar(if (!joined) "已加入" else "已退出")
-                                    } else snackbarHostState.showSnackbar("操作失败")
-                                } catch (_: Exception) {
-                                    snackbarHostState.showSnackbar("操作失败")
+                    var groupInfoLoading by remember { mutableStateOf(false) }
+                    // Modern header with gradient background
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                brush = androidx.compose.ui.graphics.Brush.linearGradient(
+                                    colors = listOf(
+                                        MaterialTheme.colorScheme.primaryContainer,
+                                        MaterialTheme.colorScheme.secondaryContainer
+                                    )
+                                ),
+                                shape = MaterialTheme.shapes.large
+                            )
+                            .padding(20.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(
+                                    text = selectedGroupIntro!!,
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                                Text(
+                                    text = "小组介绍",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                                )
+                                if (groupInfoLoading) {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                        Text("正在加载信息…", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                    }
+                                }
+                                val ownerName = com.example.xinqiao.utils.AnalysisUtils.readLoginUserName(androidx.compose.ui.platform.LocalContext.current) ?: ""
+                                val creatorName = when {
+                                    (selectedGroupInfo?.adminName?.isNotBlank() == true) -> selectedGroupInfo!!.adminName
+                                    selectedGroupIntro == ownerName -> ownerName
+                                    (selectedGroupInfo?.adminName.isNullOrBlank() && (selectedGroupInfo?.memberCount ?: 0) == 0) -> ownerName
+                                    else -> ""
+                                }
+                                if (creatorName.isNotBlank()) {
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    AssistChip(
+                                        onClick = {},
+                                        label = { Text("创建者：$creatorName") },
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = Icons.Default.Person,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
+                                    )
                                 }
                             }
-                        }) { Text(if (joined) "退出小组" else "申请加入") }
-                        TextButton(onClick = { selectedGroupIntro = null }) { Text("关闭") }
+                            IconButton(
+                                onClick = { selectedGroupIntro = null },
+                                modifier = Modifier
+                                    .background(
+                                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.3f),
+                                        shape = CircleShape
+                                    )
+                                    .size(36.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+                        }
+                    }
+                    // Modern group info cards with better visual hierarchy
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // Group stats card
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = MaterialTheme.shapes.large,
+                            tonalElevation = 2.dp
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                horizontalArrangement = Arrangement.SpaceEvenly,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(
+                                        text = "${selectedGroupInfo?.memberCount ?: 0}",
+                                        style = MaterialTheme.typography.headlineSmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Text(
+                                        text = "成员数",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                
+                                Box(
+                                    modifier = Modifier
+                                        .width(1.dp)
+                                        .height(32.dp)
+                                        .background(MaterialTheme.colorScheme.outlineVariant)
+                                )
+                                
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(
+                                        text = selectedGroupInfo?.adminName ?: "暂无",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "管理员",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                        
+                        // Group details card
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = MaterialTheme.shapes.large,
+                            tonalElevation = 1.dp
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Schedule,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Column {
+                                        Text(
+                                            text = "打卡频率",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Text(
+                                            text = selectedGroupInfo?.frequency ?: "未设置",
+                                            style = MaterialTheme.typography.bodyLarge
+                                        )
+                                    }
+                                }
+                                
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Event,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Column {
+                                        Text(
+                                            text = "日程安排",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Text(
+                                            text = selectedGroupInfo?.schedule ?: "暂无安排",
+                                            style = MaterialTheme.typography.bodyLarge
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    // Chat entry card placed near the top for visibility
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.large,
+                        tonalElevation = 2.dp
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Icon(imageVector = Icons.Default.Chat, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Text("会话", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                            }
+                            TextButton(onClick = {
+                                val intent = android.content.Intent(ctx, com.example.xinqiao.activity.GroupChatActivity::class.java)
+                                intent.putExtra("group", selectedGroupIntro!!)
+                                ctx.startActivity(intent)
+                            }) { Text("进入会话") }
+                        }
+                    }
+                    // Modern rules section with card styling
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.large,
+                        tonalElevation = 1.dp
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Rule,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Text(
+                                    text = "小组规则",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            
+                            val rules = selectedGroupInfo?.rules ?: emptyList()
+                            if (rules.isEmpty()) {
+                                Text(
+                                    text = "暂无规则",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(start = 28.dp)
+                                )
+                            } else {
+                                Column(
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.padding(start = 28.dp)
+                                ) {
+                                    rules.forEachIndexed { i, r -> 
+                                        Surface(
+                                            shape = MaterialTheme.shapes.medium,
+                                            tonalElevation = 1.dp,
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(12.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                            ) {
+                                                Surface(
+                                                    shape = CircleShape,
+                                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                                    modifier = Modifier.size(24.dp)
+                                                ) {
+                                                    Box(
+                                                        modifier = Modifier.fillMaxSize(),
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        Text(
+                                                            text = "${i + 1}",
+                                                            style = MaterialTheme.typography.labelSmall,
+                                                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                                                        )
+                                                    }
+                                                }
+                                                Text(
+                                                    text = r,
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    modifier = Modifier.weight(1f)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    // Modern group action buttons with better styling
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.large,
+                        tonalElevation = 2.dp
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            val joined = selectedGroupInfo?.joined ?: false
+                            val ownerName = com.example.xinqiao.utils.AnalysisUtils.readLoginUserName(ctx) ?: "我"
+                            val computedCreator = when {
+                                (selectedGroupInfo?.adminName?.isNotBlank() == true) -> selectedGroupInfo!!.adminName
+                                selectedGroupIntro == ownerName -> ownerName
+                                (selectedGroupInfo?.adminName.isNullOrBlank() && (selectedGroupInfo?.memberCount ?: 0) == 0) -> ownerName
+                                else -> ""
+                            }
+                            val isOwner = computedCreator.isNotBlank() && computedCreator.equals(ownerName, ignoreCase = true)
+                            
+                            if (!isOwner) {
+                                Surface(
+                                    onClick = {
+                                        scope.launch {
+                                            try {
+                                                val ok = CommunityRepositoryProvider.current.setGroupJoin(selectedGroupIntro!!, !joined)
+                                                if (ok) {
+                                                    selectedGroupInfo = selectedGroupInfo?.copy(
+                                                        joined = !joined, 
+                                                        memberCount = if (!joined) (selectedGroupInfo?.memberCount ?: 0) + 1 else (selectedGroupInfo?.memberCount ?: 0) - 1
+                                                    )
+                                                    snackbarHostState.showSnackbar(if (!joined) "已加入" else "已退出")
+                                                } else snackbarHostState.showSnackbar("操作失败")
+                                            } catch (_: Exception) {
+                                                snackbarHostState.showSnackbar("操作失败")
+                                            }
+                                        }
+                                    },
+                                    shape = CircleShape,
+                                    color = if (joined) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer,
+                                    modifier = Modifier.padding(horizontal = 8.dp)
+                                ) {
+                                    Text(
+                                        text = if (joined) "退出小组" else "申请加入",
+                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                                        color = if (joined) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer,
+                                        style = MaterialTheme.typography.labelMedium
+                                    )
+                                }
+                            }
+                            
+                            // Check-in button with prominent styling
+                            Surface(
+                                onClick = {
+                                    scope.launch {
+                                        try {
+                                            val res = CommunityRepositoryProvider.current.checkIn(selectedGroupIntro!!, "我")
+                                            snackbarHostState.showSnackbar(res.message)
+                                            val user = com.example.xinqiao.utils.AnalysisUtils.readLoginUserName(ctx) ?: "我"
+                                            scheduleCheckinReminder(ctx, user)
+                                        } catch (_: Exception) {
+                                            snackbarHostState.showSnackbar("打卡失败")
+                                        }
+                                    }
+                                },
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(horizontal = 8.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onPrimary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Text(
+                                        text = "打卡",
+                                        color = MaterialTheme.colorScheme.onPrimary,
+                                        style = MaterialTheme.typography.labelMedium
+                                    )
+                                }
+                            }
+                            
+                            // Close button with minimal styling
+                            TextButton(
+                                onClick = { selectedGroupIntro = null },
+                                modifier = Modifier.padding(horizontal = 8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("关闭")
+                            }
+                        }
+                    }
+                    val showEmbeddedChat = false
+                    var chatMessages by remember { mutableStateOf<List<GroupMessage>>(emptyList()) }
+                    var chatLoading by remember { mutableStateOf(false) }
+                    var chatInput by remember { mutableStateOf("") }
+                var chatVoicePath by remember { mutableStateOf<String?>(null) }
+                var chatVoiceDuration by remember { mutableStateOf<Int?>(null) }
+                var recording by remember { mutableStateOf(false) }
+                var recorder by remember { mutableStateOf<android.media.MediaRecorder?>(null) }
+                val requestAudioPermission = rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { granted ->
+                    if (granted) {
+                        try {
+                            val file = java.io.File(ctx.cacheDir, "voice_${System.currentTimeMillis()}.3gp")
+                            val r = android.media.MediaRecorder()
+                            r.setAudioSource(android.media.MediaRecorder.AudioSource.MIC)
+                            r.setOutputFormat(android.media.MediaRecorder.OutputFormat.THREE_GPP)
+                            r.setAudioEncoder(android.media.MediaRecorder.AudioEncoder.AMR_NB)
+                            r.setOutputFile(file.absolutePath)
+                            r.prepare()
+                            r.start()
+                            recorder = r
+                            recording = true
+                            chatVoicePath = file.absolutePath
+                            chatVoiceDuration = null
+                        } catch (_: Exception) {
+                            recording = false
+                            recorder?.release()
+                            recorder = null
+                            scope.launch { snackbarHostState.showSnackbar("录音启动失败") }
+                        }
+                    } else {
+                        scope.launch { snackbarHostState.showSnackbar("未授予录音权限") }
+                    }
+                }
+                    // Modern chat section header
+                    if (showEmbeddedChat) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.large,
+                        tonalElevation = 2.dp
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Chat,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Text(
+                                text = "群聊",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.weight(1f))
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "${chatMessages.size}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    LaunchedEffect(selectedGroupIntro) {
+                        if (selectedGroupIntro != null) {
+                            chatLoading = true
+                            try { chatMessages = CommunityRepositoryProvider.current.getGroupMessages(selectedGroupIntro!!) } catch (_: Exception) { chatMessages = emptyList() } finally { chatLoading = false }
+                        }
+                    }
+                    if (chatLoading) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) { CircularProgressIndicator() }
+                    } else {
+                        if (chatMessages.isEmpty()) {
+                            Surface(tonalElevation = 1.dp, shape = MaterialTheme.shapes.medium) {
+                                Row(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.Center) {
+                                    Text("暂无消息", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+                        LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp), verticalArrangement = Arrangement.spacedBy(tokens.spacing.S)) {
+                            itemsIndexed(chatMessages, key = { _, m -> m.id }) { _, m ->
+                                val isMyMessage = m.author == "我"
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = if (isMyMessage) Arrangement.End else Arrangement.Start
+                                ) {
+                                    Surface(
+                                        shape = MaterialTheme.shapes.large,
+                                        tonalElevation = if (isMyMessage) 3.dp else 1.dp,
+                                        color = if (isMyMessage) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+                                        modifier = Modifier.widthIn(max = 280.dp)
+                                    ) {
+                                        Column(
+                                            modifier = Modifier.padding(12.dp),
+                                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                if (!isMyMessage) {
+                                                    Surface(
+                                                        shape = CircleShape,
+                                                        color = MaterialTheme.colorScheme.secondaryContainer,
+                                                        modifier = Modifier.size(32.dp)
+                                                    ) {
+                                                        Box(
+                                                            modifier = Modifier.fillMaxSize(),
+                                                            contentAlignment = Alignment.Center
+                                                        ) {
+                                                            Text(
+                                                                text = m.author.firstOrNull()?.toString() ?: "?",
+                                                                style = MaterialTheme.typography.labelMedium,
+                                                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                                Column {
+                                                    Text(
+                                                        text = m.author,
+                                                        style = MaterialTheme.typography.labelMedium,
+                                                        color = if (isMyMessage) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                                                    )
+                                                    Text(
+                                                        text = android.text.format.DateFormat.format("HH:mm", java.util.Date(m.timestamp)).toString(),
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = if (isMyMessage) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                }
+                                                Spacer(modifier = Modifier.weight(1f))
+                                                if (m.recalled) {
+                                                    Surface(
+                                                        shape = MaterialTheme.shapes.small,
+                                                        color = MaterialTheme.colorScheme.errorContainer
+                                                    ) {
+                                                        Text(
+                                                            text = "已撤回",
+                                                            style = MaterialTheme.typography.labelSmall,
+                                                            color = MaterialTheme.colorScheme.onErrorContainer,
+                                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                        )
+                                                    }
+                                                } else if (isMyMessage && System.currentTimeMillis() - m.timestamp < 5*60*1000L) {
+                                                    IconButton(
+                                                        onClick = {
+                                                            scope.launch {
+                                                                try {
+                                                                    CommunityRepositoryProvider.current.recallGroupMessage(selectedGroupIntro!!, m.id)
+                                                                    chatMessages = chatMessages.map { if (it.id == m.id) it.copy(recalled = true) else it }
+                                                                } catch (_: Exception) {}
+                                                            }
+                                                        },
+                                                        modifier = Modifier.size(20.dp)
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.Undo,
+                                                            contentDescription = "撤回",
+                                                            modifier = Modifier.size(14.dp)
+                                                        )
+                                                    }
+                                            }
+                                        }
+
+                                        if (!m.recalled) {
+                                            if (m.content.isNotBlank()) {
+                                                Text(
+                                                    text = m.content,
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    color = if (isMyMessage) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                                                )
+                                            }
+
+                                            if (m.voiceUrl != null) {
+                                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
+                                                    AssistChip(onClick = {
+                                                        try {
+                                                            val player = android.media.MediaPlayer()
+                                                            player.setDataSource(m.voiceUrl)
+                                                            player.setOnCompletionListener { it.release() }
+                                                            player.prepare()
+                                                            player.start()
+                                                        } catch (_: Exception) {
+                                                            scope.launch { snackbarHostState.showSnackbar("播放失败") }
+                                                        }
+                                                    }, label = { Text("播放语音${m.voiceDurationSec?.let { "(${it}s)" } ?: ""}") })
+                                                }
+                                            }
+
+                                            if (m.images.isNotEmpty()) {
+                                                androidx.compose.foundation.lazy.LazyRow(
+                                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                    modifier = Modifier.padding(top = 4.dp)
+                                                ) {
+                                                        itemsIndexed(m.images) { _, url ->
+                                                            androidx.compose.foundation.Image(
+                                                                painter = rememberAsyncImagePainter(url),
+                                                                contentDescription = null,
+                                                                modifier = Modifier
+                                                                    .size(120.dp)
+                                                                    .clip(MaterialTheme.shapes.medium)
+                                                                    .clickable { previewImageUrl = url }
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                                
+                                                if (m.mentions.isNotEmpty()) {
+                                                    val navCtx = androidx.compose.ui.platform.LocalContext.current
+                                                    Row(
+                                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                                        modifier = Modifier.padding(top = 4.dp)
+                                                    ) {
+                                                        m.mentions.forEach { u ->
+                                                            Surface(
+                                                                onClick = {
+                                                                    val intent = android.content.Intent(navCtx, com.example.xinqiao.activity.UserInfoActivity::class.java)
+                                                                    intent.putExtra("name", u)
+                                                                    navCtx.startActivity(intent)
+                                                                },
+                                                                shape = MaterialTheme.shapes.small,
+                                                                color = MaterialTheme.colorScheme.tertiaryContainer
+                                                            ) {
+                                                                Text(
+                                                                    text = "@$u",
+                                                                    style = MaterialTheme.typography.labelSmall,
+                                                                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                                                )
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        var chatImages by remember { mutableStateOf<List<String>>(emptyList()) }
+                        val pickChatImages = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris -> chatImages = uris.map { it.toString() } }
+                        if (chatImages.isNotEmpty()) {
+                            var previewIndex by remember { mutableStateOf(0) }
+                            var previewOpen by remember { mutableStateOf(false) }
+                            androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(tokens.spacing.S)) {
+                                itemsIndexed(chatImages) { i, url ->
+                                    androidx.compose.foundation.layout.Box {
+                                        androidx.compose.foundation.Image(painter = rememberAsyncImagePainter(url), contentDescription = null, modifier = Modifier.size(72.dp).clickable { previewIndex = i; previewOpen = true })
+                                        IconButton(onClick = { chatImages = chatImages.filterIndexed { idx, _ -> idx != i } }, modifier = Modifier.align(Alignment.TopEnd)) { Icon(
+                                            Icons.Default.Close, contentDescription = null) }
+                                    }
+                                }
+                            }
+                            if (previewOpen) {
+                                androidx.compose.ui.window.Dialog(onDismissRequest = { previewOpen = false }) {
+                                    androidx.compose.foundation.Image(painter = rememberAsyncImagePainter(chatImages[previewIndex]), contentDescription = null, modifier = Modifier.fillMaxWidth().height(320.dp))
+                                }
+                            }
+                        }
+                        if (chatVoicePath != null && !recording) {
+                            Surface(tonalElevation = 1.dp, shape = MaterialTheme.shapes.medium) {
+                                Row(modifier = Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                    Text(text = "语音${chatVoiceDuration?.let { "(${it}s)" } ?: ""}", style = MaterialTheme.typography.bodyMedium)
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        TextButton(onClick = {
+                                            try {
+                                                val player = android.media.MediaPlayer()
+                                                player.setDataSource(chatVoicePath)
+                                                player.setOnCompletionListener { it.release() }
+                                                player.prepare()
+                                                player.start()
+                                            } catch (_: Exception) { scope.launch { snackbarHostState.showSnackbar("播放失败") } }
+                                        }) { Text("播放") }
+                                        TextButton(onClick = { chatVoicePath = null; chatVoiceDuration = null }) { Text("删除") }
+                                    }
+                                }
+                            }
+                        }
+                        // Modern message input area
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = MaterialTheme.shapes.large,
+                            tonalElevation = 3.dp
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                if (chatImages.isNotEmpty()) {
+                                    var previewIndex by remember { mutableStateOf(0) }
+                                    var previewOpen by remember { mutableStateOf(false) }
+                                    androidx.compose.foundation.lazy.LazyRow(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        modifier = Modifier.padding(bottom = 8.dp)
+                                    ) {
+                                        itemsIndexed(chatImages) { i, url ->
+                                            Box {
+                                                androidx.compose.foundation.Image(
+                                                    painter = rememberAsyncImagePainter(url),
+                                                    contentDescription = null,
+                                                    modifier = Modifier
+                                                        .size(80.dp)
+                                                        .clip(MaterialTheme.shapes.medium)
+                                                        .clickable { previewIndex = i; previewOpen = true }
+                                                )
+                                                IconButton(
+                                                    onClick = { chatImages = chatImages.filterIndexed { idx, _ -> idx != i } },
+                                                    modifier = Modifier
+                                                        .align(Alignment.TopEnd)
+                                                        .size(20.dp)
+                                                        .background(
+                                                            color = MaterialTheme.colorScheme.errorContainer,
+                                                            shape = CircleShape
+                                                        )
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Close,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(12.dp),
+                                                        tint = MaterialTheme.colorScheme.onErrorContainer
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                    if (previewOpen) {
+                                        androidx.compose.ui.window.Dialog(onDismissRequest = { previewOpen = false }) {
+                                            Surface(
+                                                shape = MaterialTheme.shapes.large,
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Column {
+                                                    androidx.compose.foundation.Image(
+                                                        painter = rememberAsyncImagePainter(chatImages[previewIndex]),
+                                                        contentDescription = null,
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .height(300.dp)
+                                                            .clip(MaterialTheme.shapes.large)
+                                                    )
+                                                    Row(
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .padding(16.dp),
+                                                        horizontalArrangement = Arrangement.SpaceBetween
+                                                    ) {
+                                                        TextButton(onClick = { previewOpen = false }) {
+                                                            Text("关闭")
+                                                        }
+                                                        Button(
+                                                            onClick = {
+                                                                chatImages = chatImages.filterIndexed { idx, _ -> idx != previewIndex }
+                                                                previewOpen = false
+                                                            }
+                                                        ) {
+                                                            Text("删除")
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Surface(
+                                        onClick = { pickChatImages.launch("image/*") },
+                                        shape = MaterialTheme.shapes.medium,
+                                        color = MaterialTheme.colorScheme.secondaryContainer,
+                                        modifier = Modifier.size(40.dp)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Image,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
+                                    }
+
+                                    Surface(
+                                        onClick = {
+                                            if (!recording) {
+                                                requestAudioPermission.launch(android.Manifest.permission.RECORD_AUDIO)
+                                            } else {
+                                                try {
+                                                    recorder?.stop()
+                                                    recorder?.release()
+                                                    recorder = null
+                                                    recording = false
+                                                    try {
+                                                        val mmr = android.media.MediaMetadataRetriever()
+                                                        mmr.setDataSource(chatVoicePath)
+                                                        val ms = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)?.toIntOrNull()
+                                                        chatVoiceDuration = ms?.let { (it / 1000).coerceAtLeast(1) }
+                                                        mmr.release()
+                                                    } catch (_: Exception) { chatVoiceDuration = null }
+                                                } catch (_: Exception) {
+                                                    recording = false
+                                                    recorder?.release()
+                                                    recorder = null
+                                                    scope.launch { snackbarHostState.showSnackbar("录音结束失败") }
+                                                }
+                                            }
+                                        },
+                                        shape = MaterialTheme.shapes.medium,
+                                        color = if (recording) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.tertiaryContainer,
+                                        modifier = Modifier.size(40.dp)
+                                    ) {
+                                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                            Icon(imageVector = Icons.Default.Mic, contentDescription = null, tint = if (recording) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onTertiaryContainer, modifier = Modifier.size(20.dp))
+                                        }
+                                    }
+
+                                    TextField(
+                                        value = chatInput,
+                                        onValueChange = { chatInput = it },
+                                        modifier = Modifier.weight(1f),
+                                        placeholder = { Text("发送消息…") },
+                                        shape = MaterialTheme.shapes.large,
+                                        colors = TextFieldDefaults.colors(
+                                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                            focusedContainerColor = MaterialTheme.colorScheme.surface
+                                        )
+                                    )
+                                    
+                                    Surface(
+                                        onClick = {
+                                            val msg = chatInput.trim()
+                                            if ((msg.isNotEmpty() || chatImages.isNotEmpty() || chatVoicePath != null) && selectedGroupIntro != null) {
+                                                val mentions = Regex("@([A-Za-z0-9_\\u4e00-\\u9fa5]+)").findAll(msg).map { it.groupValues[1] }.toList()
+                                                val before = chatMessages
+                                                val optimistic = before + GroupMessage(
+                                                    id = "tmp"+System.currentTimeMillis(),
+                                                    groupName = selectedGroupIntro!!,
+                                                    author = "我",
+                                                    content = msg,
+                                                    images = chatImages,
+                                                    mentions = mentions,
+                                                    voiceUrl = chatVoicePath,
+                                                    voiceDurationSec = chatVoiceDuration,
+                                                    timestamp = System.currentTimeMillis(),
+                                                    recalled = false
+                                                )
+                                                chatMessages = optimistic
+                                                chatInput = ""
+                                                val imagesToSend = chatImages
+                                                chatImages = emptyList()
+                                                val voiceToSend = chatVoicePath
+                                                val voiceDurationToSend = chatVoiceDuration
+                                                chatVoicePath = null
+                                                chatVoiceDuration = null
+                                                scope.launch {
+                                                    try {
+                                                        val created = CommunityRepositoryProvider.current.postGroupMessage(selectedGroupIntro!!, msg, "我", imagesToSend, mentions, voiceToSend, voiceDurationToSend)
+                                                        chatMessages = optimistic.dropLast(1) + created
+                                                    } catch (_: Exception) {
+                                                        chatMessages = before
+                                                        scope.launch { snackbarHostState.showSnackbar("发送失败") }
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        shape = CircleShape,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(40.dp)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Send,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onPrimary,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        var badges by remember { mutableStateOf<List<Badge>>(emptyList()) }
+                        LaunchedEffect(selectedGroupIntro) {
+                            val user = com.example.xinqiao.utils.AnalysisUtils.readLoginUserName(ctx) ?: "我"
+                            try { badges = CommunityRepositoryProvider.current.getBadges(user) } catch (_: Exception) { badges = emptyList() }
+                            groupInfoLoading = selectedGroupInfo == null
+                            if (groupInfoLoading) {
+                                try { selectedGroupInfo = CommunityRepositoryProvider.current.getGroupInfo(selectedGroupIntro!!) } catch (_: Exception) { selectedGroupInfo = null } finally { groupInfoLoading = false }
+                            }
+                        }
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = MaterialTheme.shapes.large,
+                            tonalElevation = 1.dp
+                        ) {
+                            Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Icon(imageVector = Icons.Default.EmojiEvents, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                                    Text("徽章", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                                }
+                                if (badges.isEmpty()) {
+                                    Text("暂无徽章", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 28.dp))
+                                } else {
+                                    androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(start = 28.dp)) {
+                                        itemsIndexed(badges) { _, b -> AssistChip(onClick = {}, label = { Text(b.name) }) }
+                                    }
+                                }
+                            }
+                        }
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = MaterialTheme.shapes.large,
+                            tonalElevation = 2.dp
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Icon(imageVector = Icons.Default.Chat, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                    Text("会话", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                                }
+                                TextButton(onClick = {
+                                    val intent = android.content.Intent(ctx, com.example.xinqiao.activity.GroupChatActivity::class.java)
+                                    intent.putExtra("group", selectedGroupIntro!!)
+                                    ctx.startActivity(intent)
+                                }) { Text("进入会话") }
+                            }
+                        }
+                    }
                     }
                 }
             }

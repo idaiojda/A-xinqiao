@@ -86,7 +86,6 @@ public class MedicalRecordRepository {
     }
 
     public List<EmotionDiaryEntity> getEmotionDiariesByDateRange(String userName, String start, String end) {
-        // direct query without cache TTL, as ranges can vary
         return emotionDiaryDao.getByDateRange(userName, start, end);
     }
 

@@ -302,14 +302,6 @@ fun ModernTabLayout(
     onTabSelected: (Int) -> Unit,
     tabs: List<String>
 ) {
-    val animatedIndicatorOffset by animateFloatAsState(
-        targetValue = selectedTab.toFloat(),
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
-        )
-    )
-    
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -322,18 +314,28 @@ fun ModernTabLayout(
         ),
         shape = RoundedCornerShape(16.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(4.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
+        ScrollableTabRow(
+            selectedTabIndex = selectedTab,
+            modifier = Modifier.fillMaxWidth(),
+            containerColor = Color.Transparent,
+            contentColor = Color(0xFF6B7280),
+            edgePadding = 8.dp
         ) {
             tabs.forEachIndexed { index, tabName ->
-                ModernTabItem(
-                    text = tabName,
-                    isSelected = index == selectedTab,
-                    onClick = { onTabSelected(index) }
+                Tab(
+                    selected = index == selectedTab,
+                    onClick = { onTabSelected(index) },
+                    selectedContentColor = Color(0xFF667eea),
+                    unselectedContentColor = Color(0xFF6B7280),
+                    text = {
+                        Text(
+                            text = tabName,
+                            fontSize = 13.sp,
+                            fontWeight = if (index == selectedTab) FontWeight.Medium else FontWeight.Normal,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    }
                 )
             }
         }
@@ -344,59 +346,9 @@ fun ModernTabLayout(
 fun ModernTabItem(
     text: String,
     isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    val animatedScale by animateFloatAsState(
-        targetValue = if (isSelected) 1.05f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessHigh
-        )
-    )
-    
-    val animatedElevation by animateDpAsState(
-        targetValue = if (isSelected) 4.dp else 0.dp,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessHigh
-        )
-    )
-    
-    Box(
-        modifier = Modifier
-            .scale(animatedScale)
-            .clip(RoundedCornerShape(12.dp))
-            .background(
-                brush = if (isSelected) {
-                    Brush.horizontalGradient(
-                        colors = listOf(
-                            Color(0xFF667eea),
-                            Color(0xFF764ba2)
-                        )
-                    )
-                } else {
-                    SolidColor(Color.Transparent)
-                }
-            )
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = LocalIndication.current,
-                onClick = {
-                    onClick()
-                }
-            )
-            .padding(horizontal = 12.dp, vertical = 8.dp)
-            .shadow(animatedElevation, RoundedCornerShape(12.dp))
-    ) {
-        Text(
-            text = text,
-            color = if (isSelected) Color.White else Color(0xFF6B7280),
-            fontSize = 12.sp,
-            fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
-            letterSpacing = 0.02.sp
-        )
-    }
-}
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {}
 
 // Placeholder content functions
 @Composable

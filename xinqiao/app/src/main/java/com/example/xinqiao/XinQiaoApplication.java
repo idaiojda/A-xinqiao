@@ -66,6 +66,7 @@ public class XinQiaoApplication extends Application {
         configureSSL();      // 配置全局SSL信任管理器
         initDatabase();      // 初始化数据库
         initImageConfigs();  // 初始化图片加载配置
+        com.example.xinqiao.community.CommunityLocalCache.INSTANCE.init(this);
         
         // 初始化性能优化相关工具
         initPerformanceMonitor();

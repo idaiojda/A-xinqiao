@@ -77,8 +77,14 @@ fun RecommendedGroupCardNew(
                 ) {
                     Text(if (isApplying) "申请中…" else "申请加入")
                 }
+                val ctx = androidx.compose.ui.platform.LocalContext.current
                 OutlinedButton(
-                    onClick = { name?.let { controller.openGroup(it) } },
+                    onClick = {
+                        val n = name ?: return@OutlinedButton
+                        val intent = android.content.Intent(ctx, com.example.xinqiao.activity.GroupChatActivity::class.java)
+                        intent.putExtra("group", n)
+                        ctx.startActivity(intent)
+                    },
                     shape = RoundedCornerShape(tokens.corner.Button),
                     enabled = name != null
                 ) {

@@ -12,6 +12,8 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -23,6 +25,7 @@ import androidx.compose.ui.graphics.*
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -643,7 +646,7 @@ class TestReportListFragmentNew : Fragment() {
             value = query,
             onValueChange = onQueryChange,
             modifier = modifier
-                .height(48.dp)
+                .heightIn(min = 52.dp)
                 .background(
                     MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                     RoundedCornerShape(12.dp)
@@ -651,7 +654,7 @@ class TestReportListFragmentNew : Fragment() {
             placeholder = {
                 Text(
                     "搜索测评报告...",
-                    style = MaterialTheme.typography.bodyMedium.copy(
+                    style = MaterialTheme.typography.labelMedium.copy(
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                     )
                 )
@@ -686,8 +689,14 @@ class TestReportListFragmentNew : Fragment() {
                 unfocusedIndicatorColor = Color.Transparent,
                 disabledIndicatorColor = Color.Transparent
             ),
-            textStyle = MaterialTheme.typography.bodyMedium,
-            singleLine = true
+            textStyle = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp, fontWeight = FontWeight.Medium),
+            singleLine = true,
+            keyboardOptions = KeyboardOptions.Default.copy(
+                imeAction = ImeAction.Search
+            ),
+            keyboardActions = KeyboardActions(
+                onSearch = { onQueryChange(query) }
+            )
         )
     }
     
@@ -1125,9 +1134,12 @@ class TestReportListFragmentNew : Fragment() {
         
         // Search filter
         if (searchQuery.isNotEmpty()) {
+            val q = searchQuery.trim().lowercase()
+            val tokens = q.split(Regex("\\s+")).filter { it.isNotEmpty() }
             filtered = filtered.filter { report ->
-                report.type.contains(searchQuery, ignoreCase = true) ||
-                (report.details?.contains(searchQuery, ignoreCase = true) ?: false)
+                val haystack = listOfNotNull(report.type, report.details, report.reportId)
+                    .joinToString(" ").lowercase()
+                tokens.any { t -> haystack.contains(t) }
             }
         }
         

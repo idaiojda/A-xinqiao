@@ -1043,6 +1043,7 @@ private fun RecommendedGroupCard(controller: CommunityController) {
                 }
                 val introInteraction = remember { MutableInteractionSource() }
                 val introPressed by introInteraction.collectIsPressedAsState()
+                val ctxIntro = androidx.compose.ui.platform.LocalContext.current
                 Surface(
                     shape = RoundedCornerShape(8.dp),
                     color = Color.White,
@@ -1051,7 +1052,9 @@ private fun RecommendedGroupCard(controller: CommunityController) {
                         .border(BorderStroke(1.dp, Primary), RoundedCornerShape(8.dp))
                         .clickable(interactionSource = introInteraction, indication = null, enabled = backendGroupName != null) {
                     val name = backendGroupName ?: return@clickable
-                    controller.openGroup(name)
+                    val intent = android.content.Intent(ctxIntro, com.example.xinqiao.activity.GroupChatActivity::class.java)
+                    intent.putExtra("group", name)
+                    ctxIntro.startActivity(intent)
                 }) {
                     Text(text = "查看介绍", color = Primary, modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp), fontSize = 12.sp)
                 }
@@ -1072,10 +1075,14 @@ private fun RecommendedGroupCard(controller: CommunityController) {
 private fun MyGroupsTimeline(controller: CommunityController) {
     val items = remember { mutableStateListOf<TimelineItem>() }
     var error by remember { mutableStateOf<String?>(null) }
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    var myGroups by remember { mutableStateOf<List<String>>(emptyList()) }
     LaunchedEffect(Unit) {
         try {
             items.clear()
             items.addAll(CommunityRepositoryProvider.current.getMyTimeline())
+            val user = com.example.xinqiao.utils.AnalysisUtils.readLoginUserName(ctx) ?: "我"
+            myGroups = CommunityRepositoryProvider.current.getSharedGroups(user)
         } catch (e: Exception) {
             error = "时间线加载失败：" + (e.message ?: "网络异常")
         }
@@ -1116,6 +1123,31 @@ private fun MyGroupsTimeline(controller: CommunityController) {
                     Text(text = item.text, fontSize = 13.sp, color = Color(0xFF555555))
                 }
                 Spacer(modifier = Modifier.height(12.dp))
+            }
+
+            if (myGroups.isNotEmpty()) {
+                Text(text = "我创建/加入的小组", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                Spacer(modifier = Modifier.height(8.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    myGroups.forEach { g ->
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color.White,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    val intent = android.content.Intent(ctx, com.example.xinqiao.activity.GroupChatActivity::class.java)
+                                    intent.putExtra("group", g)
+                                    ctx.startActivity(intent)
+                                }
+                        ) {
+                            Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(text = g, fontSize = 14.sp, color = TextPrimary)
+                                Icon(imageVector = Icons.Filled.Chat, contentDescription = null, tint = Primary)
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -1351,12 +1383,15 @@ fun PostDetailScreen(post: ThemePost, controller: CommunityController, onBack: (
 
                 Spacer(modifier = Modifier.height(16.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val ctxJoin = androidx.compose.ui.platform.LocalContext.current
                     Surface(
                         shape = RoundedCornerShape(20.dp),
                         color = Mint,
                         modifier = Modifier.clickable {
                             val target = recommendedGroup ?: "考研互助小组"
-                            controller.openGroup(target)
+                            val intent = android.content.Intent(ctxJoin, com.example.xinqiao.activity.GroupChatActivity::class.java)
+                            intent.putExtra("group", target)
+                            ctxJoin.startActivity(intent)
                         }
                     ) { Text(text = "加入小组", color = Color.White, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), fontSize = 14.sp) }
                     Surface(
@@ -1561,6 +1596,7 @@ fun CreateGroupScreen(controller: CommunityController, onBack: () -> Unit) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     Surface(shape = RoundedCornerShape(20.dp), color = Color(0xFF3D8BFF)) {
+                        val ctx = androidx.compose.ui.platform.LocalContext.current
                         Text(text = if (submitting) "创建中…" else "创建", color = Color.White, modifier = Modifier
                             .padding(horizontal = 16.dp, vertical = 8.dp)
                             .clickable(enabled = !submitting) {
@@ -1568,7 +1604,8 @@ fun CreateGroupScreen(controller: CommunityController, onBack: () -> Unit) {
                                 scope.launch {
                                     submitting = true
                                     try {
-                                        val res = CommunityRepositoryProvider.current.createGroup(name.trim(), description.trim(), schedule.trim(), cap)
+                                        val userName = com.example.xinqiao.utils.AnalysisUtils.readLoginUserName(ctx) ?: "我"
+                                        val res = CommunityRepositoryProvider.current.createGroup(name.trim(), description.trim(), schedule.trim(), cap, userName)
                                         submitMessage = res.message
                                         if (res.ok) {
                                             // 立即更新本地状态：标记已加入并返回列表

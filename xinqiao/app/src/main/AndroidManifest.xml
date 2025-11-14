@@ -10,6 +10,7 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <application
         android:name=".XinQiaoApplication"
@@ -143,6 +144,10 @@
             android:name=".activity.ArticleHistoryActivity"
             android:exported="false"
             android:label="阅读历史" />
+        <activity
+            android:name=".activity.GroupChatActivity"
+            android:exported="true"
+            android:label="会话" />
     </application>
 
 </manifest>
