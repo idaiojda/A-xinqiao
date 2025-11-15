@@ -12,7 +12,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.xinqiao.R;
 import com.example.xinqiao.mysql.DBUtils;
-import com.example.xinqiao.utils.PhoneUtils;
+import com.example.xinqiao.util.PhoneUtils;
 import com.google.android.material.textfield.TextInputEditText;
 
 import java.sql.SQLException;

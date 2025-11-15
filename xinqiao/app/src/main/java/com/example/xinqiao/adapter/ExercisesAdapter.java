@@ -20,12 +20,12 @@ import android.widget.EditText;
 import java.util.Collections;
 import android.text.Editable;
 import android.text.TextWatcher;
-import com.example.xinqiao.util.ImageLoader;
-import com.example.xinqiao.util.RecyclerViewOptimizer;
+import com.example.xinqiao.util.ui.ImageLoader;
+import com.example.xinqiao.util.ui.RecyclerViewOptimizer;
 import android.app.AlertDialog;
 import android.content.SharedPreferences;
 import android.app.Activity;
-import com.example.xinqiao.utils.PaymentUtils;
+import com.example.xinqiao.util.payment.PaymentUtils;
 
 public class ExercisesAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     private static final int TYPE_HEADER = 0;

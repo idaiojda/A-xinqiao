@@ -33,7 +33,7 @@ import androidx.lifecycle.lifecycleScope
 import com.example.xinqiao.R
 import com.example.xinqiao.repository.MedicalRecordRepository
 import com.example.xinqiao.room.entities.EmotionDiaryEntity
-import com.example.xinqiao.utils.AnalysisUtils
+import com.example.xinqiao.util.AnalysisUtils
 import com.github.mikephil.charting.charts.LineChart
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
@@ -66,11 +66,24 @@ class MedicalRecordOverviewFragmentNew : Fragment() {
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     fun MedicalOverviewScreen() {
+        val ctx = androidx.compose.ui.platform.LocalContext.current
+        var displayName by remember { mutableStateOf(userName) }
         var selectedRange by remember { mutableStateOf(30) }
         var stats by remember { mutableStateOf<OverviewStats?>(null) }
         var emotionData by remember { mutableStateOf<List<EmotionDiaryEntity>>(emptyList()) }
         var hotTests by remember { mutableStateOf<List<HotTestItem>>(emptyList()) }
         var isLoading by remember { mutableStateOf(true) }
+
+        LaunchedEffect(userName) {
+            try {
+                com.example.xinqiao.mysql.DBUtils.getInstance(ctx).getUserNickname(userName, object: com.example.xinqiao.mysql.DBUtils.UserNicknameCallback {
+                    override fun onSuccess(nickname: String?) {
+                        if (!nickname.isNullOrBlank()) displayName = nickname
+                    }
+                    override fun onError(e: java.sql.SQLException) { /* 保持用户名作为回退 */ }
+                })
+            } catch (_: Exception) { }
+        }
         
         // Load data
         LaunchedEffect(Unit) {
@@ -114,7 +127,7 @@ class MedicalRecordOverviewFragmentNew : Fragment() {
                                 .padding(16.dp)
                         ) {
                             // Header with welcome message
-                            WelcomeHeader(stats!!.userName)
+                            WelcomeHeader(displayName)
                             
                             Spacer(modifier = Modifier.height(16.dp))
                             

@@ -27,7 +27,7 @@ import android.content.SharedPreferences;
 import android.graphics.drawable.GradientDrawable;
 import android.view.ViewGroup;
 import com.google.android.flexbox.FlexboxLayout;
-import com.example.xinqiao.utils.AnalysisUtils;
+import com.example.xinqiao.util.AnalysisUtils;
 
 public class ExercisesSearchActivity extends Activity {
     private EditText etSearch;

@@ -12,7 +12,7 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import com.example.xinqiao.R;
-import com.example.xinqiao.utils.AnalysisUtils;
+import com.example.xinqiao.util.AnalysisUtils;
 
 public class SettingActivity extends AppCompatActivity {
 

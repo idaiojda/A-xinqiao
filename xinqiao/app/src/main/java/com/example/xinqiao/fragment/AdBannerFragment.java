@@ -9,7 +9,7 @@ import android.widget.ImageView;
 import androidx.fragment.app.Fragment;
 
 import com.example.xinqiao.R;
-import com.example.xinqiao.util.ImageLoader;
+import com.example.xinqiao.util.ui.ImageLoader;
 
 
 public class AdBannerFragment extends Fragment {

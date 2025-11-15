@@ -6,9 +6,9 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.xinqiao.room.repository.UserRepository
 import com.example.xinqiao.room.entity.UserInfo
-import com.example.xinqiao.utils.AnalysisUtils
+import com.example.xinqiao.util.AnalysisUtils
 import com.example.xinqiao.mysql.DBUtils
-import com.example.xinqiao.utils.PhoneUtils
+import com.example.xinqiao.util.PhoneUtils
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -16,7 +16,7 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import com.example.xinqiao.repository.MedicalRecordRepository
 import com.example.xinqiao.room.entities.ConsultationEntity
-import com.example.xinqiao.util.CryptoUtil
+import com.example.xinqiao.util.crypto.CryptoUtil
 
 data class AppointmentUiState(
     val consultantId: String = "",

@@ -11,8 +11,8 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.xinqiao.R;
-import com.example.xinqiao.utils.AnalysisUtils;
-import com.example.xinqiao.utils.PaymentUtils;
+import com.example.xinqiao.util.AnalysisUtils;
+import com.example.xinqiao.util.payment.PaymentUtils;
 
 public class RechargeActivity extends AppCompatActivity {
     private TextView tvBalance;

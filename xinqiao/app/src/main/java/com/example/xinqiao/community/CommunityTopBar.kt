@@ -14,7 +14,7 @@ import androidx.compose.ui.unit.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CommunityTopBar(onAsk: () -> Unit, onNotifications: () -> Unit) {
+fun CommunityTopBar() {
     val tokens = CommunityTokensInstance
     Surface(
         color = tokens.color.Surface,
@@ -37,24 +37,6 @@ fun CommunityTopBar(onAsk: () -> Unit, onNotifications: () -> Unit) {
                 )
             )
             Spacer(modifier = Modifier.weight(1f))
-            OutlinedButton(
-                onClick = onAsk,
-                shape = RoundedCornerShape(tokens.corner.Button),
-                border = BorderStroke(1.dp, tokens.color.Primary)
-            ) {
-                Icon(
-                    Icons.Default.Edit,
-                    contentDescription = null,
-                    tint = tokens.color.Primary,
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(modifier = Modifier.width(tokens.spacing.S))
-                Text("提问", color = tokens.color.Primary, style = MaterialTheme.typography.labelMedium)
-            }
-            Spacer(modifier = Modifier.width(tokens.spacing.M))
-            FilledIconButton(onClick = onNotifications) {
-                Icon(Icons.Filled.Edit, contentDescription = null)
-            }
         }
     }
 }

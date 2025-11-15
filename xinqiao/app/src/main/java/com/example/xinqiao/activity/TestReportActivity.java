@@ -10,11 +10,11 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import com.example.xinqiao.R;
 import com.example.xinqiao.dao.TestRecordDao;
-import com.example.xinqiao.utils.AnalysisUtils;
-import com.example.xinqiao.utils.PaymentUtils;
+import com.example.xinqiao.util.AnalysisUtils;
+import com.example.xinqiao.util.payment.PaymentUtils;
 import com.example.xinqiao.repository.MedicalRecordRepository;
 import com.example.xinqiao.room.entities.TestReportEntity;
-import com.example.xinqiao.util.CryptoUtil;
+import com.example.xinqiao.util.crypto.CryptoUtil;
 
 public class TestReportActivity extends AppCompatActivity {
     private String reportId;

@@ -6,7 +6,7 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.xinqiao.R;
-import com.example.xinqiao.fragment.EmotionDiaryFragment;
+import com.example.xinqiao.fragment.EmotionDiaryFragmentNew;
 
 public class EmotionDiaryPreviewActivity extends AppCompatActivity {
     @Override
@@ -17,9 +17,8 @@ public class EmotionDiaryPreviewActivity extends AppCompatActivity {
         if (savedInstanceState == null) {
             getSupportFragmentManager()
                 .beginTransaction()
-                .replace(R.id.preview_container, new EmotionDiaryFragment(), "EmotionDiaryFragment")
+                .replace(R.id.preview_container, new EmotionDiaryFragmentNew(), "EmotionDiaryFragment")
                 .commitAllowingStateLoss();
         }
     }
 }
-

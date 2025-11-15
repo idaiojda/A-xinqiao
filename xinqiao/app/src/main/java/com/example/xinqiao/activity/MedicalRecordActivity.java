@@ -293,7 +293,7 @@ public class MedicalRecordActivity extends AppCompatActivity {
                 case 4:
                     return new HealthMetricsFragmentNew();
                 default:
-                    return new MedicalRecordOverviewFragment();
+                    return new MedicalRecordOverviewFragmentNew();
             }
         }
 

@@ -59,6 +59,15 @@ fun CommunityScreenNew(controller: CommunityController) {
     }
     var previewImageUrl by remember { mutableStateOf<String?>(null) }
     val ctx = LocalContext.current
+    LaunchedEffect(Unit) {
+        try {
+            if (CommunityRepositoryProvider.current === FakeCommunityRepository) {
+                val baseUrl = com.example.xinqiao.network.NetworkConfig.getBaseUrl(ctx)
+                val api = com.example.xinqiao.community.CommunityServiceFactory.create(baseUrl)
+                CommunityRepositoryProvider.current = RemoteCommunityRepository(api)
+            }
+        } catch (_: Throwable) { }
+    }
     var notificationsOpen by remember { mutableStateOf(false) }
     var notifications by remember { mutableStateOf<List<NotificationItem>>(emptyList()) }
     var notificationsLoading by remember { mutableStateOf(false) }
@@ -73,6 +82,8 @@ fun CommunityScreenNew(controller: CommunityController) {
     var selectedUserProfile by remember { mutableStateOf<UserProfile?>(null) }
     var selectedUserFavorites by remember { mutableStateOf<List<ThemePost>>(emptyList()) }
     var selectedUserSharedGroups by remember { mutableStateOf<List<String>>(emptyList()) }
+    var selectedUserOwnedGroups by remember { mutableStateOf<List<String>>(emptyList()) }
+    var selectedUserOwnedLoading by remember { mutableStateOf(false) }
     var selectedGroupIntro by remember { mutableStateOf<String?>(null) }
     var selectedGroupInfo by remember { mutableStateOf<GroupInfo?>(null) }
     var editPost by remember { mutableStateOf<ThemePost?>(null) }
@@ -81,8 +92,36 @@ fun CommunityScreenNew(controller: CommunityController) {
     var editTags by remember { mutableStateOf("") }
     // 我的小组（新会话入口）
     var myGroups by remember { mutableStateOf<List<String>>(emptyList()) }
+    suspend fun persistJoin(name: String, joined: Boolean): Boolean {
+        val ok = try { CommunityRepositoryProvider.current.setGroupJoin(name, joined) } catch (_: Exception) { false }
+        try {
+            val dao = CommunityLocalCache.database()?.groupDao()
+            val cur = dao?.get(name)
+            val rules = cur?.rulesJson ?: com.google.gson.Gson().toJson(listOf("友善沟通", "禁止外传", "支持鼓励"))
+            val admin = cur?.adminName ?: ""
+            val freq = cur?.frequency ?: ""
+            val sched = cur?.schedule ?: ""
+            val mc = cur?.memberCount ?: 0
+            dao?.upsert(GroupInfoEntity(name = name, memberCount = mc, rulesJson = rules, joined = joined, adminName = admin, frequency = freq, schedule = sched))
+        } catch (_: Exception) { }
+        try {
+            val user = com.example.xinqiao.util.AnalysisUtils.readLoginUserName(ctx) ?: ""
+            if (user.isNotBlank()) {
+                val sp = ctx.getSharedPreferences("loginInfo", android.content.Context.MODE_PRIVATE)
+                val raw = sp.getString("joinedGroups_" + user, "[]")
+                val arr = try { com.google.gson.Gson().fromJson(raw, java.util.ArrayList::class.java) as MutableList<String> } catch (_: Exception) { mutableListOf() }
+                if (joined) {
+                    if (!arr.contains(name)) arr.add(name)
+                } else {
+                    arr.remove(name)
+                }
+                sp.edit().putString("joinedGroups_" + user, com.google.gson.Gson().toJson(arr)).apply()
+            }
+        } catch (_: Exception) { }
+        return ok
+    }
     suspend fun reloadMyGroups() {
-        val user = com.example.xinqiao.utils.AnalysisUtils.readLoginUserName(ctx)
+        val user = com.example.xinqiao.util.AnalysisUtils.readLoginUserName(ctx)
         try {
             val dao = CommunityLocalCache.database()?.groupDao()
             val localJoined: List<String> = try { dao?.listJoinedNames() ?: emptyList() } catch (_: Exception) { emptyList() }
@@ -115,7 +154,8 @@ fun CommunityScreenNew(controller: CommunityController) {
                 val list = CommunityRepositoryProvider.current.getPosts(
                     page = 0,
                     size = 10,
-                    category = if (controller.selectedCategoryIndex == 0) null else categoryNames[controller.selectedCategoryIndex]
+                    category = if (controller.selectedCategoryIndex == 0) null else categoryNames[controller.selectedCategoryIndex],
+                    q = controller.searchText.takeIf { it.isNotBlank() }
                 )
                 feedPosts.clear()
                 feedPosts.addAll(list)
@@ -134,7 +174,7 @@ fun CommunityScreenNew(controller: CommunityController) {
             mutableStateOf(
                 if (controller.searchText.isNotBlank()) {
                     val q = controller.searchText
-                    feedPosts.filter { it.title.contains(q) || it.content.contains(q) || it.tags.any { t -> t.contains(q) } }
+                    feedPosts.filter { com.example.xinqiao.util.text.TextMatchUtils.containsFuzzy(it.title, q) || com.example.xinqiao.util.text.TextMatchUtils.containsFuzzy(it.content, q) || it.tags.any { t -> com.example.xinqiao.util.text.TextMatchUtils.containsFuzzy(t, q) } }
                 } else if (controller.selectedCategoryIndex == categoryNames.lastIndex) {
                     feedPosts.filter { it.bookmarked }
                 } else feedPosts
@@ -148,7 +188,7 @@ fun CommunityScreenNew(controller: CommunityController) {
             verticalArrangement = Arrangement.spacedBy(tokens.spacing.L)
         ) {
             item { Spacer(modifier = Modifier.height(tokens.spacing.S)) }
-            item { CommunityTopBar(onAsk = { askOpen = true }, onNotifications = { notificationsOpen = true }) }
+            item { CommunityTopBar() }
             item {
                 CommunitySearchBar(
                     searchText = controller.searchText,
@@ -360,7 +400,7 @@ fun CommunityScreenNew(controller: CommunityController) {
         ) {
             CommunityFab(
                 onPost = { showCreateSheet = true },
-                onAsk = { controller.openAnonymousPost() }
+                onMessages = { notificationsOpen = true }
             )
         }
 
@@ -379,7 +419,7 @@ fun CommunityScreenNew(controller: CommunityController) {
                     val q = controller.searchText
                     when (searchTabIndex) {
                         0 -> {
-                            val results = remember(feedPosts, q) { feedPosts.filter { it.title.contains(q) || it.content.contains(q) || it.tags.any { t -> t.contains(q) } } }
+                            val results = remember(feedPosts, q) { feedPosts.filter { com.example.xinqiao.util.text.TextMatchUtils.containsFuzzy(it.title, q) || com.example.xinqiao.util.text.TextMatchUtils.containsFuzzy(it.content, q) || it.tags.any { t -> com.example.xinqiao.util.text.TextMatchUtils.containsFuzzy(t, q) } } }
                             if (results.isEmpty()) {
                                 Text("未找到相关内容", style = MaterialTheme.typography.bodyMedium)
                             } else {
@@ -452,7 +492,56 @@ fun CommunityScreenNew(controller: CommunityController) {
                             }
                         }
                         1 -> {
-                            val users = remember(feedPosts, q) { feedPosts.map { it.author }.distinct().filter { it.contains(q) } }
+                            var users by remember { mutableStateOf<List<String>>(emptyList()) }
+                            LaunchedEffect(q, feedPosts) {
+                                try {
+                                    val base = feedPosts.map { it.author }.distinct()
+                                    val dao = CommunityLocalCache.database()?.groupDao()
+                                    val adminsLocal: List<String> = try { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { dao?.listAdminNames() ?: emptyList() } } catch (_: Exception) { emptyList() }
+                                    val remoteGroups: List<String> = try { kotlinx.coroutines.withTimeout(3000) { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { CommunityRepositoryProvider.current.getGroups(null) } } } catch (_: Exception) { emptyList() }
+                                    val adminsRemote: List<String> = if (remoteGroups.isNotEmpty()) {
+                                        val acc = mutableSetOf<String>()
+                                        for (g in remoteGroups) {
+                                            try {
+                                                val info = CommunityRepositoryProvider.current.getGroupInfo(g)
+                                                if (info.adminName.isNotBlank()) acc.add(info.adminName)
+                                            } catch (_: Exception) { }
+                                        }
+                                        acc.toList()
+                                    } else {
+                                        try {
+                                            kotlinx.coroutines.withTimeout(2000) {
+                                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                                    val list = com.example.xinqiao.mysql.DBUtils.getInstance(ctx).listCommunityGroups()
+                                                    list.mapNotNull { g ->
+                                                        try { com.example.xinqiao.mysql.DBUtils.getInstance(ctx).getCommunityGroupOwnerName(g) } catch (_: Exception) { null }
+                                                    }
+                                                }
+                                            }
+                                        } catch (_: Exception) { emptyList() }
+                                    }
+                                    val dbUsers: List<String> = try { kotlinx.coroutines.withTimeout(2000) { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { com.example.xinqiao.mysql.DBUtils.getInstance(ctx).listUserNamesByKeyword(q) } } } catch (_: Exception) { emptyList() }
+                                    val candidates = (base + adminsLocal + adminsRemote + dbUsers).distinct()
+                                    val direct = candidates.filter { com.example.xinqiao.util.text.TextMatchUtils.containsFuzzy(it, q) }
+                                    val needNick = candidates.filterNot { com.example.xinqiao.util.text.TextMatchUtils.containsFuzzy(it, q) }
+                                    val nickMatches = mutableListOf<String>()
+                                    for (name in needNick) {
+                                        try {
+                                            val nick = kotlinx.coroutines.withTimeout(1500) {
+                                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                                    com.example.xinqiao.mysql.DBUtils.getInstance(ctx).getUserNicknameSync(name)
+                                                }
+                                            }
+                                            if (!nick.isNullOrBlank() && com.example.xinqiao.util.text.TextMatchUtils.containsFuzzy(nick, q)) {
+                                                nickMatches.add(name)
+                                            }
+                                        } catch (_: Exception) { }
+                                    }
+                                    users = (direct + nickMatches).distinct()
+                                } catch (_: Exception) {
+                                    users = feedPosts.map { it.author }.distinct().filter { com.example.xinqiao.util.text.TextMatchUtils.containsFuzzy(it, q) }
+                                }
+                            }
                             if (users.isEmpty()) {
                                 Text("未找到相关用户", style = MaterialTheme.typography.bodyMedium)
                             } else {
@@ -460,19 +549,59 @@ fun CommunityScreenNew(controller: CommunityController) {
                                     itemsIndexed(users) { _, name ->
                                         Surface(tonalElevation = 1.dp) {
                                             Row(modifier = Modifier.fillMaxWidth().padding(tokens.spacing.M), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                                                Text(name, style = MaterialTheme.typography.bodyLarge)
+                                                var displayName by remember(name) { mutableStateOf(name) }
+                                                LaunchedEffect(name) {
+                                                    try {
+                                                        val nick = kotlinx.coroutines.withTimeout(2000) {
+                                                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                                                com.example.xinqiao.mysql.DBUtils.getInstance(ctx).getUserNicknameSync(name)
+                                                            }
+                                                        }
+                                                        if (!nick.isNullOrBlank()) displayName = nick
+                                                    } catch (_: Exception) { }
+                                                }
+                                                Text(displayName, style = MaterialTheme.typography.bodyLarge)
                                                 TextButton(onClick = {
                                                     selectedUserName = name
                                                     selectedUserProfile = null
                                                     scope.launch {
+                                                        selectedUserOwnedLoading = true
                                                         try {
-                                                            selectedUserProfile = CommunityRepositoryProvider.current.getUserProfile(name)
-                                                            selectedUserFavorites = CommunityRepositoryProvider.current.getUserFavorites(name)
-                                                            selectedUserSharedGroups = CommunityRepositoryProvider.current.getSharedGroups(name)
+                                                            selectedUserProfile = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { CommunityRepositoryProvider.current.getUserProfile(name) }
+                                                            selectedUserFavorites = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { CommunityRepositoryProvider.current.getUserFavorites(name) }
+                                                            selectedUserSharedGroups = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { CommunityRepositoryProvider.current.getSharedGroups(name) }
+                                                            val dao = CommunityLocalCache.database()?.groupDao()
+                                                            val localOwned: List<String> = try { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { dao?.listNamesByOwner(name) ?: emptyList() } } catch (_: Exception) { emptyList() }
+                                                            val remoteCandidates: List<String> = try { kotlinx.coroutines.withTimeout(3000) { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { CommunityRepositoryProvider.current.getGroups(null) } } } catch (_: Exception) { emptyList() }
+                                                            val ownedRemote: List<String> = run {
+                                                                val acc = mutableListOf<String>()
+                                                                for (g in remoteCandidates) {
+                                                                    try {
+                                                                        val info = CommunityRepositoryProvider.current.getGroupInfo(g)
+                                                                        if (info.adminName.equals(name, ignoreCase = true)) acc.add(g)
+                                                                    } catch (_: Exception) { }
+                                                                }
+                                                                acc
+                                                            }
+                                                            val ownedFromDb: List<String> = try {
+                                                                kotlinx.coroutines.withTimeout(2000) {
+                                                                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                                                        val list = com.example.xinqiao.mysql.DBUtils.getInstance(ctx).listCommunityGroups()
+                                                                        list.filter { g ->
+                                                                            try { com.example.xinqiao.mysql.DBUtils.getInstance(ctx).getCommunityGroupOwnerName(g).equals(name, ignoreCase = true) }
+                                                                            catch (_: Exception) { false }
+                                                                        }
+                                                                    }
+                                                                }
+                                                            } catch (_: Exception) { emptyList() }
+                                                            selectedUserOwnedGroups = (localOwned + ownedRemote + ownedFromDb).distinct()
                                                         } catch (_: Exception) {
                                                             selectedUserProfile = UserProfile(name, "", "热心互助，持续分享情绪管理心得。", false, 0, 0, 0)
                                                             selectedUserFavorites = emptyList()
                                                             selectedUserSharedGroups = emptyList()
+                                                            selectedUserOwnedGroups = emptyList()
+                                                        } finally {
+                                                            selectedUserOwnedLoading = false
                                                         }
                                                     }
                                                 }) { Text("查看") }
@@ -486,10 +615,13 @@ fun CommunityScreenNew(controller: CommunityController) {
                             LaunchedEffect(q) {
                                 searchGroupsLoading = true
                                 try {
-                                    val all = CommunityRepositoryProvider.current.getGroups()
-                                    searchGroups = all.filter { it.contains(q) }
+                                    val matched = try { kotlinx.coroutines.withTimeout(3000) { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { CommunityRepositoryProvider.current.getGroups(q) } } } catch (_: Exception) { emptyList() }
+                                    val dbList: List<String> = try { kotlinx.coroutines.withTimeout(2000) { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { com.example.xinqiao.mysql.DBUtils.getInstance(ctx).listCommunityGroups() } } } catch (_: Exception) { emptyList() }
+                                    val union = (matched + myGroups + dbList).distinct().filter { com.example.xinqiao.util.text.TextMatchUtils.containsFuzzy(it, q) }
+                                    searchGroups = union
                                 } catch (_: Exception) {
-                                    searchGroups = emptyList()
+                                    val dbList: List<String> = try { kotlinx.coroutines.withTimeout(2000) { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { com.example.xinqiao.mysql.DBUtils.getInstance(ctx).listCommunityGroups() } } } catch (_: Exception) { emptyList() }
+                                    searchGroups = (myGroups + dbList).distinct().filter { com.example.xinqiao.util.text.TextMatchUtils.containsFuzzy(it, q) }
                                 } finally { searchGroupsLoading = false }
                             }
                             if (searchGroupsLoading) {
@@ -501,18 +633,13 @@ fun CommunityScreenNew(controller: CommunityController) {
                                     itemsIndexed(searchGroups) { _, g ->
                                         // 获取当前小组信息以显示创建者与控制加入按钮
                                         val ctxLocal = androidx.compose.ui.platform.LocalContext.current
-                                        val ownerName = com.example.xinqiao.utils.AnalysisUtils.readLoginUserName(ctxLocal) ?: "我"
+                    val ownerName = com.example.xinqiao.util.AnalysisUtils.readLoginUserName(ctxLocal) ?: "我"
                                         var info by remember(g) { mutableStateOf<GroupInfo?>(null) }
                                         LaunchedEffect(g) {
                                             try { info = CommunityRepositoryProvider.current.getGroupInfo(g) } catch (_: Exception) { info = null }
                                         }
-                                        val creator = when {
-                                            (info?.adminName?.isNotBlank() == true) -> info!!.adminName
-                                            g == ownerName -> ownerName
-                                            (info?.adminName.isNullOrBlank() && (info?.memberCount ?: 0) == 0) -> ownerName
-                                            else -> null
-                                        }
-                                        val isOwner = creator?.equals(ownerName, ignoreCase = true) == true
+                                        val ownerNickname = if (info?.adminName?.isNotBlank() == true) info!!.adminName else null
+                                        val isOwner = ownerNickname?.equals(ownerName, ignoreCase = true) == true
 
                                         Surface(tonalElevation = 1.dp) {
                                             Row(
@@ -522,30 +649,46 @@ fun CommunityScreenNew(controller: CommunityController) {
                                             ) {
                                                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                                     Text(g, style = MaterialTheme.typography.bodyLarge)
-                                                    if (!creator.isNullOrBlank()) {
+                                                    if (!ownerNickname.isNullOrBlank()) {
                                                         Text(
-                                                            text = "创建者：$creator",
+                                                            text = "群主：$ownerNickname",
                                                             style = MaterialTheme.typography.labelSmall,
                                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                                         )
                                                     }
                                                 }
                                                 Row(horizontalArrangement = Arrangement.spacedBy(tokens.spacing.S)) {
+                                                    var joined by remember(info?.joined) { mutableStateOf(info?.joined == true) }
                                                     if (!isOwner) {
-                                                        TextButton(onClick = {
-                                                            scope.launch {
-                                                                try {
-                                                                    val r = CommunityRepositoryProvider.current.applyJoin(g)
-                                                                    snackbarHostState.showSnackbar(r.message)
-                                                                    if (r.accepted) {
+                                                        if (!joined) {
+                                                            TextButton(onClick = {
+                                                                scope.launch {
+                                                                    val ok = persistJoin(g, true)
+                                                                    if (ok) {
+                                                                        joined = true
                                                                         controller.setJoined(g, true)
                                                                         reloadMyGroups()
+                                                                        snackbarHostState.showSnackbar("已加入")
+                                                                    } else {
+                                                                        snackbarHostState.showSnackbar("加入失败")
                                                                     }
-                                                                } catch (_: Exception) {
-                                                                    snackbarHostState.showSnackbar("申请失败")
                                                                 }
-                                                            }
-                                                        }) { Text("申请加入") }
+                                                            }) { Text("加入") }
+                                                        } else {
+                                                            TextButton(onClick = {
+                                                                scope.launch {
+                                                                    val ok = persistJoin(g, false)
+                                                                    if (ok) {
+                                                                        joined = false
+                                                                        controller.setJoined(g, false)
+                                                                        reloadMyGroups()
+                                                                        snackbarHostState.showSnackbar("已退出")
+                                                                    } else {
+                                                                        snackbarHostState.showSnackbar("退出失败")
+                                                                    }
+                                                                }
+                                                            }) { Text("退出") }
+                                                        }
                                                     }
                                                     TextButton(onClick = {
                                                         selectedGroupIntro = g
@@ -581,8 +724,19 @@ fun CommunityScreenNew(controller: CommunityController) {
         if (selectedUserName != null) {
             Surface(modifier = Modifier.fillMaxSize()) {
                 Column(modifier = Modifier.fillMaxSize().padding(tokens.spacing.L), verticalArrangement = Arrangement.spacedBy(tokens.spacing.M)) {
+                    var displayName by remember(selectedUserName) { mutableStateOf(selectedUserName!!) }
+                    LaunchedEffect(selectedUserName) {
+                        try {
+                            val nick = kotlinx.coroutines.withTimeout(2000) {
+                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                    com.example.xinqiao.mysql.DBUtils.getInstance(ctx).getUserNicknameSync(selectedUserName!!)
+                                }
+                            }
+                            if (!nick.isNullOrBlank()) displayName = nick
+                        } catch (_: Exception) { }
+                    }
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text(selectedUserName!!, style = MaterialTheme.typography.titleMedium)
+                        Text(displayName, style = MaterialTheme.typography.titleMedium)
                         TextButton(onClick = { selectedUserName = null }) { Text("关闭") }
                     }
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(tokens.spacing.M)) {
@@ -592,7 +746,7 @@ fun CommunityScreenNew(controller: CommunityController) {
                             modifier = Modifier.size(56.dp).clip(CircleShape)
                         )
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(selectedUserName!!, style = MaterialTheme.typography.titleSmall)
+                            Text(displayName, style = MaterialTheme.typography.titleSmall)
                             Text(selectedUserProfile?.bio ?: "热心互助，持续分享情绪管理心得。", style = MaterialTheme.typography.bodySmall, color = tokens.color.Neutral700)
                             val posts = selectedUserProfile?.postsCount ?: 0
                             val fans = selectedUserProfile?.followersCount ?: 0
@@ -688,6 +842,16 @@ fun CommunityScreenNew(controller: CommunityController) {
                             }
                         }
                     }
+                    Text("TA创建的小组", style = MaterialTheme.typography.titleSmall)
+                    if (selectedUserOwnedLoading) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) { CircularProgressIndicator() }
+                    } else if (selectedUserOwnedGroups.isEmpty()) {
+                        Text("暂无创建的小组", style = MaterialTheme.typography.bodyMedium)
+                    } else {
+                        androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(tokens.spacing.S)) {
+                            itemsIndexed(selectedUserOwnedGroups) { _, g -> AssistChip(onClick = { selectedGroupIntro = g }, label = { Text(g) }) }
+                        }
+                    }
                     Text("共同小组", style = MaterialTheme.typography.titleSmall)
                     if (selectedUserSharedGroups.isEmpty()) {
                         Text("暂无共同小组", style = MaterialTheme.typography.bodyMedium)
@@ -738,6 +902,82 @@ fun CommunityScreenNew(controller: CommunityController) {
                                     style = MaterialTheme.typography.labelMedium,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                                 )
+                                var editDescOpen by remember { mutableStateOf(false) }
+                                val editScope = rememberCoroutineScope()
+                                var canEditDesc by remember { mutableStateOf(false) }
+                                LaunchedEffect(selectedGroupIntro, selectedGroupInfo?.adminName) {
+                                    try {
+                                        val current = com.example.xinqiao.util.AnalysisUtils.readLoginUserName(ctx) ?: ""
+                                        var admin = selectedGroupInfo?.adminName
+                                        if (admin.isNullOrBlank() && selectedGroupIntro != null) {
+                                            admin = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                                com.example.xinqiao.mysql.DBUtils.getInstance(ctx).getCommunityGroupOwnerName(selectedGroupIntro!!)
+                                            }
+                                        }
+                                        canEditDesc = admin?.equals(current, ignoreCase = true) == true
+                                    } catch (_: Exception) { canEditDesc = false }
+                                }
+                                var groupDesc by remember(selectedGroupIntro) { mutableStateOf("") }
+                                LaunchedEffect(selectedGroupIntro) {
+                                    val name = selectedGroupIntro
+                                    if (name != null) {
+                                        try {
+                                            groupDesc = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                                com.example.xinqiao.mysql.DBUtils.getInstance(ctx).getCommunityGroupInfo(name)?.description ?: ""
+                                            } ?: ""
+                                        } catch (_: Exception) { groupDesc = "" }
+                                    }
+                                }
+                                if (groupDesc.isBlank()) {
+                                    Text(
+                                        text = "群主比较懒.................",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = if (canEditDesc) Modifier.clickable { editDescOpen = true } else Modifier
+                                    )
+                                } else {
+                                    Text(
+                                        text = groupDesc,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = if (canEditDesc) Modifier.clickable { editDescOpen = true } else Modifier
+                                    )
+                                }
+                                if (editDescOpen) {
+                                    var descEdit by remember(groupDesc, editDescOpen) { mutableStateOf(groupDesc) }
+                                    androidx.compose.material3.AlertDialog(
+                                        onDismissRequest = { editDescOpen = false },
+                                        confirmButton = {
+                                            TextButton(onClick = {
+                                                val name = selectedGroupIntro ?: ""
+                                                if (name.isNotBlank()) {
+                                                    editScope.launch {
+                                                        val ok = try {
+                                                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                                                CommunityRepositoryProvider.current.updateGroupInfo(name, if (descEdit.isNotBlank()) descEdit else null, null, null)
+                                                            }
+                                                        } catch (_: Exception) { false }
+                                                        if (!ok) {
+                                                            try {
+                                                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                                                    com.example.xinqiao.mysql.DBUtils.getInstance(ctx).updateCommunityGroupInfo(name, descEdit, null, null)
+                                                                }
+                                                            } catch (_: Exception) { }
+                                                        }
+                                                        groupDesc = descEdit
+                                                        editDescOpen = false
+                                                    }
+                                                } else {
+                                                    editDescOpen = false
+                                                }
+                                            }) { Text("保存") }
+                                        },
+                                        dismissButton = { TextButton(onClick = { editDescOpen = false }) { Text("取消") } },
+                                        text = {
+                                            androidx.compose.material3.TextField(value = descEdit, onValueChange = { descEdit = it }, label = { Text("编辑小组介绍") })
+                                        }
+                                    )
+                                }
                                 if (groupInfoLoading) {
                                     Spacer(modifier = Modifier.height(8.dp))
                                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -745,18 +985,40 @@ fun CommunityScreenNew(controller: CommunityController) {
                                         Text("正在加载信息…", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
                                     }
                                 }
-                                val ownerName = com.example.xinqiao.utils.AnalysisUtils.readLoginUserName(androidx.compose.ui.platform.LocalContext.current) ?: ""
-                                val creatorName = when {
-                                    (selectedGroupInfo?.adminName?.isNotBlank() == true) -> selectedGroupInfo!!.adminName
-                                    selectedGroupIntro == ownerName -> ownerName
-                                    (selectedGroupInfo?.adminName.isNullOrBlank() && (selectedGroupInfo?.memberCount ?: 0) == 0) -> ownerName
-                                    else -> ""
+                                // 群主昵称：优先 adminName，对应用户资料中的展示名
+                                var ownerNickname by remember(selectedGroupIntro, selectedGroupInfo?.adminName) { mutableStateOf(selectedGroupInfo?.adminName ?: "") }
+                                LaunchedEffect(selectedGroupIntro, selectedGroupInfo?.adminName) {
+                                    val display = try {
+                                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                            var admin = selectedGroupInfo?.adminName
+                                            if (admin.isNullOrBlank() && selectedGroupIntro != null) {
+                                                admin = CommunityLocalCache.database()?.groupDao()?.get(selectedGroupIntro!!)?.adminName ?: admin
+                                                if (admin.isNullOrBlank()) {
+                                                    admin = com.example.xinqiao.mysql.DBUtils.getInstance(ctx).getCommunityGroupOwnerName(selectedGroupIntro!!)
+                                                }
+                                            }
+                                            if (admin.isNullOrBlank() && selectedGroupIntro != null) {
+                                                val me = com.example.xinqiao.util.AnalysisUtils.readLoginUserName(ctx) ?: ""
+                                                if (me.isNotBlank()) {
+                                                    com.example.xinqiao.mysql.DBUtils.getInstance(ctx).setCommunityGroupOwner(selectedGroupIntro!!, me)
+                                                    admin = me
+                                                }
+                                            }
+                                            var nickname = ""
+                                            val user = admin ?: ""
+                                            if (user.isNotBlank()) {
+                                                try { nickname = com.example.xinqiao.mysql.DBUtils.getInstance(ctx).getUserNicknameSync(user) ?: "" } catch (_: Exception) { }
+                                            }
+                                            if (nickname.isNotBlank()) nickname else user
+                                        }
+                                    } catch (_: Exception) { "" }
+                                    ownerNickname = display
                                 }
-                                if (creatorName.isNotBlank()) {
+                                if (ownerNickname.isNotBlank()) {
                                     Spacer(modifier = Modifier.height(6.dp))
                                     AssistChip(
                                         onClick = {},
-                                        label = { Text("创建者：$creatorName") },
+                                        label = { Text("群主：$ownerNickname") },
                                         leadingIcon = {
                                             Icon(
                                                 imageVector = Icons.Default.Person,
@@ -802,12 +1064,21 @@ fun CommunityScreenNew(controller: CommunityController) {
                                 horizontalArrangement = Arrangement.SpaceEvenly,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
+                                var realMemberCount by remember(selectedGroupIntro, selectedGroupInfo?.memberCount) { mutableStateOf(selectedGroupInfo?.memberCount ?: 0) }
+                                LaunchedEffect(selectedGroupIntro, selectedGroupInfo?.memberCount) {
+                                    val count = try {
+                                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                            if (selectedGroupIntro != null) com.example.xinqiao.mysql.DBUtils.getInstance(ctx).getCommunityGroupMemberCount(selectedGroupIntro!!) else realMemberCount
+                                        }
+                                    } catch (_: Exception) { selectedGroupInfo?.memberCount ?: 0 }
+                                    realMemberCount = count
+                                }
                                 Column(
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                     verticalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
                                     Text(
-                                        text = "${selectedGroupInfo?.memberCount ?: 0}",
+                                        text = "$realMemberCount",
                                         style = MaterialTheme.typography.headlineSmall,
                                         color = MaterialTheme.colorScheme.primary
                                     )
@@ -829,79 +1100,41 @@ fun CommunityScreenNew(controller: CommunityController) {
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                     verticalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
-                                    Text(
-                                        text = selectedGroupInfo?.adminName ?: "暂无",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    Text(
-                                        text = "管理员",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
+                                    var ownerNickname2 by remember(selectedGroupIntro, selectedGroupInfo?.adminName) { mutableStateOf(selectedGroupInfo?.adminName ?: "暂无") }
+                                    LaunchedEffect(selectedGroupIntro, selectedGroupInfo?.adminName) {
+                                        val display = try {
+                                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                                var admin = selectedGroupInfo?.adminName
+                                                if (admin.isNullOrBlank() && selectedGroupIntro != null) {
+                                                    admin = CommunityLocalCache.database()?.groupDao()?.get(selectedGroupIntro!!)?.adminName ?: admin
+                                                    if (admin.isNullOrBlank()) {
+                                                        admin = com.example.xinqiao.mysql.DBUtils.getInstance(ctx).getCommunityGroupOwnerName(selectedGroupIntro!!)
+                                                    }
+                                                }
+                                                if (admin.isNullOrBlank() && selectedGroupIntro != null) {
+                                                    val me = com.example.xinqiao.util.AnalysisUtils.readLoginUserName(ctx) ?: ""
+                                                    if (me.isNotBlank()) {
+                                                        com.example.xinqiao.mysql.DBUtils.getInstance(ctx).setCommunityGroupOwner(selectedGroupIntro!!, me)
+                                                        admin = me
+                                                    }
+                                                }
+                                                val user = admin ?: ""
+                                                var nickname = ""
+                                                if (user.isNotBlank()) {
+                                                    try { nickname = com.example.xinqiao.mysql.DBUtils.getInstance(ctx).getUserNicknameSync(user) ?: "" } catch (_: Exception) { }
+                                                }
+                                                if (nickname.isNotBlank()) nickname else (user.ifBlank { "暂无" })
+                                            }
+                                        } catch (_: Exception) { "暂无" }
+                                        ownerNickname2 = display
+                                    }
+                                    Text(ownerNickname2, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+                                    Text("群主", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                         }
                         
-                        // Group details card
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = MaterialTheme.shapes.large,
-                            tonalElevation = 1.dp
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(16.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Schedule,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                    Column {
-                                        Text(
-                                            text = "打卡频率",
-                                            style = MaterialTheme.typography.labelMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                        Text(
-                                            text = selectedGroupInfo?.frequency ?: "未设置",
-                                            style = MaterialTheme.typography.bodyLarge
-                                        )
-                                    }
-                                }
-                                
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Event,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                    Column {
-                                        Text(
-                                            text = "日程安排",
-                                            style = MaterialTheme.typography.labelMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                        Text(
-                                            text = selectedGroupInfo?.schedule ?: "暂无安排",
-                                            style = MaterialTheme.typography.bodyLarge
-                                        )
-                                    }
-                                }
-                            }
-                        }
+                        // 小组详情卡已移除
                     }
                     // Chat entry card placed near the top for visibility
                     Surface(
@@ -939,6 +1172,11 @@ fun CommunityScreenNew(controller: CommunityController) {
                                 .padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
+                            var rulesEditOpen by remember { mutableStateOf(false) }
+                            val rulesScope = rememberCoroutineScope()
+                            val currentUser2 = com.example.xinqiao.util.AnalysisUtils.readLoginUserName(ctx) ?: ""
+                            val canEditOwnerRules = (selectedGroupInfo?.adminName?.equals(currentUser2, ignoreCase = true) == true)
+                            var rulesInput by remember(selectedGroupInfo) { mutableStateOf(selectedGroupInfo?.rules?.joinToString("\n") ?: "") }
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -1008,6 +1246,46 @@ fun CommunityScreenNew(controller: CommunityController) {
                                     }
                                 }
                             }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                                if (canEditOwnerRules) {
+                                    TextButton(onClick = { rulesEditOpen = true }) { Text("编辑规则") }
+                                }
+                            }
+                            if (rulesEditOpen) {
+                                androidx.compose.material3.AlertDialog(
+                                    onDismissRequest = { rulesEditOpen = false },
+                                    confirmButton = {
+                                        TextButton(onClick = {
+                                            val name = selectedGroupInfo?.name ?: selectedGroupIntro ?: ""
+                                            if (!name.isNullOrBlank()) {
+                                                rulesScope.launch {
+                                                    if (!canEditOwnerRules) {
+                                                        snackbarHostState.showSnackbar("仅群主可编辑")
+                                                        rulesEditOpen = false
+                                                        return@launch
+                                                    }
+                                                    val rulesJson = if (rulesInput.isNotBlank()) com.google.gson.Gson().toJson(rulesInput.split('\n').map { it.trim() }.filter { it.isNotBlank() }) else null
+                                                    val ok = try {
+                                                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                                            CommunityRepositoryProvider.current.updateGroupInfo(name!!, null, rulesJson, null)
+                                                        }
+                                                    } catch (_: Exception) { false }
+                                                    if (!ok) {
+                                                        try { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { com.example.xinqiao.mysql.DBUtils.getInstance(ctx).updateCommunityGroupInfo(name!!, null, rulesJson, null) } } catch (_: Exception) { }
+                                                    }
+                                                    val newRules = if (rulesInput.isNotBlank()) rulesInput.split('\n').map { it.trim() }.filter { it.isNotBlank() } else emptyList()
+                                                    selectedGroupInfo = selectedGroupInfo?.copy(rules = newRules)
+                                                    rulesEditOpen = false
+                                                }
+                                            }
+                                        }) { Text("保存") }
+                                    },
+                                    dismissButton = { TextButton(onClick = { rulesEditOpen = false }) { Text("取消") } },
+                                    text = {
+                                        androidx.compose.material3.TextField(value = rulesInput, onValueChange = { rulesInput = it }, label = { Text("小组规则(每行一条)") })
+                                    }
+                                )
+                            }
                         }
                     }
                     // Modern group action buttons with better styling
@@ -1024,7 +1302,7 @@ fun CommunityScreenNew(controller: CommunityController) {
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             val joined = selectedGroupInfo?.joined ?: false
-                            val ownerName = com.example.xinqiao.utils.AnalysisUtils.readLoginUserName(ctx) ?: "我"
+                            val ownerName = com.example.xinqiao.util.AnalysisUtils.readLoginUserName(ctx) ?: "我"
                             val computedCreator = when {
                                 (selectedGroupInfo?.adminName?.isNotBlank() == true) -> selectedGroupInfo!!.adminName
                                 selectedGroupIntro == ownerName -> ownerName
@@ -1064,42 +1342,7 @@ fun CommunityScreenNew(controller: CommunityController) {
                                 }
                             }
                             
-                            // Check-in button with prominent styling
-                            Surface(
-                                onClick = {
-                                    scope.launch {
-                                        try {
-                                            val res = CommunityRepositoryProvider.current.checkIn(selectedGroupIntro!!, "我")
-                                            snackbarHostState.showSnackbar(res.message)
-                                            val user = com.example.xinqiao.utils.AnalysisUtils.readLoginUserName(ctx) ?: "我"
-                                            scheduleCheckinReminder(ctx, user)
-                                        } catch (_: Exception) {
-                                            snackbarHostState.showSnackbar("打卡失败")
-                                        }
-                                    }
-                                },
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(horizontal = 8.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.CheckCircle,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onPrimary,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Text(
-                                        text = "打卡",
-                                        color = MaterialTheme.colorScheme.onPrimary,
-                                        style = MaterialTheme.typography.labelMedium
-                                    )
-                                }
-                            }
+                            
                             
                             // Close button with minimal styling
                             TextButton(
@@ -1621,7 +1864,7 @@ fun CommunityScreenNew(controller: CommunityController) {
                         }
                         var badges by remember { mutableStateOf<List<Badge>>(emptyList()) }
                         LaunchedEffect(selectedGroupIntro) {
-                            val user = com.example.xinqiao.utils.AnalysisUtils.readLoginUserName(ctx) ?: "我"
+                            val user = com.example.xinqiao.util.AnalysisUtils.readLoginUserName(ctx) ?: "我"
                             try { badges = CommunityRepositoryProvider.current.getBadges(user) } catch (_: Exception) { badges = emptyList() }
                             groupInfoLoading = selectedGroupInfo == null
                             if (groupInfoLoading) {

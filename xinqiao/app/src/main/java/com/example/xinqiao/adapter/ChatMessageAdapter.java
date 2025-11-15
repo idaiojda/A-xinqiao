@@ -21,8 +21,8 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.xinqiao.R;
 import com.example.xinqiao.bean.ChatHistory;
 import com.example.xinqiao.mysql.DBUtils;
-import com.example.xinqiao.util.ImageLoader;
-import com.example.xinqiao.utils.AnalysisUtils;
+import com.example.xinqiao.util.ui.ImageLoader;
+import com.example.xinqiao.util.AnalysisUtils;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;

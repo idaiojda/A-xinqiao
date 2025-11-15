@@ -16,7 +16,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.xinqiao.R;
 import com.example.xinqiao.activity.VideoListActivity;
 import com.example.xinqiao.bean.CourseBean;
-import com.example.xinqiao.util.ImageLoader;
+import com.example.xinqiao.util.ui.ImageLoader;
 
 public class CourseListAdapter extends ListAdapter<CourseBean, CourseListAdapter.ViewHolder> {
     private final Context mContext;

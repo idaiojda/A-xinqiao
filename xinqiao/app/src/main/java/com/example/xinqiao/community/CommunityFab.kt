@@ -15,7 +15,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun CommunityFab(
     onPost: () -> Unit,
-    onAsk: () -> Unit
+    onMessages: () -> Unit
 ) {
     val tokens = CommunityTokensInstance
     var expanded by remember { mutableStateOf(false) }
@@ -26,11 +26,11 @@ fun CommunityFab(
                 verticalArrangement = Arrangement.spacedBy(tokens.spacing.M)
             ) {
                 SmallFloatingActionButton(
-                    onClick = onAsk,
+                    onClick = onMessages,
                     containerColor = tokens.color.Surface,
                     elevation = FloatingActionButtonDefaults.elevation(tokens.elevate.Card)
                 ) {
-                    Icon(Icons.Default.QuestionAnswer, contentDescription = null, tint = tokens.color.Primary)
+                    Icon(Icons.Default.Chat, contentDescription = null, tint = tokens.color.Primary)
                 }
                 SmallFloatingActionButton(
                     onClick = onPost,

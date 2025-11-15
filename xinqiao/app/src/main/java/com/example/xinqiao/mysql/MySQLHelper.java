@@ -717,6 +717,56 @@ public class MySQLHelper {
                 "INDEX idx_search_history_createTime (createTime)" +
                 ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
             );
+
+            // --- 社区功能数据库（地基） ---
+            // 小组信息表
+            conn.createStatement().execute(
+                "CREATE TABLE IF NOT EXISTS community_groups (" +
+                "name VARCHAR(100) PRIMARY KEY, " +
+                "description TEXT, " +
+                "admin_name VARCHAR(50), " +
+                "schedule VARCHAR(100), " +
+                "capacity INT DEFAULT 0, " +
+                "member_count INT DEFAULT 0, " +
+                "rules_json TEXT, " +
+                "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
+                "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP" +
+                ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+            );
+
+            // 小组成员表
+            conn.createStatement().execute(
+                "CREATE TABLE IF NOT EXISTS community_group_members (" +
+                "id INT AUTO_INCREMENT PRIMARY KEY, " +
+                "group_name VARCHAR(100) NOT NULL, " +
+                "user_name VARCHAR(50) NOT NULL, " +
+                "joined TINYINT(1) DEFAULT 1, " +
+                "joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
+                "UNIQUE KEY uk_group_user (group_name, user_name), " +
+                "INDEX idx_group_name (group_name), " +
+                "INDEX idx_user_name (user_name), " +
+                "FOREIGN KEY (group_name) REFERENCES community_groups(name) ON DELETE CASCADE" +
+                ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+            );
+
+            // 小组消息表
+            conn.createStatement().execute(
+                "CREATE TABLE IF NOT EXISTS community_group_messages (" +
+                "id VARCHAR(64) PRIMARY KEY, " +
+                "group_name VARCHAR(100) NOT NULL, " +
+                "author VARCHAR(50) NOT NULL, " +
+                "author_avatar TEXT, " +
+                "content TEXT, " +
+                "images_json TEXT, " +
+                "mentions_json TEXT, " +
+                "voice_url VARCHAR(255), " +
+                "voice_duration_sec INT, " +
+                "timestamp BIGINT NOT NULL, " +
+                "recalled TINYINT(1) DEFAULT 0, " +
+                "INDEX idx_group_ts (group_name, timestamp), " +
+                "FOREIGN KEY (group_name) REFERENCES community_groups(name) ON DELETE CASCADE" +
+                ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+            );
             
             long endTime = System.currentTimeMillis();
             android.util.Log.i("MySQLHelper", "数据库表创建完成，耗时: " + (endTime - startTime) + "ms");

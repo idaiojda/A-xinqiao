@@ -15,9 +15,9 @@ import androidx.recyclerview.widget.StaggeredGridLayoutManager;
 import com.example.xinqiao.R;
 import com.example.xinqiao.adapter.CourseListAdapter;
 import com.example.xinqiao.bean.CourseBean;
-import com.example.xinqiao.utils.AnalysisUtils;
-import com.example.xinqiao.util.RecyclerViewOptimizer;
-import com.example.xinqiao.util.SpacesItemDecoration;
+import com.example.xinqiao.util.AnalysisUtils;
+import com.example.xinqiao.util.ui.RecyclerViewOptimizer;
+import com.example.xinqiao.util.ui.SpacesItemDecoration;
 
 import java.io.InputStream;
 import java.util.ArrayList;

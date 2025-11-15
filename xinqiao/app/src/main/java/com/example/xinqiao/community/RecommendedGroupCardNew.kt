@@ -52,21 +52,44 @@ fun RecommendedGroupCardNew(
                 text = "每日 10 分钟，科学缓解考试与工作压力",
                 style = MaterialTheme.typography.bodySmall.copy(color = tokens.color.Neutral700)
             )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(tokens.spacing.M)
-            ) {
-                Button(
-                    onClick = {
-                        if (isApplying || name == null) return@Button
-                        scope.launch {
-                            isApplying = true
-                            try {
-                                val res = CommunityRepositoryProvider.current.applyJoin(name!!)
-                                applyMessage = if (res.accepted) "已申请成功：${res.message}" else "申请未通过：${res.message}"
-                                if (res.accepted) controller.setJoined(name, true)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(tokens.spacing.M)
+        ) {
+            val ctx = androidx.compose.ui.platform.LocalContext.current
+            Button(
+                onClick = {
+                    if (isApplying || name == null) return@Button
+                    scope.launch {
+                        isApplying = true
+                        try {
+                            val ok = CommunityRepositoryProvider.current.setGroupJoin(name!!, true)
+                                if (!ok) {
+                                    try {
+                                        val dao = CommunityLocalCache.database()?.groupDao()
+                                        val cur = dao?.get(name!!)
+                                        val rules = cur?.rulesJson ?: com.google.gson.Gson().toJson(listOf("友善沟通", "禁止外传", "支持鼓励"))
+                                        val admin = cur?.adminName ?: ""
+                                        val freq = cur?.frequency ?: ""
+                                        val sched = cur?.schedule ?: ""
+                                        val mc = cur?.memberCount ?: 0
+                                        dao?.upsert(GroupInfoEntity(name = name!!, memberCount = mc, rulesJson = rules, joined = true, adminName = admin, frequency = freq, schedule = sched))
+                                    } catch (_: Exception) { }
+                                }
+                                try {
+                                    val user = com.example.xinqiao.util.AnalysisUtils.readLoginUserName(ctx) ?: ""
+                                    if (user.isNotBlank()) {
+                                        val sp = ctx.getSharedPreferences("loginInfo", android.content.Context.MODE_PRIVATE)
+                                        val raw = sp.getString("joinedGroups_" + user, "[]")
+                                        val arr = try { com.google.gson.Gson().fromJson(raw, java.util.ArrayList::class.java) as MutableList<String> } catch (_: Exception) { mutableListOf() }
+                                        if (!arr.contains(name)) arr.add(name!!)
+                                        sp.edit().putString("joinedGroups_" + user, com.google.gson.Gson().toJson(arr)).apply()
+                                    }
+                                } catch (_: Exception) { }
+                                controller.setJoined(name!!, true)
+                                applyMessage = "已加入"
                             } catch (e: Exception) {
-                                applyMessage = "申请失败：" + (e.message ?: "网络异常")
+                                applyMessage = "加入失败：" + (e.message ?: "网络异常")
                             } finally {
                                 isApplying = false
                             }
@@ -75,9 +98,8 @@ fun RecommendedGroupCardNew(
                     shape = RoundedCornerShape(tokens.corner.Button),
                     enabled = !isApplying && name != null
                 ) {
-                    Text(if (isApplying) "申请中…" else "申请加入")
+                    Text(if (isApplying) "处理中…" else "加入")
                 }
-                val ctx = androidx.compose.ui.platform.LocalContext.current
                 OutlinedButton(
                     onClick = {
                         val n = name ?: return@OutlinedButton

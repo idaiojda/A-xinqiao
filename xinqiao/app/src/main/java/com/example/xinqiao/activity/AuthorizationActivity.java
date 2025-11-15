@@ -19,7 +19,7 @@ import com.example.xinqiao.R;
 import com.example.xinqiao.adapter.AuthorizationAdapter;
 import com.example.xinqiao.repository.MedicalRecordRepository;
 import com.example.xinqiao.room.entities.AuthorizationEntity;
-import com.example.xinqiao.utils.AnalysisUtils;
+import com.example.xinqiao.util.AnalysisUtils;
 
 import java.util.List;
 import java.util.ArrayList;

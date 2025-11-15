@@ -15,7 +15,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.xinqiao.R;
 import com.example.xinqiao.bean.ArticleBean;
 import com.example.xinqiao.activity.ArticleDetailActivity;
-import com.example.xinqiao.util.ImageLoader;
+import com.example.xinqiao.util.ui.ImageLoader;
 
 import java.util.List;
 

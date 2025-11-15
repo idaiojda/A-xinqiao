@@ -9,13 +9,20 @@ import retrofit2.converter.gson.GsonConverterFactory
 class RemoteCommunityRepository(
     private val api: CommunityApi
 ) : CommunityRepository {
-    override suspend fun getGroups(): List<String> = api.getGroups()
+    override suspend fun getGroups(q: String?): List<String> {
+        return try {
+            val remote = api.getGroups(q)
+            if (remote.isNotEmpty()) remote else FakeCommunityRepository.getGroups(q)
+        } catch (_: Exception) {
+            FakeCommunityRepository.getGroups(q)
+        }
+    }
 
     override suspend fun applyJoin(groupName: String): GroupApplyResult = api.applyJoin(groupName)
 
     override suspend fun createGroup(name: String, description: String, schedule: String, capacity: Int, creatorName: String): GroupCreateResult =
         try {
-            val res = api.createGroup(CreateGroupRequest(name = name, description = description, schedule = schedule, capacity = capacity, creator = creatorName))
+            val res = api.createGroup(CreateGroupRequest(name = name, description = description, schedule = "", capacity = capacity, creator = creatorName))
             try {
                 CommunityLocalCache.database()?.groupDao()?.upsert(
                     GroupInfoEntity(
@@ -24,8 +31,8 @@ class RemoteCommunityRepository(
                         rulesJson = com.google.gson.Gson().toJson(listOf("友善沟通", "禁止外传", "支持鼓励")),
                         joined = true,
                         adminName = creatorName,
-                        frequency = "待设置",
-                        schedule = schedule
+                        frequency = "",
+                        schedule = ""
                     )
                 )
             } catch (_: Exception) { }
@@ -41,13 +48,16 @@ class RemoteCommunityRepository(
 
     override suspend fun health(): Health = api.health()
 
-    override suspend fun getPosts(category: String?, page: Int, size: Int): List<ThemePost> {
+    override suspend fun getPosts(category: String?, page: Int, size: Int, q: String?): List<ThemePost> {
+        val cached = CommunityLocalCache.database()?.postDao()?.getAll()?.map { it.toThemePost() } ?: emptyList()
+        if (cached.isNotEmpty()) return cached
         return try {
-            val list = api.getPosts(category = category, page = page, size = size).map { it.toThemePost() }
+            val list = kotlinx.coroutines.withTimeout(1500L) {
+                api.getPosts(category = category, page = page, size = size, q = q).map { it.toThemePost() }
+            }
             CommunityLocalCache.database()?.postDao()?.upsertAll(list.map { it.toEntity() })
             list
-        } catch (e: Exception) {
-            val cached = CommunityLocalCache.database()?.postDao()?.getAll()?.map { it.toThemePost() } ?: emptyList()
+        } catch (_: Exception) {
             cached
         }
     }
@@ -145,15 +155,49 @@ class RemoteCommunityRepository(
     }
 
     override suspend fun deletePost(id: String): Boolean = try { api.deletePost(id).ok } catch (_: Exception) { false }
-    override suspend fun getGroupMessages(groupName: String): List<GroupMessage> = try {
-        // 后端暂未提供端点，使用本地模拟实现作为兜底
-        FakeCommunityRepository.getGroupMessages(groupName)
-    } catch (_: Exception) { emptyList() }
+    override suspend fun updateGroupInfo(name: String, description: String?, rulesJson: String?, schedule: String?): Boolean {
+        return try {
+            api.updateGroup(name, UpdateGroupRequest(description, rulesJson, schedule)).ok
+        } catch (_: Exception) {
+            try {
+                CommunityLocalCache.database()?.groupDao()?.upsert(
+                    GroupInfoEntity(
+                        name = name,
+                        memberCount = CommunityLocalCache.database()?.groupDao()?.get(name)?.memberCount ?: 0,
+                        rulesJson = rulesJson ?: CommunityLocalCache.database()?.groupDao()?.get(name)?.rulesJson ?: "[]",
+                        joined = CommunityLocalCache.database()?.groupDao()?.get(name)?.joined ?: false,
+                        adminName = CommunityLocalCache.database()?.groupDao()?.get(name)?.adminName ?: "",
+                        frequency = CommunityLocalCache.database()?.groupDao()?.get(name)?.frequency ?: "",
+                        schedule = schedule ?: CommunityLocalCache.database()?.groupDao()?.get(name)?.schedule ?: ""
+                    )
+                )
+                true
+            } catch (_: Exception) {
+                false
+            }
+        }
+    }
+    override suspend fun getGroupMessages(groupName: String): List<GroupMessage> {
+        return try {
+            val dao = CommunityLocalCache.database()?.groupChatDao()
+            val local = dao?.getByGroup(groupName)?.map { it.toDomain() } ?: emptyList()
+            if (local.isNotEmpty()) {
+                local
+            } else {
+                val seed = FakeCommunityRepository.getGroupMessages(groupName)
+                try { dao?.upsertAll(seed.map { it.toEntity() }) } catch (_: Exception) {}
+                seed
+            }
+        } catch (_: Exception) {
+            val dao = CommunityLocalCache.database()?.groupChatDao()
+            dao?.getByGroup(groupName)?.map { it.toDomain() } ?: emptyList()
+        }
+    }
 
     override suspend fun postGroupMessage(groupName: String, content: String, author: String, images: List<String>, mentions: List<String>, voiceUrl: String?, voiceDurationSec: Int?): GroupMessage = try {
         FakeCommunityRepository.postGroupMessage(groupName, content, author, images, mentions, voiceUrl, voiceDurationSec)
     } catch (_: Exception) {
-        GroupMessage(
+        val msg = GroupMessage(
             id = "gm" + System.currentTimeMillis(),
             groupName = groupName,
             author = author,
@@ -166,6 +210,8 @@ class RemoteCommunityRepository(
             timestamp = System.currentTimeMillis(),
             recalled = false
         )
+        try { CommunityLocalCache.database()?.groupChatDao()?.upsertAll(listOf(msg.toEntity())) } catch (_: Exception) {}
+        msg
     }
 
     override suspend fun checkIn(groupName: String, userName: String): BadgeAwardResult = try {

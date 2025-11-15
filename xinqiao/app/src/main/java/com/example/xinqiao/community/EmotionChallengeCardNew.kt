@@ -12,7 +12,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalContext
 import com.example.xinqiao.repository.MedicalRecordRepository
-import com.example.xinqiao.utils.AnalysisUtils
+import com.example.xinqiao.util.AnalysisUtils
 import android.content.Intent
 import com.example.xinqiao.activity.EmotionDiaryActivity
 import com.example.xinqiao.activity.EmotionDiaryPreviewActivity

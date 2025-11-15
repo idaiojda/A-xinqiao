@@ -22,10 +22,10 @@ import com.example.xinqiao.activity.PlayHistoryActivity;
 import com.example.xinqiao.adapter.AdBannerAdapter;
 // import com.example.xinqiao.adapter.CourseAdapter; // replaced by RecyclerView adapter
 import com.example.xinqiao.adapter.CourseListAdapter;
-import com.example.xinqiao.util.RecyclerViewOptimizer;
-import com.example.xinqiao.util.SpacesItemDecoration;
+import com.example.xinqiao.util.ui.RecyclerViewOptimizer;
+import com.example.xinqiao.util.ui.SpacesItemDecoration;
 import com.example.xinqiao.bean.CourseBean;
-import com.example.xinqiao.utils.AnalysisUtils;
+import com.example.xinqiao.util.AnalysisUtils;
 
 import java.io.InputStream;
 import java.util.ArrayList;

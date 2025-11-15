@@ -21,10 +21,10 @@ import com.example.xinqiao.R;
 import com.example.xinqiao.activity.TestReportActivity;
 import com.example.xinqiao.bean.TestRecord;
 import com.example.xinqiao.dao.TestRecordDao;
-import com.example.xinqiao.util.ImageLoader;
-import com.example.xinqiao.util.RecyclerViewOptimizer;
+import com.example.xinqiao.util.ui.ImageLoader;
+import com.example.xinqiao.util.ui.RecyclerViewOptimizer;
 import com.example.xinqiao.view.ExercisesView;
-import com.example.xinqiao.utils.AnalysisUtils;
+import com.example.xinqiao.util.AnalysisUtils;
 import java.util.ArrayList;
 import java.util.List;
 

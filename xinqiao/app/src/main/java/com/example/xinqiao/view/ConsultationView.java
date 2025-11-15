@@ -15,6 +15,7 @@ import androidx.lifecycle.ViewModelProvider;
 
 import com.example.xinqiao.R;
 import androidx.compose.ui.platform.ComposeView;
+import androidx.compose.ui.platform.ViewCompositionStrategy;
 import androidx.compose.runtime.Composer;
 import kotlin.Unit;
 import kotlin.jvm.functions.Function2;
@@ -50,6 +51,7 @@ public class ConsultationView extends FrameLayout {
 
         // 嵌入 Compose 专业咨询页
         ComposeView composeView = new ComposeView(getContext());
+        composeView.setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed.INSTANCE);
         composeView.setLayoutParams(new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
         composeView.setContent(new Function2<Composer, Integer, Unit>() {
             @Override

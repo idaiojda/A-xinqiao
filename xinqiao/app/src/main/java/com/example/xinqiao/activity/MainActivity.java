@@ -111,15 +111,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
         CommunityLocalCache.INSTANCE.init(this);
 
-        // 社区仓库初始化：优先远程，失败则保持本地仓库
-        try {
-            String baseUrl = NetworkConfig.getBaseUrl(this);
-            CommunityApi api = CommunityServiceFactory.INSTANCE.create(baseUrl);
-            CommunityRepositoryProvider.INSTANCE.setCurrent(new RemoteCommunityRepository(api));
-            Log.d("MainActivity", "Community repository initialized with remote: " + baseUrl);
-        } catch (Exception e) {
-            Log.e("MainActivity", "Init remote repository failed, fallback to local: " + e.getMessage());
-        }
+        // 社区仓库懒加载到社区页面，当前保留本地仓库，减少冷启动耗时
 
         // 初始化线程池
         executorService = Executors.newFixedThreadPool(2);
@@ -457,26 +449,28 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
      */
     private void removeAllView() {
         try {
-            // 先清理所有Fragment
-            if (getSupportFragmentManager().getBackStackEntryCount() > 0) {
-                getSupportFragmentManager().popBackStackImmediate(null, FragmentManager.POP_BACK_STACK_INCLUSIVE);
-            }
-            
-            // 移除所有可能存在的Fragment
-            List<Fragment> fragments = getSupportFragmentManager().getFragments();
-            if (fragments != null && !fragments.isEmpty()) {
-                FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
-                for (androidx.fragment.app.Fragment fragment : fragments) {
-                    if (fragment != null) {
-                        transaction.remove(fragment);
+            if (mBodyLayout != null) {
+                mBodyLayout.post(() -> {
+                    try {
+                        if (getSupportFragmentManager().getBackStackEntryCount() > 0) {
+                            getSupportFragmentManager().popBackStack(null, FragmentManager.POP_BACK_STACK_INCLUSIVE);
+                        }
+                        List<Fragment> fragments = getSupportFragmentManager().getFragments();
+                        if (fragments != null && !fragments.isEmpty()) {
+                            FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
+                            for (androidx.fragment.app.Fragment fragment : fragments) {
+                                if (fragment != null) {
+                                    transaction.remove(fragment);
+                                }
+                            }
+                            transaction.commitAllowingStateLoss();
+                        }
+                        mBodyLayout.removeAllViews();
+                    } catch (Exception ex) {
+                        Log.e("MainActivity", "Error removing views: " + ex.getMessage());
                     }
-                }
-                transaction.commitNow();
+                });
             }
-            
-            // 清空视图容器
-            mBodyLayout.removeAllViews();
-            
         } catch (Exception e) {
             Log.e("MainActivity", "Error removing views: " + e.getMessage());
             e.printStackTrace();
@@ -501,7 +495,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
      * 显示对应的页面
      */
     private void selectDisplayView(int index) {
-        selectDisplayViewInternal(index, true);
+        if (mBodyLayout != null) {
+            mBodyLayout.post(() -> selectDisplayViewInternal(index, true));
+        } else {
+            selectDisplayViewInternal(index, true);
+        }
     }
 
     // 支持选择视图时是否记录历史，用于“返回到上一个界面”的行为
@@ -666,30 +664,34 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             } catch (Exception ignore) {}
             // 先检查是否有Fragment在返回栈中
             if (getSupportFragmentManager().getBackStackEntryCount() > 0) {
-                // 有Fragment在返回栈中，先处理Fragment的返回
-                getSupportFragmentManager().popBackStackImmediate();
-                
-                // 检查当前显示的视图，并更新底部导航栏状态
-                if (mExercisesView != null && mExercisesView.getView().getVisibility() == View.VISIBLE) {
-                    setSelectedStatus(1);
-                } else if (mCourseView != null && mCourseView.getView().getVisibility() == View.VISIBLE) {
-                    setSelectedStatus(0);
-                } else if (mMyInfoView != null && mMyInfoView.getView().getVisibility() == View.VISIBLE) {
-                    setSelectedStatus(2);
-                } else if (mArticleView != null && mArticleView.getVisibility() == View.VISIBLE) {
-                    setSelectedStatus(3);
-                } else if (mConsultationView != null && mConsultationView.getView() != null && mConsultationView.getView().getVisibility() == View.VISIBLE) {
-                    setSelectedStatus(4);
-                } else if (mCommunityView != null && mCommunityView.getView() != null && mCommunityView.getView().getVisibility() == View.VISIBLE) {
-                    setSelectedStatus(5);
-                } else {
-                    // 如果没有视图可见，回退到历史中的上一个视图或默认课程
-                    if (!viewHistory.isEmpty()) {
-                        int prev = viewHistory.pop();
-                        selectDisplayViewInternal(prev, false);
-                    } else {
-                        selectDisplayViewInternal(0, false);
-                    }
+                if (mBodyLayout != null) {
+                    mBodyLayout.post(() -> {
+                        try {
+                            getSupportFragmentManager().popBackStack();
+                            if (mExercisesView != null && mExercisesView.getView().getVisibility() == View.VISIBLE) {
+                                setSelectedStatus(1);
+                            } else if (mCourseView != null && mCourseView.getView().getVisibility() == View.VISIBLE) {
+                                setSelectedStatus(0);
+                            } else if (mMyInfoView != null && mMyInfoView.getView().getVisibility() == View.VISIBLE) {
+                                setSelectedStatus(2);
+                            } else if (mArticleView != null && mArticleView.getVisibility() == View.VISIBLE) {
+                                setSelectedStatus(3);
+                            } else if (mConsultationView != null && mConsultationView.getView() != null && mConsultationView.getView().getVisibility() == View.VISIBLE) {
+                                setSelectedStatus(4);
+                            } else if (mCommunityView != null && mCommunityView.getView() != null && mCommunityView.getView().getVisibility() == View.VISIBLE) {
+                                setSelectedStatus(5);
+                            } else {
+                                if (!viewHistory.isEmpty()) {
+                                    int prev = viewHistory.pop();
+                                    selectDisplayViewInternal(prev, false);
+                                } else {
+                                    selectDisplayViewInternal(0, false);
+                                }
+                            }
+                        } catch (Exception ex) {
+                            Log.e("MainActivity", "Back stack pop error: " + ex.getMessage());
+                        }
+                    });
                 }
                 return true;
             }
@@ -777,8 +779,16 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         
         // 清理Fragment
         try {
-            if (getSupportFragmentManager().getBackStackEntryCount() > 0) {
-                getSupportFragmentManager().popBackStackImmediate(null, FragmentManager.POP_BACK_STACK_INCLUSIVE);
+            if (mBodyLayout != null) {
+                mBodyLayout.post(() -> {
+                    try {
+                        if (getSupportFragmentManager().getBackStackEntryCount() > 0) {
+                            getSupportFragmentManager().popBackStack(null, FragmentManager.POP_BACK_STACK_INCLUSIVE);
+                        }
+                    } catch (Exception ex) {
+                        Log.e("MainActivity", "Error clearing fragments in onDestroy: " + ex.getMessage());
+                    }
+                });
             }
         } catch (Exception e) {
             Log.e("MainActivity", "Error clearing fragments in onDestroy: " + e.getMessage());
@@ -888,11 +898,19 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
      */
     private void openCourseSearchFragment() {
         try {
-            FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
-            CourseSearchFragment fragment = new CourseSearchFragment();
-            transaction.replace(getBodyLayout().getId(), fragment, "CourseSearchFragment");
-            transaction.addToBackStack(null);
-            transaction.commitAllowingStateLoss();
+            if (mBodyLayout != null) {
+                mBodyLayout.post(() -> {
+                    try {
+                        FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
+                        CourseSearchFragment fragment = new CourseSearchFragment();
+                        transaction.replace(getBodyLayout().getId(), fragment, "CourseSearchFragment");
+                        transaction.addToBackStack(null);
+                        transaction.commitAllowingStateLoss();
+                    } catch (Exception ex) {
+                        Log.e("MainActivity", "openCourseSearchFragment error: " + ex.getMessage());
+                    }
+                });
+            }
         } catch (Exception e) {
             Log.e("MainActivity", "openCourseSearchFragment error: " + e.getMessage());
         }

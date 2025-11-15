@@ -7,7 +7,7 @@ import android.database.sqlite.SQLiteDatabase;
 import android.os.AsyncTask;
 
 import com.example.xinqiao.bean.ArticleBean;
-import com.example.xinqiao.utils.DBHelper;
+import com.example.xinqiao.util.db.DBHelper;
 
 import java.util.ArrayList;
 import java.util.List;

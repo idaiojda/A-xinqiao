@@ -59,7 +59,7 @@ public class ArticleDetailActivity extends AppCompatActivity {
         final boolean[] isFavorited = {false};
         
         // 获取文章信息
-        String userName = com.example.xinqiao.utils.AnalysisUtils.readLoginUserName(this);
+        String userName = com.example.xinqiao.util.AnalysisUtils.readLoginUserName(this);
         int articleId = intent.getIntExtra("articleId", 0);
         
         // 检查文章是否已收藏

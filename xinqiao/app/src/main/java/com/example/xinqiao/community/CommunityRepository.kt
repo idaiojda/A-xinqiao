@@ -4,7 +4,7 @@ package com.example.xinqiao.community
  * 社区数据接口层：后续可替换为真实后端实现。
  */
 interface CommunityRepository {
-    suspend fun getGroups(): List<String>
+    suspend fun getGroups(q: String? = null): List<String>
     // 新增：申请加入、创建问题、时间线、健康检查
     suspend fun applyJoin(groupName: String): GroupApplyResult
     suspend fun createGroup(name: String, description: String, schedule: String, capacity: Int, creatorName: String): GroupCreateResult
@@ -12,7 +12,7 @@ interface CommunityRepository {
     suspend fun getMyTimeline(): List<TimelineItem>
     suspend fun health(): Health
     // 新增：主题交流区帖子流（支持分类与分页）
-    suspend fun getPosts(category: String? = null, page: Int = 0, size: Int = 10): List<ThemePost>
+    suspend fun getPosts(category: String? = null, page: Int = 0, size: Int = 10, q: String? = null): List<ThemePost>
     suspend fun createPost(title: String, content: String, tags: List<String>, images: List<String> = emptyList(), anonymous: Boolean = false): ThemePost
 
     // 新增：帖子评论（与问答评论区分）
@@ -23,6 +23,7 @@ interface CommunityRepository {
     suspend fun setFollow(name: String, follow: Boolean): Boolean
     suspend fun getGroupInfo(name: String): GroupInfo
     suspend fun setGroupJoin(name: String, join: Boolean): Boolean
+    suspend fun updateGroupInfo(name: String, description: String?, rulesJson: String?, schedule: String?): Boolean
     suspend fun getUserFavorites(name: String): List<ThemePost>
     suspend fun getSharedGroups(name: String): List<String>
     suspend fun getNotifications(): List<NotificationItem>
@@ -99,7 +100,8 @@ object FakeCommunityRepository : CommunityRepository {
             commentCount = 7
         )
     )
-    override suspend fun getGroups(): List<String> = groups
+    override suspend fun getGroups(q: String?): List<String> =
+        if (q.isNullOrBlank()) groups else groups.filter { it.contains(q, ignoreCase = true) }
 
     override suspend fun applyJoin(groupName: String): GroupApplyResult {
         val accepted = groups.contains(groupName)
@@ -121,8 +123,8 @@ object FakeCommunityRepository : CommunityRepository {
                 rules = defaultRules,
                 joined = true,
                 adminName = creatorName,
-                frequency = "待设置",
-                schedule = schedule
+                frequency = "",
+                schedule = ""
             )
             val mine = sharedGroupsMap[creatorName] ?: emptyList()
             sharedGroupsMap[creatorName] = (mine + name).distinct()
@@ -134,8 +136,8 @@ object FakeCommunityRepository : CommunityRepository {
                         rulesJson = com.google.gson.Gson().toJson(defaultRules),
                         joined = true,
                         adminName = creatorName,
-                        frequency = "待设置",
-                        schedule = schedule
+                        frequency = "",
+                        schedule = ""
                     )
                 )
             } catch (_: Exception) { }
@@ -160,8 +162,9 @@ object FakeCommunityRepository : CommunityRepository {
 
     override suspend fun health(): Health = Health(true, "OK")
 
-    override suspend fun getPosts(category: String?, page: Int, size: Int): List<ThemePost> {
-        val source = if (category.isNullOrBlank()) postStore else postStore.filter { it.tags.any { t -> t.contains(category) } || it.title.contains(category) }
+    override suspend fun getPosts(category: String?, page: Int, size: Int, q: String?): List<ThemePost> {
+        val base = if (category.isNullOrBlank()) postStore else postStore.filter { it.tags.any { t -> t.contains(category ?: "", ignoreCase = true) } || it.title.contains(category ?: "", ignoreCase = true) }
+        val source = if (q.isNullOrBlank()) base else base.filter { it.title.contains(q!!, ignoreCase = true) || it.content.contains(q, ignoreCase = true) || it.tags.any { t -> t.contains(q, ignoreCase = true) } }
         val from = (page * size).coerceAtMost(source.size)
         val to = (from + size).coerceAtMost(source.size)
         return source.subList(from, to)
@@ -248,6 +251,26 @@ object FakeCommunityRepository : CommunityRepository {
     override suspend fun setGroupJoin(name: String, join: Boolean): Boolean {
         val info = groupInfoMap.getOrPut(name) { GroupInfo(name, 0, emptyList(), joined = false, adminName = "", frequency = "", schedule = "") }
         groupInfoMap[name] = info.copy(joined = join, memberCount = if (join) info.memberCount + 1 else (info.memberCount - 1).coerceAtLeast(0))
+        return true
+    }
+
+    override suspend fun updateGroupInfo(name: String, description: String?, rulesJson: String?, schedule: String?): Boolean {
+        val cur = groupInfoMap.getOrPut(name) { GroupInfo(name, 0, emptyList(), joined = false, adminName = "", frequency = "", schedule = "") }
+        val rules = if (rulesJson.isNullOrBlank()) cur.rules else try { com.google.gson.Gson().fromJson(rulesJson, Array<String>::class.java).toList() } catch (_: Exception) { cur.rules }
+        groupInfoMap[name] = cur.copy(rules = rules, schedule = schedule ?: cur.schedule)
+        try {
+            CommunityLocalCache.database()?.groupDao()?.upsert(
+                GroupInfoEntity(
+                    name = name,
+                    memberCount = cur.memberCount,
+                    rulesJson = com.google.gson.Gson().toJson(rules),
+                    joined = cur.joined,
+                    adminName = cur.adminName,
+                    frequency = cur.frequency,
+                    schedule = schedule ?: cur.schedule
+                )
+            )
+        } catch (_: Exception) { }
         return true
     }
 

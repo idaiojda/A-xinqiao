@@ -11,7 +11,7 @@ import android.widget.TextView;
 import com.example.xinqiao.R;
 import com.example.xinqiao.activity.VideoListActivity;
 import com.example.xinqiao.bean.CourseBean;
-import com.example.xinqiao.util.ImageLoader;
+import com.example.xinqiao.util.ui.ImageLoader;
 
 
 import java.util.List;

@@ -27,9 +27,9 @@ import com.example.xinqiao.R;
 import com.example.xinqiao.adapter.AvatarAdapter;
 import com.example.xinqiao.mysql.DBUtils;
 import com.example.xinqiao.mysql.MySQLHelper;
-import com.example.xinqiao.utils.AnalysisUtils;
-import com.example.xinqiao.utils.AvatarUtils;
-import com.example.xinqiao.utils.ImageUtils;
+import com.example.xinqiao.util.AnalysisUtils;
+import com.example.xinqiao.util.image.AvatarUtils;
+import com.example.xinqiao.util.image.ImageUtils;
 import de.hdodenhof.circleimageview.CircleImageView;
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.engine.DiskCacheStrategy;
@@ -117,7 +117,7 @@ public class UserInfoActivity extends AppCompatActivity {
                         // 在后台线程加载并缩放图片，避免阻塞主线程
                         executor.submit(() -> {
                             try {
-                                Bitmap bitmap = com.example.xinqiao.utils.ImageUtils.loadAndResizeBitmap(UserInfoActivity.this, croppedAvatarUri);
+                                Bitmap bitmap = com.example.xinqiao.util.image.ImageUtils.loadAndResizeBitmap(UserInfoActivity.this, croppedAvatarUri);
                                 runOnUiThread(() -> {
                                     if (bitmap != null) {
                                         ivAvatar.setImageBitmap(bitmap);

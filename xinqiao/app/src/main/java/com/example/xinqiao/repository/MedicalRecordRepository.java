@@ -11,7 +11,7 @@ import com.example.xinqiao.room.entities.AuthorizationEntity;
 import com.example.xinqiao.room.entities.ConsultationEntity;
 import com.example.xinqiao.room.entities.EmotionDiaryEntity;
 import com.example.xinqiao.room.entities.TestReportEntity;
-import com.example.xinqiao.util.CryptoUtil;
+import com.example.xinqiao.util.crypto.CryptoUtil;
 
 import java.util.Collections;
 import java.util.HashMap;

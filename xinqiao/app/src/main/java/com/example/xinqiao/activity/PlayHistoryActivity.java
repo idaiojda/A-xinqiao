@@ -17,7 +17,7 @@ import com.example.xinqiao.R;
 import com.example.xinqiao.adapter.PlayHistoryAdapter;
 import com.example.xinqiao.bean.VideoBean;
 import com.example.xinqiao.mysql.DBUtils;
-import com.example.xinqiao.utils.AnalysisUtils;
+import com.example.xinqiao.util.AnalysisUtils;
 import com.example.xinqiao.mysql.MySQLHelper;
 
 import java.sql.SQLException;

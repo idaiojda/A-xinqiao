@@ -1,6 +1,6 @@
 apply plugin: 'com.android.application'
 apply plugin: 'org.jetbrains.kotlin.android'
-apply plugin: 'kotlin-kapt'
+apply plugin: 'com.google.devtools.ksp'
 
 // 使用默认构建目录以避免 AGP 在最终产物输出上的路径不一致问题
 //（某些版本在重写 buildDir 后不会在 outputs 下生成标准 APK/AAB）
@@ -47,7 +47,7 @@ android {
     }
     buildFeatures {
         viewBinding true
-        dataBinding true
+        dataBinding false
         buildConfig true
         compose true
     }
@@ -74,7 +74,6 @@ android {
     }
 
     aaptOptions {
-
     }
 }
 
@@ -84,29 +83,6 @@ tasks.withType(JavaCompile) {
 }
 
 // 调试辅助任务：打印 release 变体的输出文件路径（用于定位 APK/AAB）
-afterEvaluate {
-    if (project.plugins.hasPlugin('com.android.application')) {
-        tasks.register('printReleaseOutputs') {
-            doLast {
-                android.applicationVariants.all { variant ->
-                    if (variant.buildType.name == 'release') {
-                        println "[Variant] ${variant.name}"
-                        try {
-                            variant.outputs.each { out ->
-                                try {
-                                    println "  - outputFile: ${out.outputFile}"
-                                } catch (ignore) {
-                                }
-                            }
-                        } catch (ignore) {
-                            println "  (No outputs info via old API)"
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
 
 dependencies {
     implementation 'com.google.android.flexbox:flexbox:3.0.0'
@@ -142,6 +118,7 @@ dependencies {
     
     // Coil for image loading
     implementation 'io.coil-kt:coil-compose:2.4.0'
+    implementation 'io.coil-kt:coil-gif:2.4.0'
     
     // Remove incorrect artifact and use lifecycle-runtime-ktx instead
     
@@ -155,7 +132,7 @@ dependencies {
     // Room数据库依�?
     def room_version = "2.6.1"
     implementation "androidx.room:room-runtime:$room_version"
-    kapt "androidx.room:room-compiler:$room_version"
+    ksp "androidx.room:room-compiler:$room_version"
     implementation "androidx.room:room-ktx:$room_version"
     
     // 测试依赖
@@ -169,7 +146,6 @@ dependencies {
     // 图片加载和裁剪相关依赖?
     implementation 'de.hdodenhof:circleimageview:3.1.0'
     implementation 'com.github.bumptech.glide:glide:4.12.0'
-    kapt 'com.github.bumptech.glide:compiler:4.12.0'
     implementation 'com.github.yalantis:ucrop:2.2.8'
     
     

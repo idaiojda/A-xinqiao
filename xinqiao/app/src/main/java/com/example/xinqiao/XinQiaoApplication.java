@@ -12,12 +12,12 @@ import android.os.Build;
 
 import com.example.xinqiao.mysql.MySQLHelper;
 import com.example.xinqiao.mysql.DBUpdater;
-import com.example.xinqiao.util.ImageLoader;
-import com.example.xinqiao.util.MemoryOptimizer;
-import com.example.xinqiao.util.NetworkOptimizer;
-import com.example.xinqiao.util.PerformanceMonitor;
-import com.example.xinqiao.util.StartupOptimizer;
-import com.example.xinqiao.util.ThreadOptimizer;
+import com.example.xinqiao.util.ui.ImageLoader;
+import com.example.xinqiao.util.perf.MemoryOptimizer;
+import com.example.xinqiao.util.perf.NetworkOptimizer;
+import com.example.xinqiao.util.perf.PerformanceMonitor;
+import com.example.xinqiao.util.perf.StartupOptimizer;
+import com.example.xinqiao.util.perf.ThreadOptimizer;
 import com.example.xinqiao.R;
 
 import java.net.URL;
@@ -64,8 +64,6 @@ public class XinQiaoApplication extends Application {
         }
         
         configureSSL();      // 配置全局SSL信任管理器
-        initDatabase();      // 初始化数据库
-        initImageConfigs();  // 初始化图片加载配置
         com.example.xinqiao.community.CommunityLocalCache.INSTANCE.init(this);
         
         // 初始化性能优化相关工具
@@ -232,7 +230,8 @@ public class XinQiaoApplication extends Application {
                 @Override
                 public void execute(android.content.Context context) {
                     Log.d(TAG, "执行后台启动任务");
-                    // 可以在这里执行耗时的初始化操作
+                    // 非阻塞：图片配置与预加载
+                    initImageConfigs();
                 }
             })
             // 确保延迟任务在后台线程执行，避免主线程阻塞
@@ -240,7 +239,8 @@ public class XinQiaoApplication extends Application {
                 @Override
                 public void execute(android.content.Context context) {
                     Log.d(TAG, "执行延迟启动任务");
-                    // 可以在这里执行非紧急的初始化操作
+                    // 非紧急：数据库初始化（MySQL/本地缓存）
+                    initDatabase();
                 }
             });
             

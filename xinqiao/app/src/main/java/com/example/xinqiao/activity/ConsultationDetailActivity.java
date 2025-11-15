@@ -13,9 +13,9 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.xinqiao.R;
 import com.example.xinqiao.adapter.ChatMessageAdapter;
 import com.example.xinqiao.dao.ChatHistoryDao;
-import com.example.xinqiao.utils.AnalysisUtils;
-import com.example.xinqiao.util.RecyclerViewOptimizer;
-import com.example.xinqiao.util.SpacesItemDecoration;
+import com.example.xinqiao.util.AnalysisUtils;
+import com.example.xinqiao.util.ui.RecyclerViewOptimizer;
+import com.example.xinqiao.util.ui.SpacesItemDecoration;
 import android.widget.Toast;
 
 import java.util.ArrayList;

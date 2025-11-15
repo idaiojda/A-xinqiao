@@ -16,13 +16,13 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.xinqiao.R;
 import com.example.xinqiao.bean.ExercisesBean;
 import com.example.xinqiao.bean.QuestionBean;
-import com.example.xinqiao.util.ImageLoader;
-import com.example.xinqiao.util.RecyclerViewOptimizer;
+import com.example.xinqiao.util.ui.ImageLoader;
+import com.example.xinqiao.util.ui.RecyclerViewOptimizer;
 import java.util.ArrayList;
 import java.util.List;
 
 public class CategoryListActivity extends AppCompatActivity {
-    private com.example.xinqiao.utils.PaymentUtils paymentUtils;
+    private com.example.xinqiao.util.payment.PaymentUtils paymentUtils;
     private RecyclerView rvList;
     private TextView tvTitle, tvEmpty;
     private CategoryListAdapter adapter;
@@ -38,7 +38,7 @@ public class CategoryListActivity extends AppCompatActivity {
         findViewById(R.id.btn_back).setOnClickListener(v -> finish()); // 只保留finish()
         
         // 初始化支付工具类
-        paymentUtils = new com.example.xinqiao.utils.PaymentUtils(this);
+        paymentUtils = new com.example.xinqiao.util.payment.PaymentUtils(this);
         
         String category = getIntent().getStringExtra("category");
         tvTitle.setText(category);
@@ -112,7 +112,7 @@ public class CategoryListActivity extends AppCompatActivity {
         }
         
         // 调用支付工具类进行购买
-        paymentUtils.getBalance(username, new com.example.xinqiao.utils.PaymentUtils.PaymentCallback() {
+        paymentUtils.getBalance(username, new com.example.xinqiao.util.payment.PaymentUtils.PaymentCallback() {
             @Override
             public void onSuccess() {
                 // 获取余额成功后，检查余额是否足够
@@ -140,7 +140,7 @@ public class CategoryListActivity extends AppCompatActivity {
      */
     private void completeExercisePurchase(ExercisesBean bean, String username) {
         // 调用PaymentUtils进行实际购买操作
-        paymentUtils.purchaseExercise(username, bean.id, bean.price, new com.example.xinqiao.utils.PaymentUtils.PaymentCallback() {
+        paymentUtils.purchaseExercise(username, bean.id, bean.price, new com.example.xinqiao.util.payment.PaymentUtils.PaymentCallback() {
             @Override
             public void onSuccess() {
                 // 购买成功

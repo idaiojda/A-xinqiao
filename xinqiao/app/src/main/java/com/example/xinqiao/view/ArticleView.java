@@ -18,8 +18,8 @@ import com.example.xinqiao.R;
 import com.example.xinqiao.adapter.ArticleAdapter;
 import com.example.xinqiao.bean.ArticleBean;
 import com.example.xinqiao.dao.ArticleHistoryDao;
-import com.example.xinqiao.util.ArticleImageResolver;
-import com.example.xinqiao.utils.AnalysisUtils;
+import com.example.xinqiao.util.ui.ArticleImageResolver;
+import com.example.xinqiao.util.AnalysisUtils;
 
 import java.util.ArrayList;
 import java.util.List;

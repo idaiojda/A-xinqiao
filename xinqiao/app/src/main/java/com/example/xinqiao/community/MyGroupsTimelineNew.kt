@@ -22,7 +22,7 @@ fun MyGroupsTimelineNew(controller: CommunityController, onGroupCreated: (String
     var showCreateSheet by remember { mutableStateOf(false) }
     var groupName by remember { mutableStateOf("") }
     var groupDesc by remember { mutableStateOf("") }
-    var groupSchedule by remember { mutableStateOf("") }
+    // 日程功能已移除
     var groupCapacity by remember { mutableStateOf("") }
     var creating by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -31,7 +31,7 @@ fun MyGroupsTimelineNew(controller: CommunityController, onGroupCreated: (String
     var myGroups by remember { mutableStateOf<List<String>>(emptyList()) }
     LaunchedEffect(Unit) {
         try {
-            val user = com.example.xinqiao.utils.AnalysisUtils.readLoginUserName(appCtx)
+            val user = com.example.xinqiao.util.AnalysisUtils.readLoginUserName(appCtx)
             val dao = CommunityLocalCache.database()?.groupDao()
             val localJoined = try { dao?.listJoinedNames() ?: emptyList() } catch (_: Exception) { emptyList() }
             val localByOwner = try { dao?.listNamesByOwnerOrJoined(user) ?: emptyList() } catch (_: Exception) { emptyList() }
@@ -40,6 +40,18 @@ fun MyGroupsTimelineNew(controller: CommunityController, onGroupCreated: (String
             val fromSp = try { com.google.gson.Gson().fromJson(raw, java.util.ArrayList::class.java) as List<String> } catch (_: Exception) { emptyList() }
             dbGroups = (localJoined + localByOwner + fromSp).distinct()
         } catch (_: Exception) { dbGroups = emptyList() }
+    }
+    LaunchedEffect(controller.groupsVersion) {
+        try {
+            val user = com.example.xinqiao.util.AnalysisUtils.readLoginUserName(appCtx)
+            val dao = CommunityLocalCache.database()?.groupDao()
+            val localJoined = try { dao?.listJoinedNames() ?: emptyList() } catch (_: Exception) { emptyList() }
+            val localByOwner = try { dao?.listNamesByOwnerOrJoined(user) ?: emptyList() } catch (_: Exception) { emptyList() }
+            val sp = appCtx.getSharedPreferences("loginInfo", android.content.Context.MODE_PRIVATE)
+            val raw = sp.getString("joinedGroups_" + user, "[]")
+            val fromSp = try { com.google.gson.Gson().fromJson(raw, java.util.ArrayList::class.java) as List<String> } catch (_: Exception) { emptyList() }
+            dbGroups = (localJoined + localByOwner + fromSp).distinct()
+        } catch (_: Exception) { }
     }
 
 
@@ -84,10 +96,16 @@ fun MyGroupsTimelineNew(controller: CommunityController, onGroupCreated: (String
             }
             Divider(color = tokens.color.Neutral200)
             val ctx = androidx.compose.ui.platform.LocalContext.current
-            LaunchedEffect(dbGroups) {
+            LaunchedEffect(dbGroups, controller.groupsVersion) {
                 try {
-                    val user = com.example.xinqiao.utils.AnalysisUtils.readLoginUserName(ctx)
-                    val remote = try { CommunityRepositoryProvider.current.getSharedGroups(user) } catch (_: Exception) { emptyList() }
+            val user = com.example.xinqiao.util.AnalysisUtils.readLoginUserName(ctx)
+                    val remote = try {
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                            com.example.xinqiao.mysql.DBUtils.getInstance(ctx).getSharedGroups(user)
+                        }
+                    } catch (_: Exception) {
+                        try { CommunityRepositoryProvider.current.getSharedGroups(user) } catch (_: Exception) { emptyList() }
+                    }
                     myGroups = (dbGroups + remote).distinct()
                 } catch (_: Exception) { myGroups = dbGroups }
             }
@@ -125,7 +143,7 @@ fun MyGroupsTimelineNew(controller: CommunityController, onGroupCreated: (String
                 Text("创建小组", style = MaterialTheme.typography.titleMedium)
                 TextField(value = groupName, onValueChange = { groupName = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("名称") })
                 TextField(value = groupDesc, onValueChange = { groupDesc = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("简介") })
-                TextField(value = groupSchedule, onValueChange = { groupSchedule = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("日程安排，如 每周三/五 20:00") })
+                // 已移除日程安排输入
                 TextField(value = groupCapacity, onValueChange = { groupCapacity = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("容量，人数上限") })
                 Row(horizontalArrangement = Arrangement.spacedBy(tokens.spacing.S)) {
                     Button(onClick = {
@@ -135,9 +153,19 @@ fun MyGroupsTimelineNew(controller: CommunityController, onGroupCreated: (String
                         // 调用仓库创建
                         scope.launch {
                             try {
-                                val userName = com.example.xinqiao.utils.AnalysisUtils.readLoginUserName(ctx)
-                                val res = CommunityRepositoryProvider.current.createGroup(groupName.trim(), groupDesc.trim(), groupSchedule.trim(), cap, userName)
+                                val userName = com.example.xinqiao.util.AnalysisUtils.readLoginUserName(ctx)
+                                val res = CommunityRepositoryProvider.current.createGroup(groupName.trim(), groupDesc.trim(), "", cap, userName)
                                 if (res.ok) {
+                                    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                        try {
+                                            com.example.xinqiao.mysql.DBUtils.getInstance(ctx).upsertCommunityGroup(
+                                                com.example.xinqiao.mysql.DBUtils.GroupInfoRow().apply {
+                                                    name = groupName.trim(); description = groupDesc.trim(); adminName = userName; schedule = ""; capacity = cap; memberCount = 1; rulesJson = com.google.gson.Gson().toJson(listOf("友善沟通", "禁止外传", "支持鼓励"))
+                                                }
+                                            )
+                                            com.example.xinqiao.mysql.DBUtils.getInstance(ctx).setCommunityGroupJoin(groupName.trim(), userName, true)
+                                        } catch (_: Exception) { }
+                                    }
                                     // 标记加入状态（用于其它展示）
                                     controller.setJoined(groupName.trim(), true)
                                     // 立即更新本地列表（上方 LaunchedEffect 会合并远端并刷新展示）
@@ -151,9 +179,38 @@ fun MyGroupsTimelineNew(controller: CommunityController, onGroupCreated: (String
                                     sp.edit().putString(key, newJson).apply()
                                     onGroupCreated(groupName.trim())
                                     showCreateSheet = false
-                                    groupName = ""; groupDesc = ""; groupSchedule = ""; groupCapacity = ""
+                                    groupName = ""; groupDesc = ""; groupCapacity = ""
                                 } else {
-                                    error = res.message
+                                    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                        try {
+                                            val ok = com.example.xinqiao.mysql.DBUtils.getInstance(ctx).upsertCommunityGroup(
+                                                com.example.xinqiao.mysql.DBUtils.GroupInfoRow().apply {
+                                                    name = groupName.trim(); description = groupDesc.trim(); adminName = userName; schedule = ""; capacity = cap; memberCount = 1; rulesJson = com.google.gson.Gson().toJson(listOf("友善沟通", "禁止外传", "支持鼓励"))
+                                                }
+                                            )
+                                            if (ok) {
+                                                com.example.xinqiao.mysql.DBUtils.getInstance(ctx).setCommunityGroupJoin(groupName.trim(), userName, true)
+                                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                                    controller.setJoined(groupName.trim(), true)
+                                                    dbGroups = (dbGroups + groupName.trim()).distinct()
+                                                    myGroups = (myGroups + groupName.trim()).distinct()
+                                                    val sp = ctx.getSharedPreferences("loginInfo", android.content.Context.MODE_PRIVATE)
+                                                    val key = "joinedGroups_" + userName
+                                                    val oldJson = sp.getString(key, "[]")
+                                                    val oldList = try { com.google.gson.Gson().fromJson(oldJson, java.util.ArrayList::class.java) as List<String> } catch (_: Exception) { emptyList() }
+                                                    val newJson = com.google.gson.Gson().toJson((oldList + groupName.trim()).distinct())
+                                                    sp.edit().putString(key, newJson).apply()
+                                                    onGroupCreated(groupName.trim())
+                                                    showCreateSheet = false
+                                                    groupName = ""; groupDesc = ""; groupCapacity = ""
+                                                }
+                                            } else {
+                                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { error = res.message }
+                                            }
+                                        } catch (e: Exception) {
+                                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { error = e.message ?: res.message }
+                                        }
+                                    }
                                 }
                             } catch (e: Exception) {
                                 error = "创建失败：" + (e.message ?: "网络异常")

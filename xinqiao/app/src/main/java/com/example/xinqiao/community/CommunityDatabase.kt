@@ -135,6 +135,12 @@ interface GroupDao {
 
     @Query("SELECT name FROM groups WHERE joined = 1")
     suspend fun listJoinedNames(): List<String>
+
+    @Query("SELECT name FROM groups WHERE adminName = :user")
+    suspend fun listNamesByOwner(user: String): List<String>
+
+    @Query("SELECT DISTINCT adminName FROM groups WHERE adminName IS NOT NULL AND adminName <> ''")
+    suspend fun listAdminNames(): List<String>
 }
 
 @Dao
@@ -172,7 +178,7 @@ interface CheckinDao {
 
 @Database(
     entities = [PostEntity::class, CommentEntity::class, UserProfileEntity::class, GroupInfoEntity::class, GroupMessageEntity::class, BadgeEntity::class, CheckinStatusEntity::class],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class CommunityDatabase : RoomDatabase() {
@@ -191,7 +197,13 @@ object CommunityLocalCache {
 
     fun init(context: Context) {
         if (db == null) {
+            val MIGRATION_3_4 = object : androidx.room.migration.Migration(3, 4) {
+                override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                    try { database.execSQL("ALTER TABLE group_messages ADD COLUMN authorAvatar TEXT") } catch (_: Exception) {}
+                }
+            }
             db = Room.databaseBuilder(context.applicationContext, CommunityDatabase::class.java, "community.db")
+                .addMigrations(MIGRATION_3_4)
                 .fallbackToDestructiveMigration()
                 .build()
         }

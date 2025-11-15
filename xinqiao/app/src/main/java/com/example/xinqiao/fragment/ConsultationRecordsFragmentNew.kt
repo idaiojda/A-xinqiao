@@ -36,8 +36,8 @@ import com.example.xinqiao.R
 import com.example.xinqiao.bean.ConsultationItem
 import com.example.xinqiao.repository.MedicalRecordRepository
 import com.example.xinqiao.room.entities.ConsultationEntity
-import com.example.xinqiao.utils.AnalysisUtils
-import com.example.xinqiao.util.CryptoUtil
+import com.example.xinqiao.util.AnalysisUtils
+import com.example.xinqiao.util.crypto.CryptoUtil
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import java.text.SimpleDateFormat

@@ -8,8 +8,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
-import com.example.xinqiao.utils.DeepSeekClient
-import com.example.xinqiao.utils.AnalysisUtils
+import com.example.xinqiao.util.network.DeepSeekClient
+import com.example.xinqiao.util.AnalysisUtils
 import com.example.xinqiao.dao.ChatHistoryDao
 import com.example.xinqiao.dao.ChatSessionDao
 import com.example.xinqiao.bean.ChatHistory
@@ -220,8 +220,6 @@ class               ChatViewModel(
         const val KEY_LAST_REPLY = "chat_last_reply"
     }
 }
-
-
 
 
 

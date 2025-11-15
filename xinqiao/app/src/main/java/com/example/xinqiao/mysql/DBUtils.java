@@ -11,7 +11,7 @@ import java.util.List;
 
 import android.content.SharedPreferences;
 import android.text.TextUtils;
-import com.example.xinqiao.utils.AnalysisUtils;
+import com.example.xinqiao.util.AnalysisUtils;
 import com.example.xinqiao.bean.UserBean;
 import com.example.xinqiao.bean.VideoBean;
 
@@ -718,6 +718,536 @@ public class DBUtils {
     public interface UserNicknameCallback {
         void onSuccess(String nickname);
         void onError(SQLException e);
+    }
+
+    public String getUserAvatarPathSync(String userName) throws SQLException {
+        Connection conn = null;
+        try {
+            conn = MySQLHelper.getInstance().getConnection();
+            String sql = "SELECT avatar FROM user_info WHERE username=?";
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            stmt.setString(1, userName);
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                byte[] bytes = rs.getBytes("avatar");
+                rs.close(); stmt.close();
+                if (bytes != null && bytes.length > 0) {
+                    String b64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP);
+                    return "data:image/jpeg;base64," + b64;
+                }
+            } else { rs.close(); stmt.close(); }
+            return null;
+        } catch (Exception e) {
+            android.util.Log.e("DBUtils", "getUserAvatarPathSync error: " + e.getMessage());
+            throw new SQLException(e.getMessage());
+        } finally {
+            if (conn != null) MySQLHelper.getInstance().releaseConnection(conn);
+        }
+    }
+
+    /**
+     * 同步获取用户头像（用户名或昵称均可）
+     */
+    public String getUserAvatarPathByNameOrNickSync(String nameOrNick) throws SQLException {
+        Connection conn = null;
+        try {
+            conn = MySQLHelper.getInstance().getConnection();
+            String sql = "SELECT avatar FROM user_info WHERE username=? OR nickname=? LIMIT 1";
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            stmt.setString(1, nameOrNick);
+            stmt.setString(2, nameOrNick);
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                byte[] bytes = rs.getBytes("avatar");
+                rs.close(); stmt.close();
+                if (bytes != null && bytes.length > 0) {
+                    String b64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP);
+                    return "data:image/jpeg;base64," + b64;
+                }
+            } else { rs.close(); stmt.close(); }
+            return null;
+        } catch (Exception e) {
+            android.util.Log.e("DBUtils", "getUserAvatarPathByNameOrNickSync error: " + e.getMessage());
+            throw new SQLException(e.getMessage());
+        } finally {
+            if (conn != null) MySQLHelper.getInstance().releaseConnection(conn);
+        }
+    }
+
+    /**
+     * 同步获取用户昵称
+     */
+    public String getUserNicknameSync(String userName) throws SQLException {
+        Connection conn = null;
+        try {
+            conn = MySQLHelper.getInstance().getConnection();
+            String sql = "SELECT nickname FROM user_info WHERE username=?";
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            stmt.setString(1, userName);
+            ResultSet rs = stmt.executeQuery();
+            String nickname = null;
+            if (rs.next()) {
+                nickname = rs.getString("nickname");
+            }
+            rs.close(); stmt.close();
+            return nickname;
+        } catch (Exception e) {
+            throw new SQLException(e.getMessage());
+        } finally {
+            if (conn != null) MySQLHelper.getInstance().releaseConnection(conn);
+        }
+    }
+
+    public List<String> listUserNamesByKeyword(String keyword) {
+        List<String> list = new ArrayList<>();
+        Connection conn = null;
+        try {
+            conn = MySQLHelper.getInstance().getConnection();
+            String sql = "SELECT username FROM user_info WHERE username LIKE ? OR nickname LIKE ? ORDER BY updated_at DESC LIMIT 50";
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            String like = "%" + (keyword == null ? "" : keyword) + "%";
+            stmt.setString(1, like);
+            stmt.setString(2, like);
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                list.add(rs.getString("username"));
+            }
+            rs.close(); stmt.close();
+        } catch (Exception e) {
+            android.util.Log.e("DBUtils", "listUserNamesByKeyword error: " + e.getMessage());
+        } finally {
+            if (conn != null) MySQLHelper.getInstance().releaseConnection(conn);
+        }
+        return list;
+    }
+
+    public byte[] getUserAvatarBytesSync(String userName) throws SQLException {
+        Connection conn = null;
+        try {
+            conn = MySQLHelper.getInstance().getConnection();
+            String sql = "SELECT avatar FROM user_info WHERE username=?";
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            stmt.setString(1, userName);
+            ResultSet rs = stmt.executeQuery();
+            byte[] bytes = null;
+            if (rs.next()) {
+                bytes = rs.getBytes("avatar");
+            }
+            rs.close(); stmt.close();
+            return bytes;
+        } catch (Exception e) {
+            android.util.Log.e("DBUtils", "getUserAvatarBytesSync error: " + e.getMessage());
+            throw new SQLException(e.getMessage());
+        } finally {
+            if (conn != null) MySQLHelper.getInstance().releaseConnection(conn);
+        }
+    }
+
+    // --- 社区 · 群聊与小组 ---
+    public static class GroupMessageRecord {
+        public String id;
+        public String groupName;
+        public String author;
+        public String authorAvatar;
+        public String content;
+        public String imagesJson;
+        public String mentionsJson;
+        public String voiceUrl;
+        public Integer voiceDurationSec;
+        public long timestamp;
+        public boolean recalled;
+    }
+
+    public static class GroupInfoRow {
+        public String name;
+        public String description;
+        public String adminName;
+        public String schedule;
+        public int capacity;
+        public int memberCount;
+        public String rulesJson;
+    }
+
+    public List<GroupMessageRecord> listCommunityGroupMessages(String groupName) {
+        List<GroupMessageRecord> list = new ArrayList<>();
+        Connection conn = null;
+        try {
+            conn = MySQLHelper.getInstance().getConnection();
+            String sql = "SELECT * FROM community_group_messages WHERE group_name=? ORDER BY timestamp ASC";
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            stmt.setString(1, groupName);
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                GroupMessageRecord r = new GroupMessageRecord();
+                r.id = rs.getString("id");
+                r.groupName = rs.getString("group_name");
+                r.author = rs.getString("author");
+                try {
+                    byte[] av = rs.getBytes("author_avatar");
+                    if (av != null && av.length > 0) {
+                        String b64 = android.util.Base64.encodeToString(av, android.util.Base64.NO_WRAP);
+                        r.authorAvatar = "data:image/jpeg;base64," + b64;
+                    } else {
+                        r.authorAvatar = null;
+                    }
+                } catch (Exception ignore) { r.authorAvatar = null; }
+                r.content = rs.getString("content");
+                r.imagesJson = rs.getString("images_json");
+                r.mentionsJson = rs.getString("mentions_json");
+                r.voiceUrl = rs.getString("voice_url");
+                r.voiceDurationSec = rs.getObject("voice_duration_sec") != null ? rs.getInt("voice_duration_sec") : null;
+                r.timestamp = rs.getLong("timestamp");
+                r.recalled = rs.getInt("recalled") == 1;
+                list.add(r);
+            }
+            rs.close(); stmt.close();
+        } catch (Exception e) {
+            android.util.Log.e("DBUtils", "listCommunityGroupMessages error: " + e.getMessage());
+        } finally {
+            if (conn != null) MySQLHelper.getInstance().releaseConnection(conn);
+        }
+        return list;
+    }
+
+    public GroupMessageRecord insertCommunityGroupMessage(GroupMessageRecord msg) {
+        Connection conn = null;
+        try {
+            if (msg.id == null || msg.id.isEmpty()) msg.id = "gm" + System.currentTimeMillis();
+            conn = MySQLHelper.getInstance().getConnection();
+            try {
+                String ensureGroup = "INSERT INTO community_groups (name) VALUES (?) ON DUPLICATE KEY UPDATE name = VALUES(name)";
+                PreparedStatement eg = conn.prepareStatement(ensureGroup);
+                eg.setString(1, msg.groupName);
+                eg.executeUpdate();
+                eg.close();
+            } catch (Exception e) {
+                android.util.Log.w("DBUtils", "ensure group failed: " + e.getMessage());
+            }
+            try {
+                setCommunityGroupJoin(msg.groupName, msg.author, true);
+            } catch (Exception e) {
+                android.util.Log.w("DBUtils", "ensure member failed: " + e.getMessage());
+            }
+            try {
+                // 尝试扩大列容量以容纳头像二进制（如历史版本为VARCHAR）
+                conn.createStatement().execute("ALTER TABLE community_group_messages MODIFY author_avatar LONGBLOB");
+            } catch (Exception ignore) {}
+            String sql = "INSERT INTO community_group_messages (id, group_name, author, author_avatar, content, images_json, mentions_json, voice_url, voice_duration_sec, timestamp, recalled) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            stmt.setString(1, msg.id);
+            stmt.setString(2, msg.groupName);
+            stmt.setString(3, msg.author);
+            try {
+                byte[] avBytes = null;
+                try {
+                    // 先按用户名取，失败则按昵称取
+                    avBytes = getUserAvatarBytesSync(msg.author);
+                } catch (Exception ignored) {}
+                if (avBytes == null || avBytes.length == 0) {
+                    try {
+                        Connection c2 = MySQLHelper.getInstance().getConnection();
+                        String sql2 = "SELECT avatar FROM user_info WHERE nickname=? LIMIT 1";
+                        PreparedStatement s2 = c2.prepareStatement(sql2);
+                        s2.setString(1, msg.author);
+                        ResultSet r2 = s2.executeQuery();
+                        if (r2.next()) { avBytes = r2.getBytes("avatar"); }
+                        r2.close(); s2.close();
+                        MySQLHelper.getInstance().releaseConnection(c2);
+                    } catch (Exception ignored) {}
+                }
+                if (avBytes != null && avBytes.length > 0) stmt.setBytes(4, avBytes); else stmt.setNull(4, java.sql.Types.BLOB);
+            } catch (Exception e) { stmt.setNull(4, java.sql.Types.BLOB); }
+            stmt.setString(5, msg.content);
+            stmt.setString(6, msg.imagesJson);
+            stmt.setString(7, msg.mentionsJson);
+            stmt.setString(8, msg.voiceUrl);
+            if (msg.voiceDurationSec == null) stmt.setNull(9, java.sql.Types.INTEGER); else stmt.setInt(9, msg.voiceDurationSec);
+            stmt.setLong(10, msg.timestamp);
+            stmt.setInt(11, msg.recalled ? 1 : 0);
+            stmt.executeUpdate();
+            stmt.close();
+            return msg;
+        } catch (Exception e) {
+            android.util.Log.e("DBUtils", "insertCommunityGroupMessage error: " + e.getMessage());
+            return null;
+        } finally {
+            if (conn != null) MySQLHelper.getInstance().releaseConnection(conn);
+        }
+    }
+
+    public boolean recallCommunityGroupMessage(String id) {
+        Connection conn = null;
+        try {
+            conn = MySQLHelper.getInstance().getConnection();
+            String sql = "UPDATE community_group_messages SET recalled=1 WHERE id=?";
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            stmt.setString(1, id);
+            int rows = stmt.executeUpdate();
+            stmt.close();
+            return rows > 0;
+        } catch (Exception e) {
+            android.util.Log.e("DBUtils", "recallCommunityGroupMessage error: " + e.getMessage());
+            return false;
+        } finally {
+            if (conn != null) MySQLHelper.getInstance().releaseConnection(conn);
+        }
+    }
+
+    public boolean deleteCommunityGroupMessage(String id) {
+        Connection conn = null;
+        try {
+            conn = MySQLHelper.getInstance().getConnection();
+            String sql = "DELETE FROM community_group_messages WHERE id=?";
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            stmt.setString(1, id);
+            int rows = stmt.executeUpdate();
+            stmt.close();
+            return rows > 0;
+        } catch (Exception e) {
+            android.util.Log.e("DBUtils", "deleteCommunityGroupMessage error: " + e.getMessage());
+            return false;
+        } finally {
+            if (conn != null) MySQLHelper.getInstance().releaseConnection(conn);
+        }
+    }
+
+    public boolean upsertCommunityGroup(GroupInfoRow info) {
+        Connection conn = null;
+        try {
+            conn = MySQLHelper.getInstance().getConnection();
+            String sql = "INSERT INTO community_groups (name, description, admin_name, schedule, capacity, member_count, rules_json) VALUES (?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE description=VALUES(description), admin_name=VALUES(admin_name), schedule=VALUES(schedule), capacity=VALUES(capacity), rules_json=VALUES(rules_json)";
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            stmt.setString(1, info.name);
+            stmt.setString(2, info.description);
+            stmt.setString(3, info.adminName);
+            stmt.setString(4, info.schedule);
+            stmt.setInt(5, info.capacity);
+            stmt.setInt(6, info.memberCount);
+            stmt.setString(7, info.rulesJson);
+            int rows = stmt.executeUpdate();
+            stmt.close();
+            return rows > 0;
+        } catch (Exception e) {
+            android.util.Log.e("DBUtils", "upsertCommunityGroup error: " + e.getMessage());
+            return false;
+        } finally {
+            if (conn != null) MySQLHelper.getInstance().releaseConnection(conn);
+        }
+    }
+
+    public GroupInfoRow getCommunityGroupInfo(String name) {
+        Connection conn = null;
+        try {
+            conn = MySQLHelper.getInstance().getConnection();
+            String sql = "SELECT * FROM community_groups WHERE name=?";
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            stmt.setString(1, name);
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                GroupInfoRow row = new GroupInfoRow();
+                row.name = rs.getString("name");
+                row.description = rs.getString("description");
+                row.adminName = rs.getString("admin_name");
+                row.schedule = rs.getString("schedule");
+                row.capacity = rs.getInt("capacity");
+                row.memberCount = rs.getInt("member_count");
+                row.rulesJson = rs.getString("rules_json");
+                rs.close(); stmt.close();
+                return row;
+            }
+            rs.close(); stmt.close();
+            return null;
+        } catch (Exception e) {
+            android.util.Log.e("DBUtils", "getCommunityGroupInfo error: " + e.getMessage());
+            return null;
+        } finally {
+            if (conn != null) MySQLHelper.getInstance().releaseConnection(conn);
+        }
+    }
+
+    /**
+     * 推断群主昵称：优先返回 admin_name；为空时取最早加入的成员用户名
+     */
+    public String getCommunityGroupOwnerName(String groupName) {
+        Connection conn = null;
+        try {
+            conn = MySQLHelper.getInstance().getConnection();
+            // 1) 优先 admin_name
+            String admin = null;
+            try {
+                ResultSet rs = conn.createStatement().executeQuery("SELECT admin_name FROM community_groups WHERE name='" + groupName + "'");
+                if (rs.next()) admin = rs.getString(1);
+                rs.close();
+            } catch (Exception ignore) {}
+            if (admin != null && !admin.isEmpty()) return admin;
+            // 2) 取最早加入成员
+            try {
+                String sql = "SELECT user_name FROM community_group_members WHERE group_name=? AND joined=1 ORDER BY IFNULL(joined_at, CURRENT_TIMESTAMP) ASC LIMIT 1";
+                PreparedStatement stmt = conn.prepareStatement(sql);
+                stmt.setString(1, groupName);
+                ResultSet rs = stmt.executeQuery();
+                String owner = null;
+                if (rs.next()) owner = rs.getString(1);
+                rs.close(); stmt.close();
+                return owner;
+            } catch (Exception ignore) {}
+            return null;
+        } catch (Exception e) {
+            android.util.Log.e("DBUtils", "getCommunityGroupOwnerName error: " + e.getMessage());
+            return null;
+        } finally {
+            if (conn != null) MySQLHelper.getInstance().releaseConnection(conn);
+        }
+    }
+
+    public boolean setCommunityGroupOwner(String groupName, String userName) {
+        Connection conn = null;
+        try {
+            conn = MySQLHelper.getInstance().getConnection();
+            String sql = "UPDATE community_groups SET admin_name=? WHERE name=?";
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            stmt.setString(1, userName);
+            stmt.setString(2, groupName);
+            int rows = stmt.executeUpdate();
+            stmt.close();
+            return rows > 0;
+        } catch (Exception e) {
+            android.util.Log.e("DBUtils", "setCommunityGroupOwner error: " + e.getMessage());
+            return false;
+        } finally {
+            if (conn != null) MySQLHelper.getInstance().releaseConnection(conn);
+        }
+    }
+
+    /**
+     * 获取加入成员的真实数量
+     */
+    public int getCommunityGroupMemberCount(String groupName) throws SQLException {
+        Connection conn = null;
+        try {
+            conn = MySQLHelper.getInstance().getConnection();
+            String sql = "SELECT COUNT(*) FROM community_group_members WHERE group_name=? AND joined=1";
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            stmt.setString(1, groupName);
+            ResultSet rs = stmt.executeQuery();
+            int count = 0;
+            if (rs.next()) count = rs.getInt(1);
+            rs.close(); stmt.close();
+            PreparedStatement sAdmin = conn.prepareStatement("SELECT admin_name FROM community_groups WHERE name=?");
+            sAdmin.setString(1, groupName);
+            ResultSet rAdmin = sAdmin.executeQuery();
+            String admin = null;
+            if (rAdmin.next()) admin = rAdmin.getString(1);
+            rAdmin.close(); sAdmin.close();
+            if (admin != null && !admin.isEmpty()) {
+                PreparedStatement upsert = conn.prepareStatement("INSERT INTO community_group_members (group_name, user_name, joined) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE joined=VALUES(joined), joined_at=CURRENT_TIMESTAMP");
+                upsert.setString(1, groupName);
+                upsert.setString(2, admin);
+                upsert.executeUpdate();
+                upsert.close();
+                PreparedStatement stmt3 = conn.prepareStatement(sql);
+                stmt3.setString(1, groupName);
+                ResultSet rs3 = stmt3.executeQuery();
+                if (rs3.next()) count = rs3.getInt(1);
+                rs3.close(); stmt3.close();
+            }
+            PreparedStatement sUpdate = conn.prepareStatement("UPDATE community_groups SET member_count=? WHERE name=?");
+            sUpdate.setInt(1, count);
+            sUpdate.setString(2, groupName);
+            sUpdate.executeUpdate();
+            sUpdate.close();
+            return count;
+        } catch (Exception e) {
+            throw new SQLException(e.getMessage());
+        } finally {
+            if (conn != null) MySQLHelper.getInstance().releaseConnection(conn);
+        }
+    }
+
+    public boolean updateCommunityGroupInfo(String name, String description, String rulesJson, String schedule) {
+        Connection conn = null;
+        try {
+            conn = MySQLHelper.getInstance().getConnection();
+            String sql = "UPDATE community_groups SET description=?, rules_json=?, schedule=?, updated_at=CURRENT_TIMESTAMP WHERE name=?";
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            stmt.setString(1, description);
+            stmt.setString(2, rulesJson);
+            stmt.setString(3, schedule);
+            stmt.setString(4, name);
+            int rows = stmt.executeUpdate();
+            stmt.close();
+            return rows > 0;
+        } catch (Exception e) {
+            android.util.Log.e("DBUtils", "updateCommunityGroupInfo error: " + e.getMessage());
+            return false;
+        } finally {
+            if (conn != null) MySQLHelper.getInstance().releaseConnection(conn);
+        }
+    }
+
+    public boolean setCommunityGroupJoin(String groupName, String userName, boolean join) {
+        Connection conn = null;
+        try {
+            conn = MySQLHelper.getInstance().getConnection();
+            String upsert = "INSERT INTO community_group_members (group_name, user_name, joined) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE joined=VALUES(joined), joined_at=CURRENT_TIMESTAMP";
+            PreparedStatement stmt = conn.prepareStatement(upsert);
+            stmt.setString(1, groupName);
+            stmt.setString(2, userName);
+            stmt.setInt(3, join ? 1 : 0);
+            int rows = stmt.executeUpdate();
+            stmt.close();
+            // 更新成员数
+            String updateCount = join ?
+                "UPDATE community_groups SET member_count = member_count + 1 WHERE name = ?" :
+                "UPDATE community_groups SET member_count = GREATEST(member_count - 1, 0) WHERE name = ?";
+            PreparedStatement stmt2 = conn.prepareStatement(updateCount);
+            stmt2.setString(1, groupName);
+            stmt2.executeUpdate();
+            stmt2.close();
+            return rows > 0;
+        } catch (Exception e) {
+            android.util.Log.e("DBUtils", "setCommunityGroupJoin error: " + e.getMessage());
+            return false;
+        } finally {
+            if (conn != null) MySQLHelper.getInstance().releaseConnection(conn);
+        }
+    }
+
+    public List<String> listCommunityGroups() {
+        List<String> names = new ArrayList<>();
+        Connection conn = null;
+        try {
+            conn = MySQLHelper.getInstance().getConnection();
+            String sql = "SELECT name FROM community_groups ORDER BY updated_at DESC LIMIT 50";
+            ResultSet rs = conn.createStatement().executeQuery(sql);
+            while (rs.next()) names.add(rs.getString(1));
+            rs.close();
+        } catch (Exception e) {
+            android.util.Log.e("DBUtils", "listCommunityGroups error: " + e.getMessage());
+        } finally {
+            if (conn != null) MySQLHelper.getInstance().releaseConnection(conn);
+        }
+        return names;
+    }
+
+    public List<String> getSharedGroups(String userName) {
+        List<String> names = new ArrayList<>();
+        Connection conn = null;
+        try {
+            conn = MySQLHelper.getInstance().getConnection();
+            String sql = "SELECT name FROM community_groups WHERE admin_name=? UNION SELECT group_name AS name FROM community_group_members WHERE user_name=? AND joined=1";
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            stmt.setString(1, userName);
+            stmt.setString(2, userName);
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) names.add(rs.getString(1));
+            rs.close(); stmt.close();
+        } catch (Exception e) {
+            android.util.Log.e("DBUtils", "getSharedGroups error: " + e.getMessage());
+        } finally {
+            if (conn != null) MySQLHelper.getInstance().releaseConnection(conn);
+        }
+        return names;
     }
 
     // 获取视频播放历史（异步方法）

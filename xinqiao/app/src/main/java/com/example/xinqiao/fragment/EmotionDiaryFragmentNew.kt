@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.*
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -32,8 +33,8 @@ import coil.compose.AsyncImage
 import com.example.xinqiao.bean.EmotionEntry
 import com.example.xinqiao.repository.MedicalRecordRepository
 import com.example.xinqiao.room.entities.EmotionDiaryEntity
-import com.example.xinqiao.utils.AnalysisUtils
-import com.example.xinqiao.util.CryptoUtil
+import com.example.xinqiao.util.AnalysisUtils
+import com.example.xinqiao.util.crypto.CryptoUtil
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
@@ -48,6 +49,7 @@ class EmotionDiaryFragmentNew : Fragment() {
         savedInstanceState: Bundle?
     ): View {
         return ComposeView(requireContext()).apply {
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
                 MaterialTheme {
                     EmotionDiaryScreen()

@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
@@ -96,6 +97,7 @@ class FloatingAiWindowManager(private val activity: Activity) {
         // 先按钮
         if (btnView == null) {
             btnView = ComposeView(activity).apply {
+                setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
                 setContent {
                     FloatingButton(stateVM) { onExpand ->
                         if (onExpand) {
@@ -126,6 +128,7 @@ class FloatingAiWindowManager(private val activity: Activity) {
     private fun showChat(stateVM: AiFloatingStateViewModel, chatVM: ChatViewModel) {
         if (chatView != null) return
         chatView = ComposeView(activity).apply {
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
                 MaterialTheme {
                     val state by stateVM.isExpanded.collectAsState()

@@ -21,8 +21,8 @@ import com.example.xinqiao.R;
 import com.example.xinqiao.activity.ArticleSearchActivity;
 import com.example.xinqiao.adapter.ArticleAdapter;
 import com.example.xinqiao.bean.ArticleBean;
-import com.example.xinqiao.util.RecyclerViewOptimizer;
-import com.example.xinqiao.util.SpacesItemDecoration;
+import com.example.xinqiao.util.ui.RecyclerViewOptimizer;
+import com.example.xinqiao.util.ui.SpacesItemDecoration;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -218,4 +218,3 @@ public class ArticleSearchFragment extends Fragment {
         return (int) (dp * density + 0.5f);
     }
 }
-

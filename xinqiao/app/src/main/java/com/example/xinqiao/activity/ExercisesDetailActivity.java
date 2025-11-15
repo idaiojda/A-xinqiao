@@ -12,7 +12,7 @@ import android.widget.LinearLayout;
 import android.os.Handler;
 import android.os.Looper;
 import android.widget.Toast;
-import com.example.xinqiao.utils.DeepSeekClient;
+import com.example.xinqiao.util.network.DeepSeekClient;
 
 import com.example.xinqiao.R;
 import com.example.xinqiao.bean.QuestionBean;
@@ -24,7 +24,7 @@ import com.example.xinqiao.bean.TestRecord;
 import com.example.xinqiao.dao.TestRecordDao;
 import com.example.xinqiao.repository.MedicalRecordRepository;
 import com.example.xinqiao.room.entities.TestReportEntity;
-import com.example.xinqiao.utils.AnalysisUtils;
+import com.example.xinqiao.util.AnalysisUtils;
 
 public class ExercisesDetailActivity extends AppCompatActivity {
 

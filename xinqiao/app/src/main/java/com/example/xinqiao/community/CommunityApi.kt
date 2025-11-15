@@ -13,7 +13,7 @@ import retrofit2.http.Query
  */
 interface CommunityApi {
     @GET("community/groups")
-    suspend fun getGroups(): List<String>
+    suspend fun getGroups(@Query("q") q: String? = null): List<String>
 
     // 申请加入指定小组
     @POST("community/groups/{name}/apply")
@@ -40,7 +40,8 @@ interface CommunityApi {
     suspend fun getPosts(
         @Query("category") category: String?,
         @Query("page") page: Int,
-        @Query("size") size: Int
+        @Query("size") size: Int,
+        @Query("q") q: String?
     ): List<PostDto>
 
     @POST("community/posts")
@@ -62,6 +63,12 @@ interface CommunityApi {
     suspend fun getGroupInfo(@Path("name") name: String): GroupInfoDto
     @POST("community/groups/{name}/join")
     suspend fun setGroupJoin(@Path("name") name: String, @Query("on") join: Boolean): FollowResult
+
+    @PATCH("community/groups/{name}")
+    suspend fun updateGroup(
+        @Path("name") name: String,
+        @Body req: UpdateGroupRequest
+    ): FollowResult
 
     @GET("community/users/{name}/favorites")
     suspend fun getUserFavorites(@Path("name") name: String): List<PostDto>
@@ -87,6 +94,7 @@ data class NewQuestionRequest(val title: String, val content: String)
 data class CreateGroupRequest(val name: String, val description: String, val schedule: String, val capacity: Int, val creator: String? = null)
 data class CreatePostRequest(val title: String, val content: String, val tags: List<String>, val images: List<String> = emptyList(), val anonymous: Boolean = false)
 data class UpdatePostRequest(val title: String, val content: String, val tags: List<String>)
+data class UpdateGroupRequest(val description: String?, val rulesJson: String?, val schedule: String?)
 data class UserProfileDto(val name: String, val avatar: String, val bio: String, val following: Boolean, val postsCount: Int, val followersCount: Int, val followingCount: Int)
 data class FollowResult(val ok: Boolean)
 data class GroupInfoDto(val name: String, val memberCount: Int, val rules: List<String>, val joined: Boolean, val adminName: String, val frequency: String, val schedule: String)

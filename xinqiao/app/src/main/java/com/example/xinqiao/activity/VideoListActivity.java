@@ -21,7 +21,7 @@ import com.example.xinqiao.adapter.VideoListAdapter;
 import com.example.xinqiao.bean.VideoBean;
 import com.example.xinqiao.mysql.DBUtils;
 import com.example.xinqiao.mysql.MySQLHelper;
-import com.example.xinqiao.utils.AnalysisUtils;
+import com.example.xinqiao.util.AnalysisUtils;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -87,10 +87,10 @@ public class VideoListActivity extends AppCompatActivity implements View.OnClick
                 }
 
                 // 检查是否购买了课程
-                new com.example.xinqiao.utils.PaymentUtils(VideoListActivity.this)
+                new com.example.xinqiao.util.payment.PaymentUtils(VideoListActivity.this)
                     .checkCoursePurchased(AnalysisUtils.readLoginUserName(VideoListActivity.this),
                         chapterId,
-                        new com.example.xinqiao.utils.PaymentUtils.PaymentCallback() {
+                        new com.example.xinqiao.util.payment.PaymentUtils.PaymentCallback() {
                             @Override
                             public void onSuccess() {
                                 // 已购买，记录播放历史并播放视频
@@ -109,10 +109,10 @@ public class VideoListActivity extends AppCompatActivity implements View.OnClick
                                     .setMessage("您还未购买该课程，是否立即购买？\n课程价格：￥99.00")
                                     .setPositiveButton("购买", (dialog, which) -> {
                                         // 执行购买操作
-                                        new com.example.xinqiao.utils.PaymentUtils(VideoListActivity.this)
+                                        new com.example.xinqiao.util.payment.PaymentUtils(VideoListActivity.this)
                                             .purchaseCourse(AnalysisUtils.readLoginUserName(VideoListActivity.this),
                                                 chapterId,
-                                                new com.example.xinqiao.utils.PaymentUtils.PaymentCallback() {
+                                                new com.example.xinqiao.util.payment.PaymentUtils.PaymentCallback() {
                                                     @Override
                                                     public void onSuccess() {
                                                         Toast.makeText(VideoListActivity.this, "购买成功", Toast.LENGTH_SHORT).show();

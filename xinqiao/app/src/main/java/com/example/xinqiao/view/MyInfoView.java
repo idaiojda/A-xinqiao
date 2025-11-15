@@ -18,14 +18,14 @@ import androidx.annotation.Nullable;
 import com.bumptech.glide.Glide;
 import com.example.xinqiao.R;
 import com.example.xinqiao.activity.*;
-import com.example.xinqiao.utils.AnalysisUtils;
+import com.example.xinqiao.util.AnalysisUtils;
 import com.example.xinqiao.mysql.DBUtils;
 import android.util.Base64;
 import android.graphics.BitmapFactory;
 import android.graphics.Bitmap;
 import android.graphics.Matrix;
 
-import com.example.xinqiao.utils.PaymentUtils;
+import com.example.xinqiao.util.payment.PaymentUtils;
 import de.hdodenhof.circleimageview.CircleImageView;
 
 public class MyInfoView extends LinearLayout implements com.example.xinqiao.mysql.WeakReferenceCallback {

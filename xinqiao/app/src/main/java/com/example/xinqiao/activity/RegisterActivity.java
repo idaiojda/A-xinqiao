@@ -35,9 +35,9 @@ import com.example.xinqiao.adapter.AvatarAdapter;
 import com.example.xinqiao.bean.UserBean;
 import com.example.xinqiao.mysql.DBUtils;
 import com.example.xinqiao.mysql.MySQLHelper;
-import com.example.xinqiao.utils.AvatarUtils;
-import com.example.xinqiao.utils.ImageUtils;
-import com.example.xinqiao.utils.PhoneUtils;
+import com.example.xinqiao.util.image.AvatarUtils;
+import com.example.xinqiao.util.image.ImageUtils;
+import com.example.xinqiao.util.PhoneUtils;
 import com.google.android.material.textfield.TextInputEditText;
 import com.example.xinqiao.room.AppDatabase;
 import com.example.xinqiao.room.entity.UserInfo;
@@ -315,7 +315,7 @@ public class RegisterActivity extends AppCompatActivity {
             int randomIndex = new Random().nextInt(defaultAvatars.length);
             int avatarResId = defaultAvatars[randomIndex];
             // 使用BitmapUtils加载并缩放图片，避免OOM
-            currentAvatar = com.example.xinqiao.utils.BitmapUtils.decodeSampledBitmapFromResource(
+            currentAvatar = com.example.xinqiao.util.image.BitmapUtils.decodeSampledBitmapFromResource(
                     getResources(), avatarResId, 200, 200);
             // UI上也显示该头像
             Glide.with(this)
