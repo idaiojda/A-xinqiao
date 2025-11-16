@@ -156,6 +156,9 @@ interface GroupChatDao {
 
     @Query("DELETE FROM group_messages WHERE id = :id")
     suspend fun delete(id: String): Int
+
+    @Query("DELETE FROM group_messages WHERE groupName = :group")
+    suspend fun deleteByGroup(group: String): Int
 }
 
 @Dao

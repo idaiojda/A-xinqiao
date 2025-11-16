@@ -20,6 +20,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
@@ -30,6 +31,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -40,6 +42,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.ui.unit.dp
 import coil.compose.rememberAsyncImagePainter
 import androidx.compose.ui.res.painterResource
@@ -62,6 +65,12 @@ private fun imageDataFrom(data: String?): Any? {
     } else data
 }
 
+private fun messageKey(m: com.example.xinqiao.community.GroupMessage): String {
+    val c = (m.content.trim())
+    val v = (m.voiceUrl ?: "")
+    return listOf(m.author, c, v, m.timestamp.toString()).joinToString("|")
+}
+
 fun formatMessageTime(timestamp: Long): String {
     val now = System.currentTimeMillis()
     val diff = now - timestamp
@@ -74,6 +83,75 @@ fun formatMessageTime(timestamp: Long): String {
             val sdf = SimpleDateFormat("MM-dd HH:mm", Locale.getDefault())
             sdf.format(Date(timestamp))
         }
+    }
+}
+
+@Composable
+fun VoiceWaveIcon(
+    isPlaying: Boolean,
+    isMyMessage: Boolean,
+    modifier: Modifier = Modifier,
+    waveColor: Color = if (isMyMessage) Color.Black else MaterialTheme.colorScheme.onSurface
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "voice_wave")
+    
+    // 动画波浪高度
+    val wave1Height by infiniteTransition.animateFloat(
+        initialValue = 2f,
+        targetValue = if (isPlaying) 8f else 2f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 400, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "wave1"
+    )
+    
+    val wave2Height by infiniteTransition.animateFloat(
+        initialValue = 4f,
+        targetValue = if (isPlaying) 12f else 4f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 600, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "wave2"
+    )
+    
+    val wave3Height by infiniteTransition.animateFloat(
+        initialValue = 3f,
+        targetValue = if (isPlaying) 10f else 3f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 500, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "wave3"
+    )
+
+    Canvas(
+        modifier = modifier.size(16.dp)
+    ) {
+        val width = size.width
+        val height = size.height
+        val barWidth = width / 5
+        val spacing = barWidth * 0.5f
+        
+        // 绘制三个波浪条
+        drawRect(
+            color = waveColor,
+            topLeft = Offset(0f, (height - wave1Height) / 2),
+            size = androidx.compose.ui.geometry.Size(barWidth, wave1Height)
+        )
+        
+        drawRect(
+            color = waveColor,
+            topLeft = Offset(barWidth + spacing, (height - wave2Height) / 2),
+            size = androidx.compose.ui.geometry.Size(barWidth, wave2Height)
+        )
+        
+        drawRect(
+            color = waveColor,
+            topLeft = Offset((barWidth + spacing) * 2, (height - wave3Height) / 2),
+            size = androidx.compose.ui.geometry.Size(barWidth, wave3Height)
+        )
     }
 }
 
@@ -112,7 +190,7 @@ class GroupChatActivity : ComponentActivity() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun GroupChatScreen(groupName: String) {
     val ctx = LocalContext.current
@@ -123,10 +201,17 @@ fun GroupChatScreen(groupName: String) {
     val scope = rememberCoroutineScope()
     val nicknames = remember { mutableStateMapOf<String, String>() }
     val avatars = remember { mutableStateMapOf<String, String?>() }
+    var contextMenuMessageId by remember { mutableStateOf<String?>(null) }
+    val unreadVoices = remember { mutableStateMapOf<String, Boolean>() }
+    var pressedVoiceId by remember { mutableStateOf<String?>(null) }
     var playingId by remember { mutableStateOf<String?>(null) }
     var player by remember { mutableStateOf<android.media.MediaPlayer?>(null) }
     var voiceProgress by remember { mutableStateOf(0f) }
+    var playerPrepared by remember { mutableStateOf(false) }
+    var progressJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
     val currentUserAll = AnalysisUtils.readLoginUserName(ctx)
+    var lastRealtimeSeq by remember { mutableStateOf(0L) }
+    var chatMessages by remember { mutableStateOf<List<GroupMessage>>(emptyList()) }
     
     Scaffold(
         topBar = {
@@ -141,21 +226,13 @@ fun GroupChatScreen(groupName: String) {
             ) {
                 CenterAlignedTopAppBar(
                     title = { 
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                groupName, 
-                                maxLines = 1, 
-                                overflow = TextOverflow.Ellipsis,
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
-                            )
-                            Text(
-                                "在线",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(top = 2.dp)
-                            )
-                        }
+                        Text(
+                            groupName, 
+                            maxLines = 1, 
+                            overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
+                        )
                     },
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                         containerColor = MaterialTheme.colorScheme.surface,
@@ -200,6 +277,22 @@ fun GroupChatScreen(groupName: String) {
                                         }
                                     }
                                 })
+                                androidx.compose.material3.DropdownMenuItem(text = { Text("清空聊天记录") }, onClick = {
+                                    menuOpen = false
+                                    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                        try { com.example.xinqiao.mysql.DBUtils.getInstance(ctx).deleteCommunityGroupMessagesByGroup(groupName.trim()) } catch (_: Exception) { }
+                                        try { com.example.xinqiao.mysql.DBUtils.getInstance(ctx).deleteVoiceReadForUser(groupName.trim(), AnalysisUtils.readLoginUserName(ctx)) } catch (_: Exception) { }
+                                        try { com.example.xinqiao.community.CommunityLocalCache.database()?.groupChatDao()?.deleteByGroup(groupName.trim()) } catch (_: Exception) { }
+                                        try {
+                                            val sp = ctx.getSharedPreferences("loginInfo", android.content.Context.MODE_PRIVATE)
+                                            sp.edit().remove("recentMessages_" + groupName.trim()).apply()
+                                        } catch (_: Exception) { }
+                                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                            chatMessages = emptyList()
+                                            snackbarHostState.showSnackbar("已清空")
+                                        }
+                                    }
+                                })
                             }
                         }
                     }
@@ -220,7 +313,6 @@ fun GroupChatScreen(groupName: String) {
                 .background(MaterialTheme.colorScheme.background),
             verticalArrangement = Arrangement.spacedBy(0.dp)
         ) {
-            var chatMessages by remember { mutableStateOf<List<GroupMessage>>(emptyList()) }
             var chatLoading by remember { mutableStateOf(false) }
             var chatInput by remember { mutableStateOf("") }
             var chatImages by remember { mutableStateOf<List<String>>(emptyList()) }
@@ -228,6 +320,12 @@ fun GroupChatScreen(groupName: String) {
             var chatVoiceDuration by remember { mutableStateOf<Int?>(null) }
             var recording by remember { mutableStateOf(false) }
             var recorder by remember { mutableStateOf<android.media.MediaRecorder?>(null) }
+            var recordBars by remember { mutableStateOf(List(12) { 4f }) }
+            var recordTimerLeft by remember { mutableStateOf(60) }
+            var recordCancel by remember { mutableStateOf(false) }
+            var recordOverlay by remember { mutableStateOf(false) }
+            var recordJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+            var voiceMode by remember { mutableStateOf(false) }
             val pickChatImages = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris -> chatImages = uris.map { it.toString() } }
             val requestAudioPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
                 if (granted) {
@@ -244,6 +342,114 @@ fun GroupChatScreen(groupName: String) {
                         recording = true
                         chatVoicePath = file.absolutePath
                         chatVoiceDuration = null
+                        recordTimerLeft = 60
+                        recordCancel = false
+                        recordOverlay = true
+                        try { recordJob?.cancel() } catch (_: Exception) {}
+                        recordJob = scope.launch {
+                            try {
+                                while (recording && recorder != null) {
+                                    try {
+                                        val amp = recorder?.maxAmplitude ?: 0
+                                        val v = (kotlin.math.sqrt(amp.toFloat()) / 8f).coerceIn(2f, 16f)
+                                        val newBars = recordBars.toMutableList()
+                                        newBars.removeAt(0)
+                                        newBars.add(v)
+                                        recordBars = newBars
+                                    } catch (_: Exception) {}
+                                    kotlinx.coroutines.delay(80)
+                                }
+                            } catch (_: Exception) {}
+                        }
+                        scope.launch {
+                            try {
+                                while (recording && recordTimerLeft > 0) {
+                                    kotlinx.coroutines.delay(1000)
+                                    recordTimerLeft -= 1
+                                }
+                                if (recording) {
+                                    try {
+                                        recorder?.stop(); recorder?.release(); recorder = null
+                                        recording = false
+                                        recordOverlay = false
+                                    } catch (_: Exception) { recording = false; recorder?.release(); recorder = null; recordOverlay = false }
+                                    try {
+                                        val mmr = android.media.MediaMetadataRetriever()
+                                        mmr.setDataSource(chatVoicePath)
+                                        val ms = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)?.toIntOrNull()
+                                        chatVoiceDuration = ms?.let { (it / 1000).coerceAtLeast(1) }
+                                        mmr.release()
+                                    } catch (_: Exception) { chatVoiceDuration = null }
+                                    if (groupName.isNotBlank() && chatVoicePath != null) {
+                                        val currentUser = AnalysisUtils.readLoginUserName(ctx)
+                                        val before = chatMessages
+                                        val tmpId = "tmp" + System.currentTimeMillis()
+                                        val userAvatar = avatars[currentUser]
+                                        val optimisticMsg = GroupMessage(
+                                            id = tmpId,
+                                            groupName = groupName.trim(),
+                                            author = currentUser,
+                                            authorAvatar = userAvatar,
+                                            content = "",
+                                            images = emptyList(),
+                                            mentions = emptyList(),
+                                            voiceUrl = chatVoicePath,
+                                            voiceDurationSec = chatVoiceDuration,
+                                            timestamp = System.currentTimeMillis(),
+                                            recalled = false
+                                        )
+                                        chatMessages = before + optimisticMsg
+                                        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                            try {
+                                                try { com.example.xinqiao.community.CommunityLocalCache.database()?.groupChatDao()?.upsertAll(listOf(optimisticMsg.toEntity())) } catch (_: Exception) { }
+                                                try {
+                                                    val sp = ctx.getSharedPreferences("loginInfo", android.content.Context.MODE_PRIVATE)
+                                                    val raw = sp.getString("recentMessages_" + groupName.trim(), "[]")
+                                                    val list = try { com.google.gson.Gson().fromJson(raw, java.util.ArrayList::class.java) as java.util.ArrayList<com.example.xinqiao.community.GroupMessage> } catch (_: Exception) { java.util.ArrayList() }
+                                                    list.add(optimisticMsg)
+                                                    val kept = list.takeLast(50)
+                                                    sp.edit().putString("recentMessages_" + groupName.trim(), com.google.gson.Gson().toJson(kept)).apply()
+                                                } catch (_: Exception) { }
+                                            } catch (_: Exception) { }
+                                        }
+                                        val voiceToSend = chatVoicePath
+                                        val voiceDurationToSend = chatVoiceDuration
+                                        chatVoicePath = null
+                                        chatVoiceDuration = null
+                                        scope.launch {
+                                            try {
+                                                val created = CommunityRepositoryProvider.current.postGroupMessage(groupName.trim(), "", currentUser, emptyList(), emptyList(), voiceToSend, voiceDurationToSend)
+                                                val finalCreated = created.copy(authorAvatar = (avatars[currentUser] ?: created.authorAvatar))
+                                                chatMessages = (before + optimisticMsg).dropLast(1) + finalCreated
+                                                launch(kotlinx.coroutines.Dispatchers.IO) {
+                                                    try {
+                                                        val dao = com.example.xinqiao.community.CommunityLocalCache.database()?.groupChatDao()
+                                                        try { dao?.delete(tmpId); dao?.upsertAll(listOf(finalCreated.toEntity())) } catch (_: Exception) { }
+                                                        try {
+                                                            val db = com.example.xinqiao.mysql.DBUtils.getInstance(ctx)
+                                                            db.deleteCommunityGroupMessage(tmpId)
+                                                            val rec = com.example.xinqiao.mysql.DBUtils.GroupMessageRecord()
+                                                            rec.id = finalCreated.id; rec.groupName = finalCreated.groupName; rec.author = finalCreated.author; rec.authorAvatar = finalCreated.authorAvatar; rec.content = finalCreated.content; rec.imagesJson = com.google.gson.Gson().toJson(finalCreated.images); rec.mentionsJson = com.google.gson.Gson().toJson(finalCreated.mentions); rec.voiceUrl = finalCreated.voiceUrl; rec.voiceDurationSec = finalCreated.voiceDurationSec; rec.timestamp = finalCreated.timestamp; rec.recalled = false
+                                                            db.insertCommunityGroupMessage(rec)
+                                                        } catch (_: Exception) { }
+                                                        try {
+                                                            val sp = ctx.getSharedPreferences("loginInfo", android.content.Context.MODE_PRIVATE)
+                                                            val raw = sp.getString("recentMessages_" + finalCreated.groupName.trim(), "[]")
+                                                            val list = try { com.google.gson.Gson().fromJson(raw, java.util.ArrayList::class.java) as java.util.ArrayList<com.example.xinqiao.community.GroupMessage> } catch (_: Exception) { java.util.ArrayList() }
+                                                            list.removeIf { it.id == tmpId }
+                                                            list.add(finalCreated)
+                                                            val kept = list.takeLast(50)
+                                                            sp.edit().putString("recentMessages_" + finalCreated.groupName.trim(), com.google.gson.Gson().toJson(kept)).apply()
+                                                        } catch (_: Exception) { }
+                                                        try { com.example.xinqiao.community.RealtimeChatClient.send(org.json.JSONObject(mapOf("id" to finalCreated.id, "group" to finalCreated.groupName, "author" to finalCreated.author, "content" to finalCreated.content, "ts" to finalCreated.timestamp)).toString()) } catch (_: Exception) { }
+                                                    } catch (_: Exception) { }
+                                                }
+                                            } catch (_: Exception) { snackbarHostState.showSnackbar("发送失败") }
+                                        }
+                                    }
+                                }
+                            } catch (_: Exception) {}
+                        }
                     } catch (_: Exception) {
                         recording = false
                         recorder?.release()
@@ -316,7 +522,31 @@ fun GroupChatScreen(groupName: String) {
                                 recalled = it.recalled
                             )
                         }
-                        val merged = (mergedLocal + cloud).distinctBy { it.id }
+                        val mergedRaw = (mergedLocal + cloud)
+                        val byId = mergedRaw.distinctBy { it.id }
+                        val merged = mutableListOf<com.example.xinqiao.community.GroupMessage>()
+                        byId.sortedBy { it.timestamp }.forEach { m ->
+                            val dupIndex = merged.indexOfLast { existing ->
+                                existing.groupName == m.groupName &&
+                                existing.author == m.author &&
+                                existing.content.trim() == m.content.trim() &&
+                                ((existing.voiceUrl ?: "") == (m.voiceUrl ?: "")) &&
+                                (existing.images == m.images) &&
+                                kotlin.math.abs(existing.timestamp - m.timestamp) <= 60_000
+                            }
+                            if (dupIndex >= 0) {
+                                val old = merged[dupIndex]
+                                val pick = when {
+                                    old.id.startsWith("tmp") && !m.id.startsWith("tmp") -> m
+                                    !old.id.startsWith("tmp") && m.id.startsWith("tmp") -> old
+                                    m.timestamp >= old.timestamp -> m
+                                    else -> old
+                                }
+                                merged[dupIndex] = pick
+                            } else {
+                                merged.add(m)
+                            }
+                        }
                         android.util.Log.d("GroupChatDiag", "reload cloud group=" + groupName.trim() + " size=" + cloud.size + " merged=" + merged.size)
                         // 回填缺失头像并缓存到本地
                         try {
@@ -344,6 +574,10 @@ fun GroupChatScreen(groupName: String) {
             LaunchedEffect(groupName) {
                 reloadMessages()
                 try {
+                    try {
+                        val sp = ctx.getSharedPreferences("loginInfo", android.content.Context.MODE_PRIVATE)
+                        lastRealtimeSeq = sp.getLong("lastRealtimeSeq_" + groupName.trim(), 0L)
+                    } catch (_: Exception) { lastRealtimeSeq = 0L }
                     com.example.xinqiao.community.RealtimeChatClient.connect(ctx, groupName, currentUserAll) { payload ->
                         try {
                             val obj = org.json.JSONObject(payload)
@@ -360,6 +594,8 @@ fun GroupChatScreen(groupName: String) {
                                 timestamp = if (obj.has("ts")) obj.getLong("ts") else System.currentTimeMillis(),
                                 recalled = false
                             )
+                            val seq = if (obj.has("seq")) obj.getLong("seq") else gm.timestamp
+                            if (seq <= lastRealtimeSeq) return@connect
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
                                 // 实时消息回填作者头像
                                 try {
@@ -368,12 +604,27 @@ fun GroupChatScreen(groupName: String) {
                                     val withAvatar = if (av != null) gm.copy(authorAvatar = av) else gm
                                     com.example.xinqiao.community.CommunityLocalCache.database()?.groupChatDao()?.upsertAll(listOf(withAvatar.toEntity()))
                                 } catch (_: Exception) { try { com.example.xinqiao.community.CommunityLocalCache.database()?.groupChatDao()?.upsertAll(listOf(gm.toEntity())) } catch (_: Exception) {} }
-                                try {
-                                    val rec = com.example.xinqiao.mysql.DBUtils.GroupMessageRecord()
-                                    rec.id = gm.id; rec.groupName = gm.groupName; rec.author = gm.author; rec.authorAvatar = gm.authorAvatar; rec.content = gm.content; rec.imagesJson = com.google.gson.Gson().toJson(gm.images); rec.mentionsJson = com.google.gson.Gson().toJson(gm.mentions); rec.voiceUrl = gm.voiceUrl; rec.voiceDurationSec = gm.voiceDurationSec; rec.timestamp = gm.timestamp; rec.recalled = false
-                                    com.example.xinqiao.mysql.DBUtils.getInstance(ctx).insertCommunityGroupMessage(rec)
-                                } catch (_: Exception) {}
-                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { chatMessages = chatMessages + gm }
+                                try { } catch (_: Exception) {}
+                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                    val existsById = chatMessages.any { it.id == gm.id }
+                                    val existsByKey = chatMessages.any { messageKey(it) == messageKey(gm) }
+                                    when {
+                                        existsById -> chatMessages = chatMessages.map { if (it.id == gm.id) gm else it }
+                                        existsByKey -> {
+                                            // 保留时间靠后的消息，替换旧条
+                                            val k = messageKey(gm)
+                                            chatMessages = chatMessages.map { if (messageKey(it) == k && gm.timestamp >= it.timestamp) gm else it }
+                                        }
+                                        else -> chatMessages = chatMessages + gm
+                                    }
+                                    if (seq > lastRealtimeSeq) {
+                                        lastRealtimeSeq = seq
+                                        try {
+                                            val sp = ctx.getSharedPreferences("loginInfo", android.content.Context.MODE_PRIVATE)
+                                            sp.edit().putLong("lastRealtimeSeq_" + groupName.trim(), lastRealtimeSeq).apply()
+                                        } catch (_: Exception) {}
+                                    }
+                                }
                             }
                         } catch (_: Exception) {}
                     }
@@ -415,6 +666,27 @@ fun GroupChatScreen(groupName: String) {
                                 override fun onError(e: java.sql.SQLException) {}
                             })
                         }
+                    }
+                    // 计算未读语音集合（优先服务端，IO线程+超时；失败回退本地）
+                    try {
+                        val readServer: List<String> = try {
+                            kotlinx.coroutines.withTimeout(2000) {
+                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                    com.example.xinqiao.mysql.DBUtils.getInstance(ctx).listVoiceRead(groupName.trim(), currentUserAll)
+                                }
+                            }
+                        } catch (_: Exception) { emptyList() }
+                        unreadVoices.clear()
+                        chatMessages.filter { it.voiceUrl != null && it.author != currentUserAll }.forEach { m -> unreadVoices[m.id] = !readServer.contains(m.id) }
+                    } catch (_: Exception) {
+                        try {
+                            val sp = ctx.getSharedPreferences("loginInfo", android.content.Context.MODE_PRIVATE)
+                            val key = "voiceRead_" + groupName.trim()
+                            val raw = sp.getString(key, "[]")
+                            val readList = try { com.google.gson.Gson().fromJson(raw, java.util.ArrayList::class.java) as java.util.ArrayList<String> } catch (_: Exception) { java.util.ArrayList() }
+                            unreadVoices.clear()
+                            chatMessages.filter { it.voiceUrl != null && it.author != currentUserAll }.forEach { m -> unreadVoices[m.id] = !readList.contains(m.id) }
+                        } catch (_: Exception) { }
                     }
                 } catch (_: Exception) {}
             }
@@ -513,7 +785,9 @@ fun GroupChatScreen(groupName: String) {
                                             )
                                         } else painterResource(id = com.example.xinqiao.R.drawable.default_avatar)
                                         if (showAvatarThis) {
-                                            Surface(shape = CircleShape, modifier = Modifier.size(36.dp).padding(end = 8.dp)) {
+                                            val avatarSize = 36.dp
+                                            val avatarRadius = avatarSize * 0.2f
+                                            Surface(shape = RoundedCornerShape(avatarRadius), modifier = Modifier.size(avatarSize).padding(end = 8.dp)) {
                                                 Image(
                                                     painter = painterLeft,
                                                     contentDescription = "${m.author}的头像",
@@ -569,25 +843,25 @@ fun GroupChatScreen(groupName: String) {
                                             }
                                             
                                             Surface(
-                                                shape = when {
-                                                    isMyMessage -> MaterialTheme.shapes.large.copy(
-                                                        bottomEnd = MaterialTheme.shapes.extraSmall.topEnd
-                                                    )
-                                                    else -> MaterialTheme.shapes.large.copy(
-                                                        bottomStart = MaterialTheme.shapes.extraSmall.topStart
-                                                    )
-                                                },
-                                                tonalElevation = if (isMyMessage) 2.dp else 1.dp,
+                                                shape = RoundedCornerShape(
+                                                    topStart = 12.dp,
+                                                    topEnd = 12.dp,
+                                                    bottomStart = if (isMyMessage) 12.dp else 3.dp,
+                                                    bottomEnd = if (isMyMessage) 3.dp else 12.dp
+                                                ),
+                                                tonalElevation = 0.dp,
                                                 color = when {
                                                     m.recalled -> MaterialTheme.colorScheme.surfaceVariant
-                                                    isMyMessage -> MaterialTheme.colorScheme.primaryContainer
+                                                    isMyMessage -> Color(0xFF95EC69) // 微信绿色
                                                     else -> MaterialTheme.colorScheme.surface
                                                 },
-                                                modifier = Modifier.widthIn(max = (conf.screenWidthDp.dp * 0.72f))
+                                                modifier = Modifier
+                                                    .widthIn(max = (conf.screenWidthDp.dp * 0.75f))
+                                                    .combinedClickable(onLongClick = { contextMenuMessageId = m.id }, onClick = {})
                                             ) {
                                                 Column(
-                                                    modifier = Modifier.padding(12.dp),
-                                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                                    verticalArrangement = Arrangement.spacedBy(4.dp)
                                                 ) {
                                                     if (m.recalled) {
                                                         Row(
@@ -611,117 +885,110 @@ fun GroupChatScreen(groupName: String) {
                                                         if (m.content.isNotBlank()) {
                                                             Text(
                                                                 text = m.content,
-                                                                style = MaterialTheme.typography.bodyMedium,
-                                                                color = if (isMyMessage) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                                                                style = MaterialTheme.typography.bodyLarge,
+                                                                color = if (isMyMessage) Color.Black else MaterialTheme.colorScheme.onSurface,
                                                                 modifier = Modifier.padding(bottom = if (m.images.isNotEmpty() || m.voiceUrl != null || m.mentions.isNotEmpty()) 4.dp else 0.dp)
                                                             )
                                                         }
                                                         
                                                         if (m.voiceUrl != null) {
+                                                            val durSec = (m.voiceDurationSec ?: 0).coerceAtLeast(0)
+                                                            val bubbleWidth = (75 + ((200 - 75) * (durSec.coerceAtMost(60) / 60f))).dp
+                                                            val isUnread = unreadVoices[m.id] == true && m.author != currentUserAll
                                                             Surface(
                                                                 onClick = {
                                                                     try {
-                                                                        player?.release()
-                                                                        val p = android.media.MediaPlayer()
-                                                                        p.setDataSource(m.voiceUrl)
-                                                                        p.setOnPreparedListener { it.start() }
-                                                                        p.setOnCompletionListener {
-                                                                            voiceProgress = 0f
-                                                                            playingId = null
-                                                                            it.release()
-                                                                            player = null
-                                                                        }
-                                                                        p.prepareAsync()
-                                                                        player = p
-                                                                        playingId = m.id
-                                                                        // 更新播放进度
-                                                                        (ctx as? androidx.activity.ComponentActivity)?.let { act ->
-                                                                            act.lifecycle.addObserver(object: androidx.lifecycle.DefaultLifecycleObserver {})
-                                                                        }
-                                                                        kotlinx.coroutines.GlobalScope.launch {
-                                                                            try {
-                                                                                while (playingId == m.id && player != null) {
-                                                                                    val dur = player?.duration ?: 1
-                                                                                    val cur = player?.currentPosition ?: 0
-                                                                                    voiceProgress = (cur.toFloat() / dur.toFloat()).coerceIn(0f, 1f)
-                                                                                    kotlinx.coroutines.delay(100)
+                                                                        if (playingId == m.id && player?.isPlaying == true) {
+                                                                            player?.pause(); playingId = null
+                                                                        } else if (playingId == m.id && player != null) {
+                                                                            player?.start(); playingId = m.id
+                                                                        } else {
+                                                                            player?.release(); player = null; playingId = null
+                                                                            val p = android.media.MediaPlayer()
+                                                                            p.setDataSource(m.voiceUrl)
+                                                                            p.setOnPreparedListener {
+                                                                                playerPrepared = true
+                                                                                it.start()
+                                                                                kotlinx.coroutines.GlobalScope.launch {
+                                                                                    try {
+                                                                                        while (playingId == m.id && playerPrepared && player != null) {
+                                                                                            val dur = player?.duration ?: 0
+                                                                                            val cur = player?.currentPosition ?: 0
+                                                                                            if (dur > 0) voiceProgress = (cur.toFloat() / dur.toFloat()).coerceIn(0f, 1f)
+                                                                                            kotlinx.coroutines.delay(120)
+                                                                                        }
+                                                                                    } catch (_: Exception) { }
                                                                                 }
-                                                                            } catch (_: Exception) { }
+                                                                            }
+                                                                            p.setOnCompletionListener { voiceProgress = 0f; playingId = null; playerPrepared = false; it.release(); player = null }
+                                                                            p.setOnErrorListener { mp, _, _ -> voiceProgress = 0f; playingId = null; playerPrepared = false; try { mp.release() } catch (_: Exception) {}; player = null; true }
+                                                                            p.prepareAsync(); player = p; playingId = m.id
                                                                         }
+                                                                        // 标记已读
+                                                                        try {
+                                                                            unreadVoices[m.id] = false
+                                                                            val sp = ctx.getSharedPreferences("loginInfo", android.content.Context.MODE_PRIVATE)
+                                                                            val key = "voiceRead_" + groupName.trim()
+                                                                            val raw = sp.getString(key, "[]")
+                                                                            val list = try { com.google.gson.Gson().fromJson(raw, java.util.ArrayList::class.java) as java.util.ArrayList<String> } catch (_: Exception) { java.util.ArrayList() }
+                                                                            if (!list.contains(m.id)) { list.add(m.id); sp.edit().putString(key, com.google.gson.Gson().toJson(list)).apply() }
+                                                                            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                                                                try { com.example.xinqiao.mysql.DBUtils.getInstance(ctx).markVoiceRead(groupName.trim(), currentUserAll, m.id) } catch (_: Exception) {}
+                                                                            }
+                                                                        } catch (_: Exception) {}
                                                                     } catch (_: Exception) { }
                                                                 },
-                                                                shape = MaterialTheme.shapes.medium,
-                                                                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f),
-                                                                modifier = Modifier.padding(top = 4.dp)
+                                                                shape = RoundedCornerShape(12.dp),
+                                                                color = if (isMyMessage) Color(0xFF95EC69) else MaterialTheme.colorScheme.surface,
+                                                                modifier = Modifier
+                                                                    .padding(top = 4.dp)
+                                                                    .width(bubbleWidth)
+                                                                    .combinedClickable(onClick = {}, onLongClick = { pressedVoiceId = m.id })
                                                             ) {
                                                                 Row(
                                                                     verticalAlignment = Alignment.CenterVertically,
-                                                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                                    horizontalArrangement = Arrangement.SpaceBetween,
                                                                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
                                                                 ) {
-                                                                    Icon(
-                                                                        imageVector = Icons.Default.VolumeUp,
-                                                                        contentDescription = null,
-                                                                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                                                                        modifier = Modifier.size(18.dp)
-                                                                    )
-                                                                    val bars = 8
-                                                                    val infinite = rememberInfiniteTransition()
-                                                                    Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.Bottom) {
-                                                                        repeat(bars) { i ->
-                                                                            val anim by infinite.animateFloat(
-                                                                                initialValue = 6f,
-                                                                                targetValue = 14f,
-                                                                                animationSpec = infiniteRepeatable(animation = tween(600 + i * 30, easing = LinearEasing), repeatMode = RepeatMode.Reverse)
-                                                                            )
-                                                                            val h = if (playingId == m.id) anim.dp else (6 + (i % 3) * 4).dp
-                                                                            Box(modifier = Modifier.width(2.dp).height(h).background(MaterialTheme.colorScheme.onSecondaryContainer))
-                                                                        }
-                                                                    }
-                                                                    Spacer(modifier = Modifier.width(8.dp))
-                                                                    Box(modifier = Modifier.width(80.dp).height(4.dp).background(MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.2f))) {
-                                                                        Box(modifier = Modifier.fillMaxHeight().width((80.dp * voiceProgress)).background(MaterialTheme.colorScheme.onSecondaryContainer))
-                                                                    }
-                                                                    Spacer(modifier = Modifier.width(8.dp))
-                                                                    Icon(
-                                                                        imageVector = Icons.Default.PlayArrow,
-                                                                        contentDescription = "播放",
-                                                                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                                                    VoiceWaveIcon(
+                                                                        isPlaying = playingId == m.id,
+                                                                        isMyMessage = isMyMessage,
                                                                         modifier = Modifier.size(16.dp)
                                                                     )
+                                                                    Text(
+                                                                        text = "${durSec}″",
+                                                                        style = MaterialTheme.typography.labelMedium,
+                                                                        color = if (isMyMessage) Color.Black else MaterialTheme.colorScheme.onSurface,
+                                                                        modifier = Modifier.padding(horizontal = 8.dp)
+                                                                    )
+                                                                    if (isUnread) {
+                                                                        Box(modifier = Modifier.size(6.dp).background(MaterialTheme.colorScheme.error, CircleShape))
+                                                                    }
                                                                 }
                                                             }
                                                         }
                                                         
                                                         if (m.images.isNotEmpty()) {
-                                                            val cols = 3
-                                                            val cellSize = ((conf.screenWidthDp.dp * 0.72f) - 12.dp) / cols
-                                                            LazyVerticalGrid(
-                                                                columns = GridCells.Fixed(cols),
-                                                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                                                verticalArrangement = Arrangement.spacedBy(4.dp),
-                                                                modifier = Modifier.padding(top = 4.dp)
+                                                            val imageSize = 120.dp
+                                                            Surface(
+                                                                onClick = { previewImageUrl = m.images.first() },
+                                                                shape = RoundedCornerShape(12.dp),
+                                                                modifier = Modifier
+                                                                    .padding(top = 4.dp)
+                                                                    .size(imageSize)
                                                             ) {
-                                                                items(m.images) { url ->
-                                                                    Surface(
-                                                                        onClick = { previewImageUrl = url },
-                                                                        shape = MaterialTheme.shapes.medium,
-                                                                        modifier = Modifier.size(cellSize)
-                                                                    ) {
-                                                                        Image(
-                                                                            painter = rememberAsyncImagePainter(
-                                                                                model = coil.request.ImageRequest.Builder(ctx)
-                                                                                    .data(imageDataFrom(url))
-                                                                                    .allowHardware(false)
-                                                                                    .size(512, 512)
-                                                                                    .build()
-                                                                            ),
-                                                                            contentDescription = null,
-                                                                            modifier = Modifier.fillMaxSize(),
-                                                                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                                                                        )
-                                                                    }
-                                                                }
+                                                                Image(
+                                                                    painter = rememberAsyncImagePainter(
+                                                                        model = coil.request.ImageRequest.Builder(ctx)
+                                                                            .data(imageDataFrom(m.images.first()))
+                                                                            .allowHardware(false)
+                                                                            .size(256, 256)
+                                                                            .build()
+                                                                    ),
+                                                                    contentDescription = null,
+                                                                    modifier = Modifier.fillMaxSize(),
+                                                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                                                )
                                                             }
                                                         }
                                                         
@@ -732,22 +999,12 @@ fun GroupChatScreen(groupName: String) {
                                                                 modifier = Modifier.padding(top = if (m.content.isNotBlank() || m.voiceUrl != null || m.images.isNotEmpty()) 4.dp else 0.dp)
                                                             ) {
                                                                 m.mentions.forEach { u ->
-                                                                    Surface(
-                                                                        onClick = {
-                                                                            val intent = android.content.Intent(ctx, com.example.xinqiao.activity.UserInfoActivity::class.java)
-                                                                            intent.putExtra("name", u)
-                                                                            ctx.startActivity(intent)
-                                                                        },
-                                                                        shape = MaterialTheme.shapes.small,
-                                                                        color = MaterialTheme.colorScheme.tertiaryContainer
-                                                                    ) {
-                                                                        Text(
-                                                                            text = "@$u",
-                                                                            style = MaterialTheme.typography.labelSmall,
-                                                                            color = MaterialTheme.colorScheme.onTertiaryContainer,
-                                                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                                                        )
-                                                                    }
+                                                                    Text(
+                                                                        text = "@$u",
+                                                                        style = MaterialTheme.typography.labelSmall,
+                                                                        color = MaterialTheme.colorScheme.primary,
+                                                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                                                    )
                                                                 }
                                                             }
                                                         }
@@ -756,35 +1013,27 @@ fun GroupChatScreen(groupName: String) {
                                                     Text(
                                                         text = android.text.format.DateFormat.format("HH:mm", java.util.Date(m.timestamp)).toString(),
                                                         style = MaterialTheme.typography.labelSmall,
-                                                        color = if (isMyMessage) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                                        modifier = Modifier.padding(top = if (m.recalled && m.content.isBlank() && m.voiceUrl == null && m.images.isEmpty() && m.mentions.isEmpty()) 0.dp else 4.dp)
+                                                        color = Color.Gray,
+                                                        modifier = Modifier.padding(top = if (m.recalled && m.content.isBlank() && m.voiceUrl == null && m.images.isEmpty() && m.mentions.isEmpty()) 0.dp else 2.dp)
                                                     )
                                                 }
                                             }
                                             if (isMyMessage) {
                                                 val isSending = m.id.startsWith("tmp")
-                                                val rot = remember { Animatable(0f) }
-                                                LaunchedEffect(isSending) {
-                                                    if (isSending) rot.animateTo(360f, animationSpec = infiniteRepeatable(animation = tween(1200, easing = LinearEasing), repeatMode = RepeatMode.Restart)) else rot.snapTo(0f)
-                                                }
-                                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 6.dp)) {
-                                                    if (isSending) {
-                                                        Icon(
-                                                            imageVector = Icons.Default.Autorenew,
-                                                            contentDescription = "发送中",
-                                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                                            modifier = Modifier.size(16.dp).graphicsLayer { rotationZ = rot.value }
-                                                        )
-                                                    } else {
-                                                        AnimatedVisibility(visible = true, enter = fadeIn(), exit = fadeOut()) {
-                                                            Icon(
-                                                                imageVector = Icons.Default.Check,
-                                                                contentDescription = "已发送",
-                                                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                                                modifier = Modifier.size(16.dp)
-                                                            )
-                                                        }
-                                                    }
+                                                if (isSending) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Schedule,
+                                                        contentDescription = "发送中",
+                                                        tint = Color.Gray,
+                                                        modifier = Modifier.size(14.dp).padding(start = 4.dp)
+                                                    )
+                                                } else {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Check,
+                                                        contentDescription = "已发送",
+                                                        tint = Color.Gray,
+                                                        modifier = Modifier.size(14.dp).padding(start = 4.dp)
+                                                    )
                                                 }
                                             }
                                         }
@@ -801,7 +1050,9 @@ fun GroupChatScreen(groupName: String) {
                                             )
                                         } else painterResource(id = com.example.xinqiao.R.drawable.default_avatar)
                                         if (showAvatarThis) {
-                                            Surface(shape = CircleShape, modifier = Modifier.size(36.dp).padding(start = 8.dp)) {
+                                            val avatarSize = 36.dp
+                                            val avatarRadius = avatarSize * 0.2f
+                                            Surface(shape = RoundedCornerShape(avatarRadius), modifier = Modifier.size(avatarSize).padding(start = 8.dp)) {
                                                 Image(
                                                     painter = painterRight,
                                                     contentDescription = "${m.author}的头像",
@@ -835,192 +1086,34 @@ fun GroupChatScreen(groupName: String) {
                 )
             ) {
                 Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Media Previews
-                    if (chatImages.isNotEmpty()) {
-                        var previewIndex by remember { mutableStateOf(0) }
-                        var previewOpen by remember { mutableStateOf(false) }
-                        
-                        androidx.compose.foundation.lazy.LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            itemsIndexed(chatImages) { i, url ->
-                                Box {
-                                    Surface(
-                                        onClick = { previewIndex = i; previewOpen = true },
-                                        shape = MaterialTheme.shapes.medium,
-                                        modifier = Modifier.size(72.dp)
-                                    ) {
-                                                                        Image(
-                                                                            painter = rememberAsyncImagePainter(
-                                                                                model = coil.request.ImageRequest.Builder(ctx)
-                                                                                    .data(imageDataFrom(url))
-                                                                                    .allowHardware(false)
-                                                                                    .size(1024, 1024)
-                                                                                    .build()
-                                                                            ),
-                                                                            contentDescription = null,
-                                                                            modifier = Modifier.fillMaxSize(),
-                                                                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                                                                        )
-                                    }
-                                    Surface(
-                                        onClick = { chatImages = chatImages.filterIndexed { idx, _ -> idx != i } },
-                                        shape = CircleShape,
-                                        color = MaterialTheme.colorScheme.errorContainer,
-                                        modifier = Modifier.align(Alignment.TopEnd).size(20.dp)
-                                    ) {
-                                        Box(
-                                            modifier = Modifier.fillMaxSize(),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Icon(
-                                                Icons.Default.Close,
-                                                contentDescription = "删除",
-                                                modifier = Modifier.size(12.dp),
-                                                tint = MaterialTheme.colorScheme.onErrorContainer
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        
-                        if (previewOpen) {
-                            androidx.compose.ui.window.Dialog(onDismissRequest = { previewOpen = false }) {
-                                Surface(
-                                    shape = MaterialTheme.shapes.large,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Column {
-                                        Image(
-                                            painter = rememberAsyncImagePainter(chatImages[previewIndex]),
-                                            contentDescription = null,
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .height(320.dp)
-                                                .clip(MaterialTheme.shapes.large),
-                                            contentScale = androidx.compose.ui.layout.ContentScale.Fit
-                                        )
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(16.dp),
-                                            horizontalArrangement = Arrangement.End
-                                        ) {
-                                            TextButton(onClick = { previewOpen = false }) {
-                                                Text("关闭")
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // Voice Recording Preview
-                    if (chatVoicePath != null && !recording) {
-                        Surface(
-                            shape = MaterialTheme.shapes.medium,
-                            tonalElevation = 1.dp,
-                            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(12.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    Surface(
-                                        onClick = {
-                                            try {
-                                                val player = android.media.MediaPlayer()
-                                                player.setDataSource(chatVoicePath)
-                                                player.setOnPreparedListener { it.start() }
-                                                player.setOnCompletionListener { it.release() }
-                                                player.prepareAsync()
-                                            } catch (_: Exception) { }
-                                        },
-                                        shape = CircleShape,
-                                        color = MaterialTheme.colorScheme.primaryContainer
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.PlayArrow,
-                                            contentDescription = "播放",
-                                            modifier = Modifier.padding(8.dp).size(20.dp),
-                                            tint = MaterialTheme.colorScheme.onPrimaryContainer
-                                        )
-                                    }
-                                    Column {
-                                        Text(
-                                            text = "语音消息",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-                                        Text(
-                                            text = "${chatVoiceDuration ?: 0}秒",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
-                                IconButton(
-                                    onClick = { chatVoicePath = null; chatVoiceDuration = null },
-                                    modifier = Modifier.size(32.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Default.DeleteOutline,
-                                        contentDescription = "删除",
-                                        tint = MaterialTheme.colorScheme.error
-                                    )
-                                }
-                            }
-                        }
-                    }
-
                     // Recording Indicator
                     if (recording) {
                         Surface(
-                            shape = MaterialTheme.shapes.medium,
-                            color = MaterialTheme.colorScheme.errorContainer,
+                            shape = RoundedCornerShape(24.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Row(
-                                modifier = Modifier.padding(12.dp),
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    Surface(
-                                        shape = CircleShape,
-                                        color = MaterialTheme.colorScheme.error
-                                    ) {
-                                        Box(
-                                            modifier = Modifier.padding(8.dp).size(8.dp),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Surface(
-                                                shape = CircleShape,
-                                                color = MaterialTheme.colorScheme.onError,
-                                                modifier = Modifier.size(6.dp)
-                                            ) {}
-                                        }
-                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .size(8.dp)
+                                            .background(MaterialTheme.colorScheme.error, CircleShape)
+                                    )
                                     Text(
-                                        text = "正在录音...",
+                                        text = "正在录音 ${recordTimerLeft}s",
                                         style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onErrorContainer,
-                                        fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
+                                        color = MaterialTheme.colorScheme.onSurface
                                     )
                                 }
                                 TextButton(
@@ -1049,11 +1142,7 @@ fun GroupChatScreen(groupName: String) {
                                         }
                                     }
                                 ) {
-                                    Text(
-                                        "完成",
-                                        color = MaterialTheme.colorScheme.onErrorContainer,
-                                        fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
-                                    )
+                                    Text("完成")
                                 }
                             }
                         }
@@ -1065,88 +1154,149 @@ fun GroupChatScreen(groupName: String) {
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         // Image Button
-                        Surface(
+                        IconButton(
                             onClick = { pickChatImages.launch("image/*") },
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.secondaryContainer,
-                            modifier = Modifier.size(44.dp)
+                            modifier = Modifier.size(32.dp)
                         ) {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Image,
-                                    contentDescription = "选择图片",
-                                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
+                            Icon(
+                                imageVector = Icons.Default.Image,
+                                contentDescription = "选择图片",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp)
+                            )
                         }
 
-                        // Voice Button
-                        Surface(
-                            onClick = {
-                                if (!recording) {
-                                    requestAudioPermission.launch(android.Manifest.permission.RECORD_AUDIO)
-                                } else {
-                                    try {
-                                        recorder?.stop()
-                                        recorder?.release()
-                                        recorder = null
-                                        recording = false
-                                        try {
-                                            val mmr = android.media.MediaMetadataRetriever()
-                                            mmr.setDataSource(chatVoicePath)
-                                            val ms = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)?.toIntOrNull()
-                                            chatVoiceDuration = ms?.let { (it / 1000).coerceAtLeast(1) }
-                                            mmr.release()
-                                        } catch (_: Exception) { chatVoiceDuration = null }
-                                    } catch (_: Exception) {
-                                        recording = false
-                                        recorder?.release()
-                                        recorder = null
+                        if (!voiceMode) {
+                            TextField(
+                                value = chatInput,
+                                onValueChange = { chatInput = it },
+                                modifier = Modifier.weight(1f),
+                                placeholder = { 
+                                    Text("输入消息...") 
+                                },
+                                shape = RoundedCornerShape(20.dp),
+                                colors = TextFieldDefaults.colors(
+                                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                    unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                                    focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent
+                                ),
+                                maxLines = 4,
+                                textStyle = MaterialTheme.typography.bodyMedium
+                            )
+                        } else {
+                            Surface(
+                                shape = RoundedCornerShape(20.dp),
+                                color = MaterialTheme.colorScheme.secondaryContainer,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(48.dp)
+                                    .pointerInput(Unit) {
+                                        detectTapGestures(onPress = {
+                                            if (!recording) {
+                                                requestAudioPermission.launch(android.Manifest.permission.RECORD_AUDIO)
+                                            }
+                                            try { awaitRelease() } catch (_: Exception) {}
+                                            if (recording) {
+                                                try { recorder?.stop() } catch (_: Exception) {}
+                                                try { recorder?.release() } catch (_: Exception) {}
+                                                recorder = null
+                                                recording = false
+                                                recordOverlay = false
+                                                try {
+                                                    val mmr = android.media.MediaMetadataRetriever()
+                                                    mmr.setDataSource(chatVoicePath)
+                                                    val ms = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)?.toIntOrNull()
+                                                    val sec = ms?.let { (it / 1000).coerceAtLeast(1) }
+                                                    chatVoiceDuration = sec
+                                                    mmr.release()
+                                                } catch (_: Exception) { chatVoiceDuration = null }
+                                                try {
+                                                    val tg = android.media.ToneGenerator(android.media.AudioManager.STREAM_NOTIFICATION, 70)
+                                                    tg.startTone(android.media.ToneGenerator.TONE_PROP_BEEP, 150)
+                                                } catch (_: Exception) {}
+                                                val msg = ""
+                                                if (groupName.isNotBlank() && chatVoicePath != null) {
+                                                    val currentUser = AnalysisUtils.readLoginUserName(ctx)
+                                                    val before = chatMessages
+                                                    val tmpId = "tmp" + System.currentTimeMillis()
+                                                    val userAvatar = avatars[currentUser]
+                                                    val optimisticMsg = GroupMessage(
+                                                        id = tmpId,
+                                                        groupName = groupName.trim(),
+                                                        author = currentUser,
+                                                        authorAvatar = userAvatar,
+                                                        content = msg,
+                                                        images = emptyList(),
+                                                        mentions = emptyList(),
+                                                        voiceUrl = chatVoicePath,
+                                                        voiceDurationSec = chatVoiceDuration,
+                                                        timestamp = System.currentTimeMillis(),
+                                                        recalled = false
+                                                    )
+                                                    chatMessages = before + optimisticMsg
+                                                    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                                        try {
+                                                            try {
+                                                                com.example.xinqiao.community.CommunityLocalCache.database()?.groupChatDao()?.upsertAll(listOf(optimisticMsg.toEntity()))
+                                                            } catch (_: Exception) { }
+                                                            try {
+                                                                val sp = ctx.getSharedPreferences("loginInfo", android.content.Context.MODE_PRIVATE)
+                                                                val raw = sp.getString("recentMessages_" + groupName.trim(), "[]")
+                                                                val list = try { com.google.gson.Gson().fromJson(raw, java.util.ArrayList::class.java) as java.util.ArrayList<com.example.xinqiao.community.GroupMessage> } catch (_: Exception) { java.util.ArrayList() }
+                                                                list.add(optimisticMsg)
+                                                                val kept = list.takeLast(50)
+                                                                sp.edit().putString("recentMessages_" + groupName.trim(), com.google.gson.Gson().toJson(kept)).apply()
+                                                            } catch (_: Exception) { }
+                                                        } catch (_: Exception) { }
+                                                    }
+                                                    val voiceToSend = chatVoicePath
+                                                    val voiceDurationToSend = chatVoiceDuration
+                                                    chatVoicePath = null
+                                                    chatVoiceDuration = null
+                                                    scope.launch {
+                                                        try {
+                                                            val created = CommunityRepositoryProvider.current.postGroupMessage(groupName.trim(), msg, currentUser, emptyList(), emptyList(), voiceToSend, voiceDurationToSend)
+                                                            val finalCreated = created.copy(authorAvatar = (avatars[currentUser] ?: created.authorAvatar))
+                                                            chatMessages = (before + optimisticMsg).dropLast(1) + finalCreated
+                                                            launch(kotlinx.coroutines.Dispatchers.IO) {
+                                                                try {
+                                                                    val dao = com.example.xinqiao.community.CommunityLocalCache.database()?.groupChatDao()
+                                                                    try {
+                                                                        dao?.delete(tmpId)
+                                                                        dao?.upsertAll(listOf(finalCreated.toEntity()))
+                                                                    } catch (_: Exception) { }
+                                                                    try {
+                                                                        val db = com.example.xinqiao.mysql.DBUtils.getInstance(ctx)
+                                                                        db.deleteCommunityGroupMessage(tmpId)
+                                                                        val rec = com.example.xinqiao.mysql.DBUtils.GroupMessageRecord()
+                                                                        rec.id = finalCreated.id; rec.groupName = finalCreated.groupName; rec.author = finalCreated.author; rec.authorAvatar = finalCreated.authorAvatar; rec.content = finalCreated.content; rec.imagesJson = com.google.gson.Gson().toJson(finalCreated.images); rec.mentionsJson = com.google.gson.Gson().toJson(finalCreated.mentions); rec.voiceUrl = finalCreated.voiceUrl; rec.voiceDurationSec = finalCreated.voiceDurationSec; rec.timestamp = finalCreated.timestamp; rec.recalled = false
+                                                                        db.insertCommunityGroupMessage(rec)
+                                                                    } catch (_: Exception) { }
+                                                                    try {
+                                                                        val sp = ctx.getSharedPreferences("loginInfo", android.content.Context.MODE_PRIVATE)
+                                                                        val raw = sp.getString("recentMessages_" + finalCreated.groupName.trim(), "[]")
+                                                                        val list = try { com.google.gson.Gson().fromJson(raw, java.util.ArrayList::class.java) as java.util.ArrayList<com.example.xinqiao.community.GroupMessage> } catch (_: Exception) { java.util.ArrayList() }
+                                                                        list.removeIf { it.id == tmpId }
+                                                                        list.add(finalCreated)
+                                                                        val kept = list.takeLast(50)
+                                                                        sp.edit().putString("recentMessages_" + finalCreated.groupName.trim(), com.google.gson.Gson().toJson(kept)).apply()
+                                                                    } catch (_: Exception) { }
+                                                                    try { com.example.xinqiao.community.RealtimeChatClient.send(org.json.JSONObject(mapOf("id" to finalCreated.id, "group" to finalCreated.groupName, "author" to finalCreated.author, "content" to finalCreated.content, "ts" to finalCreated.timestamp)).toString()) } catch (_: Exception) { }
+                                                                } catch (_: Exception) { }
+                                                            }
+                                                        } catch (_: Exception) { snackbarHostState.showSnackbar("发送失败") }
+                                                    }
+                                                }
+                                            }
+                                        })
                                     }
-                                }
-                            },
-                            shape = CircleShape,
-                            color = if (recording) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.tertiaryContainer,
-                            modifier = Modifier.size(44.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
                             ) {
-                                Icon(
-                                    imageVector = if (recording) Icons.Default.Stop else Icons.Default.Mic,
-                                    contentDescription = if (recording) "停止录音" else "录音",
-                                    tint = if (recording) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onTertiaryContainer,
-                                    modifier = Modifier.size(20.dp)
-                                )
+                                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    Text("按住说话", style = MaterialTheme.typography.bodyMedium)
+                                }
                             }
                         }
-
-                        // Text Input
-                        TextField(
-                            value = chatInput,
-                            onValueChange = { chatInput = it },
-                            modifier = Modifier.weight(1f),
-                            placeholder = { 
-                                Text(
-                                    "输入消息...",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                                ) 
-                            },
-                            shape = MaterialTheme.shapes.large,
-                            colors = TextFieldDefaults.colors(
-                                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
-                                focusedContainerColor = MaterialTheme.colorScheme.surface,
-                                unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-                                focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent
-                            ),
-                            maxLines = 4,
-                            textStyle = MaterialTheme.typography.bodyMedium
-                        )
 
                         // Send Button
                         Surface(
@@ -1193,7 +1343,6 @@ fun GroupChatScreen(groupName: String) {
                                             }
                                             val rec = com.example.xinqiao.mysql.DBUtils.GroupMessageRecord()
                                             rec.id = tmpId; rec.groupName = groupName.trim(); rec.author = currentUser; rec.authorAvatar = userAvatar; rec.content = msg; rec.imagesJson = com.google.gson.Gson().toJson(chatImages); rec.mentionsJson = com.google.gson.Gson().toJson(mentions); rec.voiceUrl = chatVoicePath; rec.voiceDurationSec = chatVoiceDuration; rec.timestamp = System.currentTimeMillis(); rec.recalled = false
-                                            try { com.example.xinqiao.mysql.DBUtils.getInstance(ctx).insertCommunityGroupMessage(rec) } catch (_: Exception) { }
                                             try {
                                                 val sp = ctx.getSharedPreferences("loginInfo", android.content.Context.MODE_PRIVATE)
                                                 val raw = sp.getString("recentMessages_" + groupName.trim(), "[]")
@@ -1278,6 +1427,14 @@ fun GroupChatScreen(groupName: String) {
                                 )
                             }
                         }
+                        IconButton(onClick = { voiceMode = !voiceMode }) { 
+                            Icon(
+                                imageVector = if (voiceMode) Icons.Default.Keyboard else Icons.Default.Mic,
+                                contentDescription = if (voiceMode) "切换文字模式" else "切换语音模式",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -1298,28 +1455,19 @@ fun GroupChatScreen(groupName: String) {
                             .fillMaxHeight(0.8f)
                     ) {
                         Column {
-                            var scale by remember { mutableStateOf(1f) }
-                            var offset by remember { mutableStateOf(Offset.Zero) }
-                            val tstate = rememberTransformableState { zoomChange, panChange, _ ->
-                                scale = (scale * zoomChange).coerceIn(1f, 4f)
-                                offset = offset + panChange
-                            }
                             Image(
                                 painter = rememberAsyncImagePainter(
                                     model = coil.request.ImageRequest.Builder(ctx)
                                         .data(imageDataFrom(previewImageUrl))
                                         .allowHardware(false)
-                                        .size(1600, 1600)
+                                        .size(1024, 1024)
                                         .build()
                                 ),
                                 contentDescription = null,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .weight(1f)
-                                    .clip(MaterialTheme.shapes.large)
-                                    .graphicsLayer { scaleX = scale; scaleY = scale; translationX = offset.x; translationY = offset.y }
-                                    .transformable(tstate)
-                                    .pointerInput(Unit) { detectTapGestures(onDoubleTap = { scale = 1f; offset = Offset.Zero }) },
+                                    .clip(MaterialTheme.shapes.large),
                                 contentScale = androidx.compose.ui.layout.ContentScale.Fit
                             )
                             Row(

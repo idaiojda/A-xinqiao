@@ -909,6 +909,48 @@ public class DBUtils {
         return list;
     }
 
+    public void markVoiceRead(String groupName, String userName, String messageId) {
+        Connection conn = null;
+        try {
+            conn = MySQLHelper.getInstance().getConnection();
+            conn.createStatement().execute("CREATE TABLE IF NOT EXISTS community_group_voice_read (group_name VARCHAR(255), user_name VARCHAR(255), message_id VARCHAR(255), ts BIGINT, PRIMARY KEY (group_name, user_name, message_id))");
+            String sql = "INSERT INTO community_group_voice_read (group_name, user_name, message_id, ts) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE ts = ?";
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            stmt.setString(1, groupName);
+            stmt.setString(2, userName);
+            stmt.setString(3, messageId);
+            stmt.setLong(4, System.currentTimeMillis());
+            stmt.setLong(5, System.currentTimeMillis());
+            stmt.executeUpdate();
+            stmt.close();
+        } catch (Exception e) {
+            android.util.Log.e("DBUtils", "markVoiceRead error: " + e.getMessage());
+        } finally {
+            if (conn != null) MySQLHelper.getInstance().releaseConnection(conn);
+        }
+    }
+
+    public List<String> listVoiceRead(String groupName, String userName) {
+        List<String> ids = new ArrayList<>();
+        Connection conn = null;
+        try {
+            conn = MySQLHelper.getInstance().getConnection();
+            conn.createStatement().execute("CREATE TABLE IF NOT EXISTS community_group_voice_read (group_name VARCHAR(255), user_name VARCHAR(255), message_id VARCHAR(255), ts BIGINT, PRIMARY KEY (group_name, user_name, message_id))");
+            String sql = "SELECT message_id FROM community_group_voice_read WHERE group_name=? AND user_name=?";
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            stmt.setString(1, groupName);
+            stmt.setString(2, userName);
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) { ids.add(rs.getString("message_id")); }
+            rs.close(); stmt.close();
+        } catch (Exception e) {
+            android.util.Log.e("DBUtils", "listVoiceRead error: " + e.getMessage());
+        } finally {
+            if (conn != null) MySQLHelper.getInstance().releaseConnection(conn);
+        }
+        return ids;
+    }
+
     public GroupMessageRecord insertCommunityGroupMessage(GroupMessageRecord msg) {
         Connection conn = null;
         try {
@@ -1006,6 +1048,44 @@ public class DBUtils {
         } catch (Exception e) {
             android.util.Log.e("DBUtils", "deleteCommunityGroupMessage error: " + e.getMessage());
             return false;
+        } finally {
+            if (conn != null) MySQLHelper.getInstance().releaseConnection(conn);
+        }
+    }
+
+    public int deleteCommunityGroupMessagesByGroup(String groupName) {
+        Connection conn = null;
+        try {
+            conn = MySQLHelper.getInstance().getConnection();
+            String sql = "DELETE FROM community_group_messages WHERE group_name=?";
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            stmt.setString(1, groupName);
+            int rows = stmt.executeUpdate();
+            stmt.close();
+            return rows;
+        } catch (Exception e) {
+            android.util.Log.e("DBUtils", "deleteCommunityGroupMessagesByGroup error: " + e.getMessage());
+            return 0;
+        } finally {
+            if (conn != null) MySQLHelper.getInstance().releaseConnection(conn);
+        }
+    }
+
+    public int deleteVoiceReadForUser(String groupName, String userName) {
+        Connection conn = null;
+        try {
+            conn = MySQLHelper.getInstance().getConnection();
+            conn.createStatement().execute("CREATE TABLE IF NOT EXISTS community_group_voice_read (group_name VARCHAR(255), user_name VARCHAR(255), message_id VARCHAR(255), ts BIGINT, PRIMARY KEY (group_name, user_name, message_id))");
+            String sql = "DELETE FROM community_group_voice_read WHERE group_name=? AND user_name=?";
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            stmt.setString(1, groupName);
+            stmt.setString(2, userName);
+            int rows = stmt.executeUpdate();
+            stmt.close();
+            return rows;
+        } catch (Exception e) {
+            android.util.Log.e("DBUtils", "deleteVoiceReadForUser error: " + e.getMessage());
+            return 0;
         } finally {
             if (conn != null) MySQLHelper.getInstance().releaseConnection(conn);
         }

@@ -72,6 +72,7 @@ public class UserInfoActivity extends AppCompatActivity {
     private EditText etIntroduction;
     private TextView tvSave;
     private LinearLayout layoutAvatar; // 重新添加layoutAvatar，因为头像的点击区域仍然是一个LinearLayout
+    private TextView tvPhone; // 手机号显示
 
     private static final int REQUEST_IMAGE_CAPTURE = 1; // 定义拍照请求码
     private static final int REQUEST_IMAGE_CROP = 3; // 定义裁剪请求码
@@ -193,6 +194,7 @@ public class UserInfoActivity extends AppCompatActivity {
         spMaritalStatus = findViewById(R.id.sp_marital_status);
         spOccupation = findViewById(R.id.sp_occupation);
         etIntroduction = findViewById(R.id.et_introduction);
+        tvPhone = findViewById(R.id.tv_phone); // 手机号显示
 
         layoutAvatar = findViewById(R.id.layout_avatar); // 重新初始化layoutAvatar
 
@@ -243,7 +245,7 @@ public class UserInfoActivity extends AppCompatActivity {
                 Connection conn = dbHelper.getConnection();
                 if (conn != null) {
                     try {
-                        String sql = "SELECT nickname, gender, birthday, marital_status, occupation, introduction FROM user_info WHERE user_id = ?";
+                        String sql = "SELECT nickname, gender, birthday, marital_status, occupation, introduction, username FROM user_info WHERE user_id = ?";
                         PreparedStatement stmt = conn.prepareStatement(sql);
                         stmt.setInt(1, currentUserId);
                         ResultSet rs = stmt.executeQuery();
@@ -255,9 +257,23 @@ public class UserInfoActivity extends AppCompatActivity {
                             final String maritalStatus = rs.getString("marital_status");
                             final String occupation = rs.getString("occupation");
                             final String introduction = rs.getString("introduction");
+                            final String username = rs.getString("username"); // 手机号
 
                             runOnUiThread(() -> {
                                 etNickname.setText(nickname != null ? nickname : "");
+                                
+                                // 显示手机号（username）
+                                if (username != null && !username.isEmpty()) {
+                                    // 格式化手机号显示，如：138****8888
+                                    if (username.length() == 11) {
+                                        String formattedPhone = username.substring(0, 3) + "****" + username.substring(7);
+                                        tvPhone.setText(formattedPhone);
+                                    } else {
+                                        tvPhone.setText(username);
+                                    }
+                                } else {
+                                    tvPhone.setText("未设置");
+                                }
 
                                 if ("男".equals(gender)) {
                                     rgGender.check(R.id.rb_male);
@@ -341,6 +357,7 @@ public class UserInfoActivity extends AppCompatActivity {
                 if (conn != null) {
                     try {
                         String sql = "UPDATE user_info SET nickname=?, gender=?, birthday=?, marital_status=?, occupation=?, introduction=?, updated_at=NOW() WHERE user_id=?";
+                        // 注意：手机号(username)通常不允许修改，所以不包含在更新语句中
                         PreparedStatement stmt = conn.prepareStatement(sql);
                         String nickname = etNickname.getText().toString().trim();
                         String gender = rgGender.getCheckedRadioButtonId() == R.id.rb_male ? "男" : "女";
