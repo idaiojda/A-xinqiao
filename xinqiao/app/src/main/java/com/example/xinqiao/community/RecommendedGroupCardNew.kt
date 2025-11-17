@@ -20,12 +20,64 @@ fun RecommendedGroupCardNew(
     var applyMessage by remember { mutableStateOf<String?>(null) }
     var isApplying by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    var recommendedName by remember { mutableStateOf<String?>(null) }
+    var recommendedDesc by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
         try {
-            groups = CommunityRepositoryProvider.current.getGroups()
+            val dbList: List<String> = try {
+                kotlinx.coroutines.withTimeout(2000) {
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        com.example.xinqiao.mysql.DBUtils.getInstance(ctx).listCommunityGroups()
+                    }
+                }
+            } catch (_: Exception) { emptyList() }
+            groups = if (dbList.isNotEmpty()) dbList else CommunityRepositoryProvider.current.getGroups()
         } catch (e: Exception) {
             loadErr = "加载推荐小组失败：" + (e.message ?: "网络异常")
+        }
+    }
+
+    LaunchedEffect(groups) {
+        if (groups.isNotEmpty()) {
+            var pick = groups.first()
+            try {
+                val candidates = groups.take(5)
+                val counts = mutableListOf<Pair<String, Int>>()
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    candidates.forEach { g ->
+                        val c = try { com.example.xinqiao.mysql.DBUtils.getInstance(ctx).getCommunityGroupMemberCount(g) } catch (_: Exception) { 0 }
+                        counts.add(g to c)
+                    }
+                }
+                pick = counts.maxByOrNull { it.second }?.first ?: pick
+            } catch (_: Exception) { }
+            recommendedName = pick
+            try {
+                val info = CommunityRepositoryProvider.current.getGroupInfo(pick)
+                val d2 = info.schedule
+                val d3 = info.frequency
+                recommendedDesc = listOf(d2, d3).firstOrNull { !it.isNullOrBlank() } ?: ""
+                if (recommendedDesc.isBlank()) {
+                    val d = try {
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                            com.example.xinqiao.mysql.DBUtils.getInstance(ctx).getCommunityGroupInfo(pick)?.description ?: ""
+                        }
+                    } catch (_: Exception) { "" }
+                    recommendedDesc = if (d.isNotBlank()) d else "加入一起坚持与互助"
+                }
+            } catch (_: Exception) {
+                val d = try {
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        com.example.xinqiao.mysql.DBUtils.getInstance(ctx).getCommunityGroupInfo(pick)?.description ?: ""
+                    }
+                } catch (_: Exception) { "" }
+                recommendedDesc = if (d.isNotBlank()) d else "加入一起坚持与互助"
+            }
+        } else {
+            recommendedName = null
+            recommendedDesc = ""
         }
     }
 
@@ -39,9 +91,8 @@ fun RecommendedGroupCardNew(
             modifier = Modifier.padding(tokens.spacing.L),
             verticalArrangement = Arrangement.spacedBy(tokens.spacing.L)
         ) {
-            val name = groups.firstOrNull()
             Text(
-                text = if (name != null) "推荐加入：$name" else "暂无推荐小组",
+                text = if (recommendedName != null) "推荐加入：$recommendedName" else "暂无推荐小组",
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontSize = tokens.type.CardTitle,
                     fontWeight = FontWeight.SemiBold,
@@ -49,31 +100,30 @@ fun RecommendedGroupCardNew(
                 )
             )
             Text(
-                text = "每日 10 分钟，科学缓解考试与工作压力",
+                text = if (recommendedDesc.isNotBlank()) recommendedDesc else "",
                 style = MaterialTheme.typography.bodySmall.copy(color = tokens.color.Neutral700)
             )
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(tokens.spacing.M)
         ) {
-            val ctx = androidx.compose.ui.platform.LocalContext.current
             Button(
                 onClick = {
-                    if (isApplying || name == null) return@Button
+                    val name = recommendedName ?: return@Button
                     scope.launch {
                         isApplying = true
                         try {
-                            val ok = CommunityRepositoryProvider.current.setGroupJoin(name!!, true)
+                            val ok = CommunityRepositoryProvider.current.setGroupJoin(name, true)
                                 if (!ok) {
                                     try {
                                         val dao = CommunityLocalCache.database()?.groupDao()
-                                        val cur = dao?.get(name!!)
+                                        val cur = dao?.get(name)
                                         val rules = cur?.rulesJson ?: com.google.gson.Gson().toJson(listOf("友善沟通", "禁止外传", "支持鼓励"))
                                         val admin = cur?.adminName ?: ""
                                         val freq = cur?.frequency ?: ""
                                         val sched = cur?.schedule ?: ""
                                         val mc = cur?.memberCount ?: 0
-                                        dao?.upsert(GroupInfoEntity(name = name!!, memberCount = mc, rulesJson = rules, joined = true, adminName = admin, frequency = freq, schedule = sched))
+                                        dao?.upsert(GroupInfoEntity(name = name, memberCount = mc, rulesJson = rules, joined = true, adminName = admin, frequency = freq, schedule = sched))
                                     } catch (_: Exception) { }
                                 }
                                 try {
@@ -82,11 +132,11 @@ fun RecommendedGroupCardNew(
                                         val sp = ctx.getSharedPreferences("loginInfo", android.content.Context.MODE_PRIVATE)
                                         val raw = sp.getString("joinedGroups_" + user, "[]")
                                         val arr = try { com.google.gson.Gson().fromJson(raw, java.util.ArrayList::class.java) as MutableList<String> } catch (_: Exception) { mutableListOf() }
-                                        if (!arr.contains(name)) arr.add(name!!)
+                                        if (!arr.contains(name)) arr.add(name)
                                         sp.edit().putString("joinedGroups_" + user, com.google.gson.Gson().toJson(arr)).apply()
                                     }
                                 } catch (_: Exception) { }
-                                controller.setJoined(name!!, true)
+                                controller.setJoined(name, true)
                                 applyMessage = "已加入"
                             } catch (e: Exception) {
                                 applyMessage = "加入失败：" + (e.message ?: "网络异常")
@@ -96,19 +146,17 @@ fun RecommendedGroupCardNew(
                         }
                     },
                     shape = RoundedCornerShape(tokens.corner.Button),
-                    enabled = !isApplying && name != null
+                    enabled = !isApplying && recommendedName != null
                 ) {
                     Text(if (isApplying) "处理中…" else "加入")
                 }
                 OutlinedButton(
                     onClick = {
-                        val n = name ?: return@OutlinedButton
-                        val intent = android.content.Intent(ctx, com.example.xinqiao.activity.GroupChatActivity::class.java)
-                        intent.putExtra("group", n)
-                        ctx.startActivity(intent)
+                        val n = recommendedName ?: return@OutlinedButton
+                        controller.openGroup(n)
                     },
                     shape = RoundedCornerShape(tokens.corner.Button),
-                    enabled = name != null
+                    enabled = recommendedName != null
                 ) {
                     Text("查看介绍")
                 }

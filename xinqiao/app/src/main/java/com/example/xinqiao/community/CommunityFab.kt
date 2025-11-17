@@ -3,6 +3,7 @@ package com.example.xinqiao.community
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -15,7 +16,8 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun CommunityFab(
     onPost: () -> Unit,
-    onMessages: () -> Unit
+    onMessages: () -> Unit,
+    unreadCount: Int = 0
 ) {
     val tokens = CommunityTokensInstance
     var expanded by remember { mutableStateOf(false) }
@@ -30,7 +32,27 @@ fun CommunityFab(
                     containerColor = tokens.color.Surface,
                     elevation = FloatingActionButtonDefaults.elevation(tokens.elevate.Card)
                 ) {
-                    Icon(Icons.Default.Chat, contentDescription = null, tint = tokens.color.Primary)
+                    Box(contentAlignment = Alignment.TopEnd) {
+                        Icon(Icons.Default.Chat, contentDescription = null, tint = tokens.color.Primary)
+                        if (unreadCount > 0) {
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.error,
+                                tonalElevation = 0.dp,
+                                modifier = Modifier
+                                    .size(16.dp)
+                                    .offset(x = 8.dp, y = (-8).dp)
+                            ) {
+                                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    Text(
+                                        text = (if (unreadCount > 9) "9+" else unreadCount.toString()),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onError
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
                 SmallFloatingActionButton(
                     onClick = onPost,

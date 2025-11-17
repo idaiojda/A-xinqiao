@@ -202,6 +202,7 @@ public class LoginActivity extends AppCompatActivity {
     private void loginSuccess(String phone, int userId) {
         // 设置登录状态并保存手机号和用户ID
         AnalysisUtils.saveLoginInfo(this, phone, userId);
+        try { com.example.xinqiao.community.GlobalRealtimeReceiver.INSTANCE.onForeground(getApplication()); } catch (Throwable ignored) {}
         Toast.makeText(this, "登录成功", Toast.LENGTH_SHORT).show();
         // 若是从其它页面通过 startActivityForResult 进入登录页，返回结果给调用方
         Intent result = new Intent();

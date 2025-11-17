@@ -182,6 +182,10 @@ class GroupChatActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val groupName = intent.getStringExtra("group")?.trim() ?: ""
+        try {
+            val sp = getSharedPreferences("loginInfo", android.content.Context.MODE_PRIVATE)
+            sp.edit().putString("lastActiveGroup", groupName).apply()
+        } catch (_: Exception) { }
         setContent {
             MaterialTheme {
                 GroupChatScreen(groupName = groupName)
@@ -196,6 +200,7 @@ fun GroupChatScreen(groupName: String) {
     val ctx = LocalContext.current
     val conf = LocalConfiguration.current
     val tokens = CommunityTokensInstance
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     var previewImageUrl by remember { mutableStateOf<String?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -213,6 +218,7 @@ fun GroupChatScreen(groupName: String) {
     var lastRealtimeSeq by remember { mutableStateOf(0L) }
     var chatMessages by remember { mutableStateOf<List<GroupMessage>>(emptyList()) }
     
+    var realtimeConnected by remember { mutableStateOf(false) }
     Scaffold(
         topBar = {
             Surface(
@@ -225,14 +231,23 @@ fun GroupChatScreen(groupName: String) {
                 )
             ) {
                 CenterAlignedTopAppBar(
-                    title = { 
-                        Text(
-                            groupName, 
-                            maxLines = 1, 
-                            overflow = TextOverflow.Ellipsis,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
-                        )
+                    title = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                groupName,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Icon(
+                                imageVector = if (realtimeConnected) Icons.Default.CloudDone else Icons.Default.CloudOff,
+                                contentDescription = if (realtimeConnected) "已连接" else "未连接",
+                                tint = if (realtimeConnected) Color(0xFF2E7D32) else Color(0xFFC62828),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     },
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                         containerColor = MaterialTheme.colorScheme.surface,
@@ -578,7 +593,7 @@ fun GroupChatScreen(groupName: String) {
                         val sp = ctx.getSharedPreferences("loginInfo", android.content.Context.MODE_PRIVATE)
                         lastRealtimeSeq = sp.getLong("lastRealtimeSeq_" + groupName.trim(), 0L)
                     } catch (_: Exception) { lastRealtimeSeq = 0L }
-                    com.example.xinqiao.community.RealtimeChatClient.connect(ctx, groupName, currentUserAll) { payload ->
+                    com.example.xinqiao.community.RealtimeChatClient.connect(ctx, groupName, currentUserAll, { payload ->
                         try {
                             val obj = org.json.JSONObject(payload)
                             val gm = GroupMessage(
@@ -617,6 +632,11 @@ fun GroupChatScreen(groupName: String) {
                                         }
                                         else -> chatMessages = chatMessages + gm
                                     }
+                                    try {
+                                        if (gm.author.isNotBlank() && !gm.author.equals(currentUserAll, ignoreCase = true)) {
+                                            com.example.xinqiao.notifications.NotificationUtils.showMessageNotification(ctx, gm.groupName, gm.author, gm.content ?: "")
+                                        }
+                                    } catch (_: Exception) {}
                                     if (seq > lastRealtimeSeq) {
                                         lastRealtimeSeq = seq
                                         try {
@@ -627,7 +647,12 @@ fun GroupChatScreen(groupName: String) {
                                 }
                             }
                         } catch (_: Exception) {}
-                    }
+                    }, { ok ->
+                        realtimeConnected = ok
+                        if (!ok) {
+                            try { scope.launch { snackbarHostState.showSnackbar("实时连接失败") } } catch (_: Exception) {}
+                        }
+                    })
                 } catch (_: Exception) {}
             }
             LaunchedEffect(currentUserAll) {
@@ -690,6 +715,13 @@ fun GroupChatScreen(groupName: String) {
                     }
                 } catch (_: Exception) {}
             }
+            LaunchedEffect(chatMessages.size) {
+                try {
+                    if (chatMessages.isNotEmpty()) {
+                        listState.scrollToItem(chatMessages.size - 1)
+                    }
+                } catch (_: Exception) {}
+            }
 
             Box(modifier = Modifier.weight(1f)) {
                 if (chatLoading) {
@@ -723,6 +755,7 @@ fun GroupChatScreen(groupName: String) {
                     } else {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
+                            state = listState,
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                             contentPadding = PaddingValues(vertical = 8.dp, horizontal = 16.dp)
                         ) {
@@ -807,16 +840,6 @@ fun GroupChatScreen(groupName: String) {
                                     Column(
                                         horizontalAlignment = if (isMyMessage) Alignment.End else Alignment.Start
                                     ) {
-                                        if (!isMyMessage && showAvatarThis) {
-                                            val name = nicknames[m.author] ?: m.author
-                                            Text(
-                                                text = name,
-                                                style = MaterialTheme.typography.labelMedium,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                modifier = Modifier.padding(bottom = 4.dp, start = 44.dp)
-                                            )
-                                        }
-                                        
                                         Row(
                                             verticalAlignment = Alignment.Bottom,
                                             horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -882,6 +905,15 @@ fun GroupChatScreen(groupName: String) {
                                                             )
                                                         }
                                                     } else {
+                                                        if (!isMyMessage) {
+                                                            val nameLocal = nicknames[m.author] ?: m.author
+                                                            Text(
+                                                                text = nameLocal,
+                                                                style = MaterialTheme.typography.labelSmall,
+                                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                                modifier = Modifier.padding(bottom = 2.dp)
+                                                            )
+                                                        }
                                                         if (m.content.isNotBlank()) {
                                                             Text(
                                                                 text = m.content,

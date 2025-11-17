@@ -40,6 +40,7 @@ import com.example.xinqiao.community.CommunityApi;
 public class XinQiaoApplication extends Application {
     // 日志标签
     private static final String TAG = "XinQiaoApplication";
+    private volatile boolean realtimeSubscribedApp = false;
 
     /**
      * 应用启动时回调，进行全局初始化
@@ -84,6 +85,7 @@ public class XinQiaoApplication extends Application {
         
         // 注册应用生命周期回调
         registerLifecycleCallbacks();
+        try { com.example.xinqiao.notifications.NotificationUtils.INSTANCE.ensureChannel(this); } catch (Throwable ignored) {}
     }
 
     private boolean isDebugBuild() {
@@ -198,12 +200,7 @@ public class XinQiaoApplication extends Application {
         BitmapFactory.Options defaultOptions = new BitmapFactory.Options();
         defaultOptions.inPreferredConfig = Bitmap.Config.RGB_565; // 默认使用RGB_565，降低内存
         defaultOptions.inSampleSize = 1; // 默认采样率，后续可根据图片尺寸调整
-        try {
-            // 尝试启用原生内存分配（部分设备支持）
-            BitmapFactory.Options.class.getField("inNativeAlloc").setBoolean(null, true);
-        } catch (Exception e) {
-            Log.w(TAG, "Could not set inNativeAlloc", e);
-        }
+        try { defaultOptions.inMutable = true; } catch (Throwable ignored) {}
         // 设置最大Bitmap尺寸，防止Canvas溢出
         int maxBitmapDimension = Math.min(4096, getResources().getDisplayMetrics().widthPixels * 2);
         Log.d(TAG, "Max bitmap dimension set to: " + maxBitmapDimension);
@@ -342,6 +339,7 @@ public class XinQiaoApplication extends Application {
                 if (activityCount == 0) {
                     // 应用从后台进入前台
                     Log.d(TAG, "应用进入前台");
+                    try { com.example.xinqiao.community.GlobalRealtimeReceiver.INSTANCE.onForeground(XinQiaoApplication.this); } catch (Throwable t) { Log.w(TAG, "GlobalRealtimeReceiver onForeground failed", t); }
                 }
                 activityCount++;
             }
@@ -359,6 +357,7 @@ public class XinQiaoApplication extends Application {
                     // 应用进入后台，释放非必要资源
                     Log.d(TAG, "应用进入后台，释放资源");
                     PerformanceMonitor.getInstance().stopMonitor();
+                    try { com.example.xinqiao.community.GlobalRealtimeReceiver.INSTANCE.onBackground(); realtimeSubscribedApp = false; } catch (Throwable ignored) {}
                 }
             }
             
@@ -369,4 +368,6 @@ public class XinQiaoApplication extends Application {
             public void onActivityDestroyed(android.app.Activity activity) {}
         });
     }
+
+    
 }
