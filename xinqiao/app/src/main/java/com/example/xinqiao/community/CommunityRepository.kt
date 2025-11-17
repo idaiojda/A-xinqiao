@@ -48,58 +48,8 @@ interface CommunityRepository {
 }
 
 object FakeCommunityRepository : CommunityRepository {
-    private val groups = mutableListOf("考研互助小组", "社恐成长圈", "恋爱关系修复")
-    private val postStore: MutableList<ThemePost> = mutableListOf(
-        ThemePost(
-            id = "p1",
-            author = "小桥",
-            authorAvatar = "",
-            isAnonymous = false,
-            time = "刚刚",
-            title = "夜深时的情绪波动怎么办？",
-            content = "最近晚上总是心跳加快、脑子停不下来。尝试了呼吸练习有一点帮助，但还是会被突如其来的焦虑击中。大家有什么实用的办法吗？",
-            tags = listOf("夜间情绪", "焦虑"),
-            images = listOf(
-                "https://trae-api-sg.mchost.guru/api/ide/v1/text_to_image?prompt=calm%20night%20city%20street&image_size=square",
-                "https://trae-api-sg.mchost.guru/api/ide/v1/text_to_image?prompt=quiet%20bedroom%20lamp&image_size=square",
-                "https://trae-api-sg.mchost.guru/api/ide/v1/text_to_image?prompt=soft%20pillow%20moonlight&image_size=square"
-            ),
-            voiceDurationSec = null,
-            liked = false,
-            likeCount = 12,
-            commentCount = 5
-        ),
-        ThemePost(
-            id = "p2",
-            author = "明月",
-            authorAvatar = "",
-            isAnonymous = true,
-            time = "1 小时前",
-            title = "和室友相处的边界感",
-            content = "室友总是会进入我的私人空间，虽然不是恶意，但我会紧张。想学习如何更自然地表达界限又不伤害关系。",
-            tags = listOf("社交与关系", "边界"),
-            images = emptyList(),
-            voiceDurationSec = 28,
-            liked = true,
-            likeCount = 8,
-            commentCount = 3
-        ),
-        ThemePost(
-            id = "p3",
-            author = "安然",
-            authorAvatar = "",
-            isAnonymous = false,
-            time = "昨天",
-            title = "晚间散步的声音",
-            content = "录了一段路上的环境音和自己的心情，舒服。",
-            tags = listOf("夜间情绪"),
-            images = emptyList(),
-            voiceDurationSec = 16,
-            liked = false,
-            likeCount = 15,
-            commentCount = 7
-        )
-    )
+    private val groups = mutableListOf<String>()
+    private val postStore: MutableList<ThemePost> = mutableListOf()
     override suspend fun getGroups(q: String?): List<String> =
         if (q.isNullOrBlank()) groups else groups.filter { it.contains(q, ignoreCase = true) }
 
@@ -193,32 +143,12 @@ object FakeCommunityRepository : CommunityRepository {
     }
 
     // 帖子评论本地模拟
-    private val postCommentsMap: MutableMap<String, MutableList<Comment>> = mutableMapOf(
-        "p1" to mutableListOf(Comment("pc1", "匿名用户", "看到你在尝试呼吸练习，很棒！")),
-        "p2" to mutableListOf(Comment("pc2", "匿名用户", "语音分享好温柔～")),
-        "p3" to mutableListOf()
-    )
+    private val postCommentsMap: MutableMap<String, MutableList<Comment>> = mutableMapOf()
     private val followMap: MutableMap<String, Boolean> = mutableMapOf()
-    private val userStats: MutableMap<String, Triple<Int, Int, Int>> = mutableMapOf(
-        "小桥" to Triple(12, 108, 36),
-        "明月" to Triple(9, 64, 22),
-        "安然" to Triple(5, 41, 18)
-    )
-    private val userFavorites: MutableMap<String, List<String>> = mutableMapOf(
-        "小桥" to listOf("p2", "p3"),
-        "明月" to listOf("p1"),
-        "安然" to listOf("p1", "p2")
-    )
-    private val sharedGroupsMap: MutableMap<String, List<String>> = mutableMapOf(
-        "小桥" to listOf("考研互助小组", "社恐成长圈"),
-        "明月" to listOf("社恐成长圈"),
-        "安然" to listOf("恋爱关系修复")
-    )
-    private val groupInfoMap: MutableMap<String, GroupInfo> = mutableMapOf(
-        "考研互助小组" to GroupInfo("考研互助小组", 128, listOf("友善沟通", "禁止外传", "支持鼓励"), joined = false, adminName = "小桥", frequency = "每周三次", schedule = "周一/周三/周五 20:00"),
-        "社恐成长圈" to GroupInfo("社恐成长圈", 96, listOf("尊重彼此", "积极分享"), joined = false, adminName = "明月", frequency = "每周两次", schedule = "周二/周六 19:30"),
-        "恋爱关系修复" to GroupInfo("恋爱关系修复", 74, listOf("理性讨论", "保密隐私"), joined = false, adminName = "安然", frequency = "每周一次", schedule = "周日 21:00")
-    )
+    private val userStats: MutableMap<String, Triple<Int, Int, Int>> = mutableMapOf()
+    private val userFavorites: MutableMap<String, List<String>> = mutableMapOf()
+    private val sharedGroupsMap: MutableMap<String, List<String>> = mutableMapOf()
+    private val groupInfoMap: MutableMap<String, GroupInfo> = mutableMapOf()
 
     override suspend fun getPostComments(postId: String): List<Comment> {
         return postCommentsMap[postId]?.toList() ?: emptyList()
@@ -312,22 +242,7 @@ object FakeCommunityRepository : CommunityRepository {
     }
 
     // --- Group chat & badges ---
-    private val groupMessagesMap: MutableMap<String, MutableList<GroupMessage>> = mutableMapOf(
-        "考研互助小组" to mutableListOf(
-            GroupMessage(
-                id = "gm1",
-                groupName = "考研互助小组",
-                author = "小桥",
-                content = "欢迎加入，一起坚持打卡！",
-                images = emptyList(),
-                mentions = emptyList(),
-                timestamp = System.currentTimeMillis() - 3600000L,
-                recalled = false
-            )
-        ),
-        "社恐成长圈" to mutableListOf(),
-        "恋爱关系修复" to mutableListOf()
-    )
+    private val groupMessagesMap: MutableMap<String, MutableList<GroupMessage>> = mutableMapOf()
     private val userBadgesMap: MutableMap<String, MutableList<Badge>> = mutableMapOf()
     private val userCheckinsMap: MutableMap<String, Int> = mutableMapOf()
 
@@ -388,17 +303,43 @@ object FakeCommunityRepository : CommunityRepository {
     }
 }
 
+object EmptyCommunityRepository : CommunityRepository {
+    override suspend fun getGroups(q: String?): List<String> = emptyList()
+    override suspend fun applyJoin(groupName: String): GroupApplyResult = GroupApplyResult(false, "")
+    override suspend fun createGroup(name: String, description: String, schedule: String, capacity: Int, creatorName: String): GroupCreateResult = GroupCreateResult(false, "")
+    override suspend fun createQuestion(title: String, content: String): Question = Question("", title, content)
+    override suspend fun getMyTimeline(): List<TimelineItem> = emptyList()
+    override suspend fun health(): Health = Health(true, "")
+    override suspend fun getPosts(category: String?, page: Int, size: Int, q: String?): List<ThemePost> = emptyList()
+    override suspend fun createPost(title: String, content: String, tags: List<String>, images: List<String>, anonymous: Boolean): ThemePost = ThemePost(id = "", author = "", isAnonymous = anonymous, time = "", title = title, content = content, tags = tags)
+    override suspend fun getPostComments(postId: String): List<Comment> = emptyList()
+    override suspend fun postPostComment(postId: String, content: String, author: String): Comment = Comment("", author, content)
+    override suspend fun getUserProfile(name: String): UserProfile = UserProfile(name, "", "", false, 0, 0, 0)
+    override suspend fun setFollow(name: String, follow: Boolean): Boolean = false
+    override suspend fun getGroupInfo(name: String): GroupInfo = GroupInfo(name, 0, emptyList(), false, "", "", "")
+    override suspend fun setGroupJoin(name: String, join: Boolean): Boolean = false
+    override suspend fun updateGroupInfo(name: String, description: String?, rulesJson: String?, schedule: String?): Boolean = false
+    override suspend fun getUserFavorites(name: String): List<ThemePost> = emptyList()
+    override suspend fun getSharedGroups(name: String): List<String> = emptyList()
+    override suspend fun getNotifications(): List<NotificationItem> = emptyList()
+    override suspend fun markNotificationRead(id: String): Boolean = false
+    override suspend fun updatePost(id: String, title: String, content: String, tags: List<String>): ThemePost = ThemePost(id = id, author = "", isAnonymous = false, time = "", title = title, content = content, tags = tags)
+    override suspend fun deletePost(id: String): Boolean = false
+    override suspend fun getGroupMessages(groupName: String): List<GroupMessage> = emptyList()
+    override suspend fun postGroupMessage(groupName: String, content: String, author: String, images: List<String>, mentions: List<String>, voiceUrl: String?, voiceDurationSec: Int?): GroupMessage = GroupMessage(id = "", groupName = groupName, author = author, content = content, images = images, mentions = mentions, voiceUrl = voiceUrl, voiceDurationSec = voiceDurationSec, timestamp = System.currentTimeMillis())
+    override suspend fun checkIn(groupName: String, userName: String): BadgeAwardResult = BadgeAwardResult(ok = false, message = "", badge = null)
+    override suspend fun getBadges(userName: String): List<Badge> = emptyList()
+    override suspend fun recallGroupMessage(groupName: String, id: String): Boolean = false
+}
+
 data class GroupApplyResult(val accepted: Boolean, val message: String)
 data class GroupCreateResult(val ok: Boolean, val message: String)
 data class TimelineItem(val type: String, val text: String, val timestamp: Long)
 data class Health(val ok: Boolean, val message: String)
 data class UserProfile(val name: String, val avatar: String, val bio: String, val following: Boolean, val postsCount: Int, val followersCount: Int, val followingCount: Int)
 data class GroupInfo(val name: String, val memberCount: Int, val rules: List<String>, val joined: Boolean, val adminName: String, val frequency: String, val schedule: String)
-data class NotificationItem(val id: String, val title: String, val content: String, val read: Boolean)
-    private val notificationsList: MutableList<NotificationItem> = mutableListOf(
-        NotificationItem("n1", "评论提醒", "有人回复了你的帖子", false),
-        NotificationItem("n2", "系统消息", "社区规则更新", false)
-    )
+data class NotificationItem(val id: String, val title: String, val content: String, val read: Boolean, val postId: String? = null)
+    private val notificationsList: MutableList<NotificationItem> = mutableListOf()
 
 data class GroupMessage(
     val id: String,

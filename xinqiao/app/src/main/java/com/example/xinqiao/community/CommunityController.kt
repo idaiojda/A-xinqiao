@@ -18,6 +18,7 @@ data class Question(val id: String, val title: String, val content: String)
 data class Comment(val id: String, val author: String, val text: String)
 
 class CommunityController {
+    private val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO)
     var uiState: CommunityUiState by mutableStateOf(CommunityUiState.List)
     var selectedTab: Int by mutableStateOf(0)
     var searchText: String by mutableStateOf("")
@@ -65,7 +66,7 @@ class CommunityController {
         val list = commentsByPost.getOrPut(postId) { androidx.compose.runtime.mutableStateListOf() }
         val cid = "$postId-${System.currentTimeMillis()}"
         list.add(Comment(id = cid, author = author, text = text))
-        kotlinx.coroutines.GlobalScope.launch {
+        scope.launch {
             try {
                 CommunityRepositoryProvider.current.postPostComment(postId, text, author)
             } catch (_: Exception) { }

@@ -1,0 +1,259 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:clickable="true"
+    android:focusable="true"
+    android:background="#F8F9FB">
+
+    <!-- 顶部渐变返回栏 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="@drawable/bg_gradient_header">
+        
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:gravity="center_vertical">
+            
+            <ImageButton
+                android:id="@+id/btn_back"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_centerVertical="true"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_back"
+                android:tint="@android:color/white"
+                android:contentDescription="返回"
+                android:layout_alignParentStart="true"
+                android:layout_marginStart="4dp"/>
+                
+            <TextView
+                android:id="@+id/tv_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerInParent="true"
+                android:text="测评记录"
+                android:textColor="@android:color/white"
+                android:textSize="20sp"
+                android:textStyle="bold"/>
+                
+        </RelativeLayout>
+        
+        <!-- 装饰性元素 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp">
+            
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="管理您的心理测评记录"
+                android:textColor="@android:color/white"
+                android:textSize="14sp"
+                android:alpha="0.8"/>
+                
+            <View
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1"
+                android:background="@android:color/white"
+                android:alpha="0.3"
+                android:layout_marginStart="12dp"
+                android:layout_marginEnd="12dp"/>
+                
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/ic_history"
+                android:tint="@android:color/white"
+                android:alpha="0.6"/>
+                
+        </LinearLayout>
+        
+    </LinearLayout>
+
+    <!-- 订单提示卡片 -->
+    <androidx.cardview.widget.CardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="8dp"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="4dp"
+        app:cardBackgroundColor="@android:color/white">
+        
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:padding="16dp">
+            
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@drawable/ic_history_blue"
+                android:tint="#30B4FF"/>
+                
+            <TextView
+                android:id="@+id/tv_order_tip"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="查不到测评完成的报告？请点击此处进行订单查询"
+                android:textColor="#30B4FF"
+                android:textSize="14sp"
+                android:layout_marginStart="12dp"/>
+                
+            <ImageView
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:src="@drawable/ic_arrow_right"
+                android:tint="#30B4FF"/>
+                
+        </LinearLayout>
+        
+    </androidx.cardview.widget.CardView>
+
+    <!-- Tab切换栏 -->
+    <androidx.cardview.widget.CardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="8dp"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="4dp"
+        app:cardBackgroundColor="@android:color/white">
+        
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:padding="4dp">
+            
+            <LinearLayout
+                android:id="@+id/tab_unfinished"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:background="?attr/selectableItemBackgroundBorderless">
+                
+                <TextView
+                    android:id="@+id/tv_tab_unfinished"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="未完成"
+                    android:textSize="15sp"
+                    android:textColor="#7F8C8D"
+                    android:textStyle="bold"/>
+                    
+                <View
+                    android:id="@+id/indicator_unfinished"
+                    android:layout_width="24dp"
+                    android:layout_height="3dp"
+                    android:background="@drawable/tab_indicator"
+                    android:layout_marginTop="4dp"
+                    android:visibility="invisible"/>
+                    
+            </LinearLayout>
+            
+            <LinearLayout
+                android:id="@+id/tab_finished"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:background="?attr/selectableItemBackgroundBorderless">
+                
+                <TextView
+                    android:id="@+id/tv_tab_finished"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="已完成"
+                    android:textSize="15sp"
+                    android:textColor="#8B5CF6"
+                    android:textStyle="bold"/>
+                    
+                <View
+                    android:id="@+id/indicator_finished"
+                    android:layout_width="24dp"
+                    android:layout_height="3dp"
+                    android:background="@drawable/tab_indicator"
+                    android:layout_marginTop="4dp"
+                    android:visibility="visible"/>
+                    
+            </LinearLayout>
+            
+            <LinearLayout
+                android:id="@+id/tab_pending"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:background="?attr/selectableItemBackgroundBorderless">
+                
+                <TextView
+                    android:id="@+id/tv_tab_pending"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="待支付"
+                    android:textSize="15sp"
+                    android:textColor="#7F8C8D"
+                    android:textStyle="bold"/>
+                    
+                <View
+                    android:id="@+id/indicator_pending"
+                    android:layout_width="24dp"
+                    android:layout_height="3dp"
+                    android:background="@drawable/tab_indicator"
+                    android:layout_marginTop="4dp"
+                    android:visibility="invisible"/>
+                    
+            </LinearLayout>
+            
+        </LinearLayout>
+        
+    </androidx.cardview.widget.CardView>
+
+    <!-- 测试记录列表 -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rv_test_record"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="16dp"
+        android:clipToPadding="false"
+        android:overScrollMode="never"
+        android:scrollbars="none"
+        android:background="#F8F9FB"
+        android:layoutAnimation="@anim/layout_animation_from_right"/>
+
+
+    <ProgressBar
+        android:id="@+id/progressBar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:visibility="gone"/>
+
+</LinearLayout>

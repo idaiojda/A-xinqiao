@@ -79,8 +79,20 @@ public class XinQiaoApplication extends Application {
             CommunityApi api = CommunityServiceFactory.INSTANCE.create(baseUrl);
             CommunityRepositoryProvider.INSTANCE.setCurrent(new RemoteCommunityRepository(api));
             Log.d(TAG, "CommunityRepository initialized with remote backend: " + baseUrl);
+            try {
+                SharedPreferences sp = getSharedPreferences("community_migration", MODE_PRIVATE);
+                boolean purged = sp.getBoolean("samplesPurgedV1", false);
+                if (!purged) {
+                    com.example.xinqiao.community.CommunityLocalCache.INSTANCE.purgeSamples();
+                    sp.edit().putBoolean("samplesPurgedV1", true).apply();
+                    Log.d(TAG, "Purged sample posts from local DB");
+                }
+            } catch (Throwable t2) { Log.w(TAG, "Purge samples failed", t2); }
         } catch (Throwable t) {
-            Log.w(TAG, "Init remote CommunityRepository failed, fallback to Fake", t);
+            Log.w(TAG, "Init remote CommunityRepository failed, fallback to empty repository", t);
+            try {
+                CommunityRepositoryProvider.INSTANCE.setCurrent(com.example.xinqiao.community.EmptyCommunityRepository.INSTANCE);
+            } catch (Throwable ignored) {}
         }
         
         // 注册应用生命周期回调

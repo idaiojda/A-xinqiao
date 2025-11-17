@@ -3,20 +3,17 @@ package com.example.xinqiao.activity;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
-import android.widget.Button;
-import android.widget.RadioButton;
-import android.widget.RadioGroup;
-import android.widget.TextView;
+import android.widget.*;
 import androidx.appcompat.app.AppCompatActivity;
-import android.widget.LinearLayout;
 import android.os.Handler;
 import android.os.Looper;
-import android.widget.Toast;
+import androidx.cardview.widget.CardView;
 import com.example.xinqiao.util.network.DeepSeekClient;
 
 import com.example.xinqiao.R;
 import com.example.xinqiao.bean.QuestionBean;
 import java.util.List;
+import java.util.Map;
 import com.example.xinqiao.bean.ExercisesBean;
 import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
@@ -25,6 +22,7 @@ import com.example.xinqiao.dao.TestRecordDao;
 import com.example.xinqiao.repository.MedicalRecordRepository;
 import com.example.xinqiao.room.entities.TestReportEntity;
 import com.example.xinqiao.util.AnalysisUtils;
+import com.example.xinqiao.util.scoring.ScoringEngine;
 
 public class ExercisesDetailActivity extends AppCompatActivity {
 
@@ -32,11 +30,14 @@ public class ExercisesDetailActivity extends AppCompatActivity {
     private List<QuestionBean> questions;
     private int current = 0;
     private int score = 0;
+    private int severitySum = 0;
     private ExercisesBean currentExercisesBean;
 
-    private TextView gradeTextView, questionTextView, progressTextView;
+    private TextView gradeTextView, questionTextView, progressTextView, progressText, gradeHintTextView;
     private RadioGroup optionsGroup;
     private Button nextButton;
+    private ProgressBar progressBar;
+    private CardView resultCard, questionCard;
 
     private DeepSeekClient deepSeekClient;
     private Handler mainHandler;
@@ -44,52 +45,32 @@ public class ExercisesDetailActivity extends AppCompatActivity {
     private String reportId; // 当前测评记录id
     private int[] userAnswers; // 用户已答选项
     private boolean isResumeFromUnfinished = false;
+    private long startTimeMillis;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_exercises_detail);
+        setContentView(R.layout.activity_exercises_detail_new);
 
         findViewById(R.id.btn_back).setOnClickListener(v -> finish());
 
         gradeTextView = findViewById(R.id.gradeTextView);
+        progressText = findViewById(R.id.progressText);
+        progressBar = findViewById(R.id.progressBar);
+        gradeHintTextView = findViewById(R.id.gradeHintTextView);
+        resultCard = findViewById(R.id.resultCard);
+        questionCard = findViewById(R.id.questionCard);
 
-        // 进度条
-        progressTextView = new TextView(this);
-        progressTextView.setTextSize(16);
-        progressTextView.setTextColor(0xFF009688);
-        progressTextView.setGravity(View.TEXT_ALIGNMENT_CENTER);
-        progressTextView.setPadding(0, 0, 0, 12);
-
-        // 题目
-        questionTextView = new TextView(this);
-        questionTextView.setTextSize(20);
-        questionTextView.setTextColor(0xFF222222);
-        questionTextView.setPadding(0, 12, 0, 24);
-        questionTextView.setTypeface(null, android.graphics.Typeface.BOLD);
-
-        // 选项
-        optionsGroup = new RadioGroup(this);
-        optionsGroup.setOrientation(RadioGroup.VERTICAL);
-        optionsGroup.setPadding(0, 0, 0, 24);
+        // 使用布局中的控件
+        questionTextView = findViewById(R.id.questionTextView);
+        optionsGroup = findViewById(R.id.optionsGroup);
 
         // 按钮
-        nextButton = new Button(this);
+        nextButton = findViewById(R.id.nextButton);
         nextButton.setText("下一题");
-        nextButton.setTextSize(18);
+        nextButton.setTextSize(16);
         nextButton.setTextColor(0xFFFFFFFF);
-        nextButton.setBackgroundResource(R.drawable.bg_button_primary); // 使用主色圆角背景
         nextButton.setPadding(0, 18, 0, 18);
-        LinearLayout.LayoutParams btnParams = new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        btnParams.setMargins(0, 24, 0, 0);
-        nextButton.setLayoutParams(btnParams);
-
-        LinearLayout questionContainer = findViewById(R.id.questionContainer);
-        questionContainer.addView(progressTextView);
-        questionContainer.addView(questionTextView);
-        questionContainer.addView(optionsGroup);
-        questionContainer.addView(nextButton);
 
         // 获取题目id
         int id = getIntent().getIntExtra("id", 0);
@@ -118,17 +99,20 @@ public class ExercisesDetailActivity extends AppCompatActivity {
         current = resumeIndex;
         showQuestion(current);
 
+        startTimeMillis = System.currentTimeMillis();
+
         nextButton.setOnClickListener(v -> {
             int checkedId = optionsGroup.getCheckedRadioButtonId();
             if (checkedId == -1) {
-                gradeTextView.setText("请选择一个选项");
+                gradeHintTextView.setText("请选择一个选项");
+                gradeHintTextView.setVisibility(View.VISIBLE);
                 return;
             }
+            gradeHintTextView.setVisibility(View.GONE);
             int selected = optionsGroup.indexOfChild(findViewById(checkedId));
             userAnswers[current] = selected;
-            if (selected == questions.get(current).correctIndex) {
-                score += 20; // 每题20分
-            }
+            QuestionBean cq = questions.get(current);
+            severitySum += severityWeight(cq, selected);
             current++;
             if (current < questions.size()) {
                 showQuestion(current);
@@ -179,20 +163,27 @@ public class ExercisesDetailActivity extends AppCompatActivity {
 
     private void showQuestion(int index) {
         QuestionBean q = questions.get(index);
-        progressTextView.setText("第" + (index + 1) + "/" + questions.size() + "题");
+        progressText.setText("第 " + (index + 1) + "/" + questions.size() + " 题");
+        progressText.setText("第 " + (index + 1) + "/" + questions.size() + " 题");
+        
+        // 更新进度条
+        int progress = (int) (((index + 1) * 100.0) / questions.size());
+        progressBar.setProgress(progress);
+        
         questionTextView.setText(q.question);
         optionsGroup.removeAllViews();
         for (int i = 0; i < q.options.length; i++) {
             RadioButton rb = new RadioButton(this);
             rb.setText(q.options[i]);
-            rb.setTextSize(17);
-            rb.setTextColor(0xFF333333);
+            rb.setTextSize(16);
+            rb.setTextColor(0xFF111827);
             rb.setButtonDrawable(null);
-            rb.setBackgroundResource(R.drawable.bg_category_round); // 圆角背景
-            rb.setPadding(36, 24, 36, 24);
+            rb.setBackgroundResource(R.drawable.bg_option_button_new); // 新样式
+            rb.setPadding(48, 32, 48, 32);
+            rb.setMinHeight(96); // 增加点击区域
             RadioGroup.LayoutParams params = new RadioGroup.LayoutParams(
                 RadioGroup.LayoutParams.MATCH_PARENT, RadioGroup.LayoutParams.WRAP_CONTENT);
-            params.setMargins(0, 12, 0, 12);
+            params.setMargins(0, 16, 0, 16);
             rb.setLayoutParams(params);
             optionsGroup.addView(rb);
             if (userAnswers[index] == i) rb.setChecked(true);
@@ -201,6 +192,7 @@ public class ExercisesDetailActivity extends AppCompatActivity {
         if (userAnswers[index] != -1) {
             ((RadioButton) optionsGroup.getChildAt(userAnswers[index])).setChecked(true);
         }
+        gradeHintTextView.setVisibility(View.GONE);
         gradeTextView.setText("");
         if (index == questions.size() - 1) {
             nextButton.setText("提交");
@@ -210,33 +202,65 @@ public class ExercisesDetailActivity extends AppCompatActivity {
     }
 
     private void showReport() {
-        progressTextView.setVisibility(View.GONE);
-        questionTextView.setVisibility(View.GONE);
-        optionsGroup.setVisibility(View.GONE);
-        nextButton.setVisibility(View.GONE);
-        // 美化等级区块
-        gradeTextView.setText("等级：" + getGrade(score) + "\n" + getAdvice(score));
-        gradeTextView.setBackgroundResource(R.drawable.bg_summary_quote);
-        gradeTextView.setTextColor(getResources().getColor(R.color.bottom_nav_selected_healing));
+        // 隐藏问题卡片，显示结果卡片
+        questionCard.setVisibility(View.GONE);
+        resultCard.setVisibility(View.VISIBLE);
+
+        int maxSeverity = 0;
+        if (questions != null) {
+            for (QuestionBean q : questions) {
+                int m = 3;
+                String qt = q.question != null ? q.question : "";
+                if (qt.contains("自杀")) m *= 2;
+                maxSeverity += m;
+            }
+        }
+        double severityPct = maxSeverity > 0 ? (severitySum * 100.0 / maxSeverity) : 0;
+        score = (int) Math.round(severityPct);
+        double accuracy = 1.0 - (severityPct / 100.0);
+        double completion = 1.0;
+        double consistency = 0.9;
+        double activity = isResumeFromUnfinished ? 0.7 : 0.85;
+        double expectedMinutes = Math.max(2, (questions != null ? questions.size() : 5) * 0.5);
+        double spentMinutes = Math.max(0.1, (System.currentTimeMillis() - startTimeMillis) / 60000.0);
+        double timeliness = Math.min(1.0, expectedMinutes / spentMinutes);
+        double verification = 0.5;
+
+        ScoringEngine.Factors f = new ScoringEngine.Factors();
+        f.behaviorActivity = activity;
+        f.behaviorCompletion = completion;
+        f.behaviorConsistency = consistency;
+        f.qualityAccuracy = accuracy;
+        f.qualityTimeliness = timeliness;
+        f.objectiveVerification = verification;
+
+        ScoringEngine.Result sr = ScoringEngine.evaluate(f, System.currentTimeMillis(), System.currentTimeMillis());
+
+        String riskLevel = (score >= 80) ? "高风险" : (score >= 60 ? "中风险" : "低风险");
+        gradeTextView.setText("风险等级：" + riskLevel + "\n" + getAdvice(score));
         gradeTextView.setTextSize(22);
         gradeTextView.setPadding(36, 36, 36, 36);
         gradeTextView.setGravity(android.view.Gravity.CENTER);
+        
         // 美化分析区块
         TextView analysisTextView = findViewById(R.id.analysisTextView);
-        analysisTextView.setBackgroundResource(R.drawable.bg_tag_free);
-        analysisTextView.setTextColor(getResources().getColor(R.color.healing_blue));
-        analysisTextView.setTextSize(18);
+        analysisTextView.setTextSize(16);
         analysisTextView.setPadding(32, 32, 32, 32);
         analysisTextView.setGravity(android.view.Gravity.CENTER);
+        String localAnalysis = generateLocalAnalysis(riskLevel);
+        analysisTextView.setText(localAnalysis);
+        
         // --- 动画效果 ---
         Animation gradeAnim = AnimationUtils.loadAnimation(this, R.anim.scale_in);
         gradeTextView.startAnimation(gradeAnim);
         Animation analysisAnim = AnimationUtils.loadAnimation(this, R.anim.slide_up);
         analysisTextView.startAnimation(analysisAnim);
+        
         // 动态分析
         if (currentExercisesBean != null) {
             int total = questions != null ? questions.size() * 20 : 100;
-            analysisTextView.setText("正在联网分析，请稍候...");
+            String base = localAnalysis + "\n\n" + "正在联网分析，请稍候...";
+            analysisTextView.setText(base);
             StringBuilder sb = new StringBuilder();
             sb.append("测评名称：").append(currentExercisesBean.title).append("\n");
             sb.append("答题情况：\n");
@@ -259,7 +283,16 @@ public class ExercisesDetailActivity extends AppCompatActivity {
                 @Override
                 public void onSuccess(String response) {
                     mainHandler.post(() -> {
-                        analysisTextView.setText(response);
+                        StringBuilder esb = new StringBuilder();
+                        esb.append(localAnalysis).append("\n\n");
+                        esb.append("[联网补充]\n");
+                        esb.append(response).append("\n\n");
+                        esb.append("评分说明: ");
+                        esb.append("基础=").append(sr.baseScore).append(", 加权=").append(sr.weightedScore).append(", 动态=").append(sr.adjustedScore).append("\n");
+                        for (Map.Entry<String, Double> e : sr.breakdown.entrySet()) {
+                            esb.append(e.getKey()).append(": ").append(e.getValue()).append("\n");
+                        }
+                        analysisTextView.setText(esb.toString());
                         // 分析结果出现时再加一次淡入动画
                         Animation fadeIn = AnimationUtils.loadAnimation(ExercisesDetailActivity.this, R.anim.fade_in);
                         analysisTextView.startAnimation(fadeIn);
@@ -269,7 +302,15 @@ public class ExercisesDetailActivity extends AppCompatActivity {
                 public void onFailure(String error) {
                     mainHandler.post(() -> {
                         String analysis = currentExercisesBean.getAnalysis(score, total);
-                        analysisTextView.setText("[本地分析] " + analysis + "\n[联网失败] " + error);
+                        StringBuilder esb = new StringBuilder();
+                        esb.append(localAnalysis).append("\n\n");
+                        esb.append("[本地分析] ").append(analysis).append("\n[联网失败] ").append(error).append("\n\n");
+                        esb.append("评分说明: ");
+                        esb.append("基础=").append(sr.baseScore).append(", 加权=").append(sr.weightedScore).append(", 动态=").append(sr.adjustedScore).append("\n");
+                        for (Map.Entry<String, Double> e : sr.breakdown.entrySet()) {
+                            esb.append(e.getKey()).append(": ").append(e.getValue()).append("\n");
+                        }
+                        analysisTextView.setText(esb.toString());
                         Toast.makeText(ExercisesDetailActivity.this, "联网分析失败，已回退本地分析", Toast.LENGTH_SHORT).show();
                         Animation fadeIn = AnimationUtils.loadAnimation(ExercisesDetailActivity.this, R.anim.fade_in);
                         analysisTextView.startAnimation(fadeIn);
@@ -371,6 +412,59 @@ public class ExercisesDetailActivity extends AppCompatActivity {
         } else {
             return "您的焦虑水平较低，心理状态良好，请继续保持积极健康的生活方式。";
         }
+    }
+
+    private int severityWeight(QuestionBean q, int index) {
+        String qt = q.question != null ? q.question : "";
+        String[] opts = q.options != null ? q.options : new String[0];
+        int base;
+        if (opts.length >= 4) {
+            String first = opts[0];
+            if (containsAny(first, new String[]{"没有","从不","很好","非常满意","非常明确","经常"})) {
+                base = index;
+            } else {
+                base = index;
+            }
+        } else {
+            base = index;
+        }
+        if (qt.contains("自杀")) base *= 2;
+        return base;
+    }
+
+    private boolean containsAny(String s, String[] arr) {
+        if (s == null) return false;
+        for (String a : arr) { if (s.contains(a)) return true; }
+        return false;
+    }
+
+    private String generateLocalAnalysis(String riskLevel) {
+        boolean selfHarm = false;
+        boolean lowMood = false;
+        boolean interestLoss = false;
+        boolean fatigue = false;
+        boolean poorSleep = false;
+        for (int i = 0; i < questions.size(); i++) {
+            QuestionBean q = questions.get(i);
+            int ans = userAnswers[i];
+            if (ans < 0) continue;
+            String qt = q.question != null ? q.question : "";
+            if (qt.contains("自杀")) selfHarm = ans > 0;
+            if (qt.contains("低落")) lowMood = ans >= 2;
+            if (qt.contains("兴趣")) interestLoss = ans >= 2;
+            if (qt.contains("疲惫") || qt.contains("无力")) fatigue = ans >= 2;
+            if (qt.contains("睡眠")) poorSleep = ans >= 2 || (q.options.length >= 4 && ans >= 2);
+        }
+        StringBuilder sb = new StringBuilder();
+        sb.append("综合评估：").append(riskLevel).append("\n");
+        sb.append(selfHarm ? "存在自杀风险，需要尽快寻求专业帮助。" : "未报告自杀念头。").append("\n");
+        if (lowMood) sb.append("存在明显低落情绪。\n");
+        if (interestLoss) sb.append("对原有兴趣的投入下降。\n");
+        if (fatigue) sb.append("存在疲惫或精力不足表现。\n");
+        if (poorSleep) sb.append("睡眠质量存在问题。\n");
+        if (!(lowMood || interestLoss || fatigue || poorSleep)) sb.append("总体状态稳定，建议继续保持良好作息与情绪管理。\n");
+        sb.append("建议：保持规律作息、适度运动与情绪记录；若持续两周以上或影响日常，请考虑专业咨询。");
+        return sb.toString();
     }
 
     // 静态方法：通过id获取题目列表（可根据实际情况改为数据库查询）

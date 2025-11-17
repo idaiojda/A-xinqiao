@@ -5,5 +5,5 @@ package com.example.xinqiao.community
  */
 object CommunityRepositoryProvider {
     @Volatile
-    var current: CommunityRepository = FakeCommunityRepository
+    lateinit var current: CommunityRepository
 }

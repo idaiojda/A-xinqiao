@@ -92,7 +92,7 @@ public class ExercisesAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             View view = LayoutInflater.from(mContext).inflate(R.layout.item_exercises_header, parent, false);
             return new HeaderViewHolder(view, mContext, recommendList, this);
         } else {
-            View view = LayoutInflater.from(mContext).inflate(R.layout.exercises_list_item, parent, false);
+            View view = LayoutInflater.from(mContext).inflate(R.layout.item_exercise_card_new, parent, false);
             return new ExerciseViewHolder(view);
         }
     }

@@ -45,7 +45,7 @@ public class HotRankAdapter extends RecyclerView.Adapter<HotRankAdapter.ViewHold
     @NonNull
     @Override
     public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View view = LayoutInflater.from(mContext).inflate(R.layout.item_hot_rank, parent, false);
+        View view = LayoutInflater.from(mContext).inflate(R.layout.item_hot_rank_new, parent, false);
         return new ViewHolder(view);
     }
 
@@ -59,11 +59,17 @@ public class HotRankAdapter extends RecyclerView.Adapter<HotRankAdapter.ViewHold
 
         // 高亮前3名
         if (rank <= 3) {
-            holder.tvRank.setTextColor(0xFFFF8C4B); // 橙色
-            holder.tvTitle.setTextColor(0xFF222222);
+            holder.tvRank.setTextColor(0xFFFF6B35); // 橙色
+            holder.tvTitle.setTextColor(0xFF2C3E50);
+            // 为前3名添加特殊背景色
+            if (holder.itemView.findViewById(R.id.iv_rank_bg) != null) {
+                holder.itemView.findViewById(R.id.iv_rank_bg).setBackgroundTintList(
+                    android.content.res.ColorStateList.valueOf(0x1AFF6B35)
+                );
+            }
         } else {
-            holder.tvRank.setTextColor(0xFF999999);
-            holder.tvTitle.setTextColor(0xFF333333);
+            holder.tvRank.setTextColor(0xFF7F8C8D);
+            holder.tvTitle.setTextColor(0xFF2C3E50);
         }
 
         holder.itemView.setOnClickListener(v -> {

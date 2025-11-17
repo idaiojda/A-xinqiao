@@ -2,11 +2,16 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@android:color/white"
+    android:background="#F7F9FC"
     android:orientation="vertical" >
-    <include layout="@layout/main_adbanner" />
-    <!-- 课程页不再使用局部搜索/播放历史行，保留广告下列表 -->
     
+    <!-- 测评页风格的渐变标题栏 -->
+    <include layout="@layout/course_header_exercise_style" />
+    
+    <!-- 测评页风格的广告轮播横幅 -->
+    <include layout="@layout/main_adbanner_exercise_style" />
+    
+    <!-- 课程列表 -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rv_list"
         android:layout_width="match_parent"

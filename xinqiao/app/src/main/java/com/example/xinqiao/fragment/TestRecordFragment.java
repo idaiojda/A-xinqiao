@@ -45,7 +45,7 @@ public class TestRecordFragment extends Fragment {
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        View view = inflater.inflate(R.layout.fragment_test_record, container, false);
+        View view = inflater.inflate(R.layout.fragment_test_record_new, container, false);
         tvTitle = view.findViewById(R.id.tv_title);
         tvOrderTip = view.findViewById(R.id.tv_order_tip);
         tvTabUnfinished = view.findViewById(R.id.tv_tab_unfinished);
@@ -92,11 +92,6 @@ public class TestRecordFragment extends Fragment {
                 getActivity().getSupportFragmentManager().popBackStack();
             }
         });
-        view.findViewById(R.id.btn_more_test).setOnClickListener(v -> {
-            // 打开测评搜索/列表页，便于用户探索更多测评
-            Intent intent = new Intent(getContext(), com.example.xinqiao.activity.ExercisesSearchActivity.class);
-            startActivity(intent);
-        });
         progressBar = view.findViewById(R.id.progressBar);
         testRecordDao = new TestRecordDao(requireContext());
         userName = AnalysisUtils.readLoginUserName(requireContext());
@@ -118,9 +113,9 @@ public class TestRecordFragment extends Fragment {
     }
     private void switchTab(int tab) {
         currentTab = tab;
-        tvTabUnfinished.setTextColor(tab==0?0xFF222222:0xFFBBBBBB);
-        tvTabFinished.setTextColor(tab==1?0xFF222222:0xFFBBBBBB);
-        tvTabPending.setTextColor(tab==2?0xFF222222:0xFFBBBBBB);
+        tvTabUnfinished.setTextColor(tab==0?0xFF8B5CF6:0xFF7F8C8D);
+        tvTabFinished.setTextColor(tab==1?0xFF8B5CF6:0xFF7F8C8D);
+        tvTabPending.setTextColor(tab==2?0xFF8B5CF6:0xFF7F8C8D);
         indicatorUnfinished.setVisibility(tab==0?View.VISIBLE:View.INVISIBLE);
         indicatorFinished.setVisibility(tab==1?View.VISIBLE:View.INVISIBLE);
         indicatorPending.setVisibility(tab==2?View.VISIBLE:View.INVISIBLE);

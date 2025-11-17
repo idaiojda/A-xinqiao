@@ -33,8 +33,8 @@ public class MyInfoView extends LinearLayout implements com.example.xinqiao.mysq
     private TextView tvNickname;
     private TextView tvBalance;
     private LinearLayout ll_head;
-    private RelativeLayout rl_course_history, rl_setting, rl_balance;
-    private RelativeLayout rl_medical_record;
+    private RelativeLayout rl_course_history;
+    private View rl_setting, rl_balance, rl_medical_record;
     private Activity mContext;
     private LayoutInflater mInflater;
     private View mCurrentView;

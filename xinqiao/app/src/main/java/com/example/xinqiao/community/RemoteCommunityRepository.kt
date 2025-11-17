@@ -12,16 +12,20 @@ class RemoteCommunityRepository(
     override suspend fun getGroups(q: String?): List<String> {
         return try {
             val remote = api.getGroups(q)
-            if (remote.isNotEmpty()) remote else FakeCommunityRepository.getGroups(q)
+            if (remote.isNotEmpty()) remote else {
+                val dao = CommunityLocalCache.database()?.groupDao()
+                try { dao?.listJoinedNames() ?: emptyList() } catch (_: Exception) { emptyList() }
+            }
         } catch (_: Exception) {
-            FakeCommunityRepository.getGroups(q)
+            val dao = CommunityLocalCache.database()?.groupDao()
+            try { dao?.listJoinedNames() ?: emptyList() } catch (_: Exception) { emptyList() }
         }
     }
 
     override suspend fun applyJoin(groupName: String): GroupApplyResult = api.applyJoin(groupName)
 
-    override suspend fun createGroup(name: String, description: String, schedule: String, capacity: Int, creatorName: String): GroupCreateResult =
-        try {
+    override suspend fun createGroup(name: String, description: String, schedule: String, capacity: Int, creatorName: String): GroupCreateResult {
+        return try {
             val res = api.createGroup(CreateGroupRequest(name = name, description = description, schedule = "", capacity = capacity, creator = creatorName))
             try {
                 CommunityLocalCache.database()?.groupDao()?.upsert(
@@ -38,8 +42,24 @@ class RemoteCommunityRepository(
             } catch (_: Exception) { }
             res
         } catch (_: Exception) {
-            FakeCommunityRepository.createGroup(name, description, schedule, capacity, creatorName)
+            return try {
+                CommunityLocalCache.database()?.groupDao()?.upsert(
+                    GroupInfoEntity(
+                        name = name,
+                        memberCount = 1,
+                        rulesJson = com.google.gson.Gson().toJson(listOf("友善沟通", "禁止外传", "支持鼓励")),
+                        joined = true,
+                        adminName = creatorName,
+                        frequency = "",
+                        schedule = ""
+                    )
+                )
+                GroupCreateResult(true, "已创建：$name")
+            } catch (_: Exception) {
+                GroupCreateResult(false, "创建失败")
+            }
         }
+    }
 
     override suspend fun createQuestion(title: String, content: String): Question =
         api.createQuestion(NewQuestionRequest(title = title, content = content))
@@ -49,16 +69,15 @@ class RemoteCommunityRepository(
     override suspend fun health(): Health = api.health()
 
     override suspend fun getPosts(category: String?, page: Int, size: Int, q: String?): List<ThemePost> {
-        val cached = CommunityLocalCache.database()?.postDao()?.getAll()?.map { it.toThemePost() } ?: emptyList()
-        if (cached.isNotEmpty()) return cached
         return try {
-            val list = kotlinx.coroutines.withTimeout(1500L) {
+            val list = kotlinx.coroutines.withTimeout(3000L) {
                 api.getPosts(category = category, page = page, size = size, q = q).map { it.toThemePost() }
             }
-            CommunityLocalCache.database()?.postDao()?.upsertAll(list.map { it.toEntity() })
-            list
+            val cleaned = list.filterNot { isSamplePost(it) }
+            try { CommunityLocalCache.database()?.postDao()?.upsertAll(cleaned.map { it.toEntity() }) } catch (_: Exception) { }
+            cleaned
         } catch (_: Exception) {
-            cached
+            emptyList()
         }
     }
 
@@ -144,7 +163,7 @@ class RemoteCommunityRepository(
         CommunityLocalCache.database()?.groupDao()?.listNamesByOwnerOrJoined(name) ?: emptyList()
     }
 
-    override suspend fun getNotifications(): List<NotificationItem> = try { api.getNotifications().map { NotificationItem(it.id, it.title, it.content, it.read) } } catch (_: Exception) { emptyList() }
+    override suspend fun getNotifications(): List<NotificationItem> = try { api.getNotifications().map { NotificationItem(it.id, it.title, it.content, it.read, it.postId) } } catch (_: Exception) { emptyList() }
 
     override suspend fun markNotificationRead(id: String): Boolean = try { api.markNotificationRead(id).ok } catch (_: Exception) { false }
 
@@ -180,23 +199,11 @@ class RemoteCommunityRepository(
     override suspend fun getGroupMessages(groupName: String): List<GroupMessage> {
         return try {
             val dao = CommunityLocalCache.database()?.groupChatDao()
-            val local = dao?.getByGroup(groupName)?.map { it.toDomain() } ?: emptyList()
-            if (local.isNotEmpty()) {
-                local
-            } else {
-                val seed = FakeCommunityRepository.getGroupMessages(groupName)
-                try { dao?.upsertAll(seed.map { it.toEntity() }) } catch (_: Exception) {}
-                seed
-            }
-        } catch (_: Exception) {
-            val dao = CommunityLocalCache.database()?.groupChatDao()
             dao?.getByGroup(groupName)?.map { it.toDomain() } ?: emptyList()
-        }
+        } catch (_: Exception) { emptyList() }
     }
 
-    override suspend fun postGroupMessage(groupName: String, content: String, author: String, images: List<String>, mentions: List<String>, voiceUrl: String?, voiceDurationSec: Int?): GroupMessage = try {
-        FakeCommunityRepository.postGroupMessage(groupName, content, author, images, mentions, voiceUrl, voiceDurationSec)
-    } catch (_: Exception) {
+    override suspend fun postGroupMessage(groupName: String, content: String, author: String, images: List<String>, mentions: List<String>, voiceUrl: String?, voiceDurationSec: Int?): GroupMessage {
         val msg = GroupMessage(
             id = "gm" + System.currentTimeMillis(),
             groupName = groupName,
@@ -211,20 +218,20 @@ class RemoteCommunityRepository(
             recalled = false
         )
         try { CommunityLocalCache.database()?.groupChatDao()?.upsertAll(listOf(msg.toEntity())) } catch (_: Exception) {}
-        msg
+        return msg
     }
 
-    override suspend fun checkIn(groupName: String, userName: String): BadgeAwardResult = try {
-        FakeCommunityRepository.checkIn(groupName, userName)
-    } catch (_: Exception) { BadgeAwardResult(ok = true, message = "已打卡", badge = null) }
+    override suspend fun checkIn(groupName: String, userName: String): BadgeAwardResult {
+        return BadgeAwardResult(ok = true, message = "已打卡", badge = null)
+    }
 
-    override suspend fun getBadges(userName: String): List<Badge> = try {
-        FakeCommunityRepository.getBadges(userName)
-    } catch (_: Exception) { emptyList() }
+    override suspend fun getBadges(userName: String): List<Badge> {
+        return try { CommunityLocalCache.database()?.badgeDao()?.getByUser(userName)?.map { Badge(it.id, it.name, it.description) } ?: emptyList() } catch (_: Exception) { emptyList() }
+    }
 
-    override suspend fun recallGroupMessage(groupName: String, id: String): Boolean = try {
-        FakeCommunityRepository.recallGroupMessage(groupName, id)
-    } catch (_: Exception) { false }
+    override suspend fun recallGroupMessage(groupName: String, id: String): Boolean {
+        return try { CommunityLocalCache.database()?.groupChatDao()?.recall(id); true } catch (_: Exception) { false }
+    }
 }
 
 /** 工厂：提供默认 Retrofit 构建，可在应用初始化时传入自定义 baseUrl。 */
@@ -252,3 +259,16 @@ private fun PostDto.toThemePost(): ThemePost = ThemePost(
     voiceDurationSec = voiceDurationSec,
     pendingSync = false
 )
+
+private fun isSamplePost(p: ThemePost): Boolean {
+    val authors = setOf("小桥", "明月", "安然")
+    if (authors.contains(p.author)) return true
+    val patterns = listOf(
+        "夜深时的情绪波动",
+        "和室友相处的边界感",
+        "晚间散步的声音"
+    )
+    return patterns.any { pat ->
+        p.title.contains(pat, ignoreCase = true) || p.content.contains(pat, ignoreCase = true)
+    }
+}

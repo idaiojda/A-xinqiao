@@ -44,6 +44,8 @@ public class CourseSearchFragment extends Fragment {
     private TextView tvCancel;
     private RecyclerView rvHot;
     private CourseListAdapter adapter;
+    private View searchSuggestionsContainer;
+    private TextView tvRecentSearches;
     // 顶部全局标题栏中的控件（来自 MainActivity），进入本页需隐藏
     private View topSearchBox; // R.id.et_search_course
     private View topPlayHistory; // R.id.ll_play_history_top
@@ -58,7 +60,7 @@ public class CourseSearchFragment extends Fragment {
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        return inflater.inflate(R.layout.fragment_course_search, container, false);
+        return inflater.inflate(R.layout.fragment_course_search_modern, container, false);
     }
 
     @Override
@@ -128,10 +130,37 @@ public class CourseSearchFragment extends Fragment {
                 }
                 return false;
             });
+            
+            // 搜索框文本变化监听 - 显示/隐藏搜索建议
+            etSearch.addTextChangedListener(new android.text.TextWatcher() {
+                @Override
+                public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+                
+                @Override
+                public void onTextChanged(CharSequence s, int start, int before, int count) {
+                    if (searchSuggestionsContainer != null) {
+                        if (s.length() > 0) {
+                            searchSuggestionsContainer.setVisibility(View.VISIBLE);
+                        } else {
+                            searchSuggestionsContainer.setVisibility(View.GONE);
+                        }
+                    }
+                }
+                
+                @Override
+                public void afterTextChanged(android.text.Editable s) {}
+            });
         }
+        
+        // 搜索建议容器
+        searchSuggestionsContainer = view.findViewById(R.id.ll_search_suggestions);
+        tvRecentSearches = view.findViewById(R.id.tv_recent_searches);
+        
+        // 搜索标签点击事件
+        setupSearchTagListeners(view);
 
-        // 热搜推荐列表（单列样式，左图右文）
-        adapter = new CourseListAdapter(requireContext(), R.layout.course_search_item);
+        // 热搜推荐列表（现代卡片样式）
+        adapter = new CourseListAdapter(requireContext(), R.layout.course_search_item_modern);
         if (rvHot != null) {
             LinearLayoutManager llm = new LinearLayoutManager(requireContext(), LinearLayoutManager.VERTICAL, false);
             rvHot.setLayoutManager(llm);
@@ -293,5 +322,59 @@ public class CourseSearchFragment extends Fragment {
     private int dpToPx(int dp) {
         float density = requireContext().getResources().getDisplayMetrics().density;
         return (int) (dp * density + 0.5f);
+    }
+    
+    private void setupSearchTagListeners(View view) {
+        // 最近搜索标签
+        TextView tvSearchTag1 = view.findViewById(R.id.tv_search_tag_1);
+        TextView tvSearchTag2 = view.findViewById(R.id.tv_search_tag_2);
+        TextView tvSearchTag3 = view.findViewById(R.id.tv_search_tag_3);
+        
+        View.OnClickListener searchTagClickListener = new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (v instanceof TextView) {
+                    String tag = ((TextView) v).getText().toString();
+                    if (etSearch != null) {
+                        etSearch.setText(tag);
+                        etSearch.setSelection(tag.length());
+                    }
+                    // 自动触发搜索
+                    Intent intent = new Intent(requireContext(), CourseSearchActivity.class);
+                    intent.putExtra("query", tag);
+                    startActivity(intent);
+                }
+            }
+        };
+        
+        if (tvSearchTag1 != null) tvSearchTag1.setOnClickListener(searchTagClickListener);
+        if (tvSearchTag2 != null) tvSearchTag2.setOnClickListener(searchTagClickListener);
+        if (tvSearchTag3 != null) tvSearchTag3.setOnClickListener(searchTagClickListener);
+        
+        // 热门搜索标签
+        TextView tvHotSearchTag1 = view.findViewById(R.id.tv_hot_search_tag_1);
+        TextView tvHotSearchTag2 = view.findViewById(R.id.tv_hot_search_tag_2);
+        TextView tvHotSearchTag3 = view.findViewById(R.id.tv_hot_search_tag_3);
+        
+        View.OnClickListener hotSearchTagClickListener = new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (v instanceof TextView) {
+                    String tag = ((TextView) v).getText().toString();
+                    if (etSearch != null) {
+                        etSearch.setText(tag);
+                        etSearch.setSelection(tag.length());
+                    }
+                    // 自动触发搜索
+                    Intent intent = new Intent(requireContext(), CourseSearchActivity.class);
+                    intent.putExtra("query", tag);
+                    startActivity(intent);
+                }
+            }
+        };
+        
+        if (tvHotSearchTag1 != null) tvHotSearchTag1.setOnClickListener(hotSearchTagClickListener);
+        if (tvHotSearchTag2 != null) tvHotSearchTag2.setOnClickListener(hotSearchTagClickListener);
+        if (tvHotSearchTag3 != null) tvHotSearchTag3.setOnClickListener(hotSearchTagClickListener);
     }
 }

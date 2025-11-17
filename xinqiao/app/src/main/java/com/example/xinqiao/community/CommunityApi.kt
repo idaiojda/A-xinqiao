@@ -98,4 +98,4 @@ data class UpdateGroupRequest(val description: String?, val rulesJson: String?, 
 data class UserProfileDto(val name: String, val avatar: String, val bio: String, val following: Boolean, val postsCount: Int, val followersCount: Int, val followingCount: Int)
 data class FollowResult(val ok: Boolean)
 data class GroupInfoDto(val name: String, val memberCount: Int, val rules: List<String>, val joined: Boolean, val adminName: String, val frequency: String, val schedule: String)
-data class NotificationDto(val id: String, val title: String, val content: String, val read: Boolean)
+data class NotificationDto(val id: String, val title: String, val content: String, val read: Boolean, val postId: String? = null)

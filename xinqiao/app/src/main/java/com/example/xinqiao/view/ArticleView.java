@@ -122,6 +122,9 @@ public class ArticleView extends FrameLayout {
             // 这里需要实现文章详情页面的跳转逻辑
         });
         
+        // 初次进入页面同步标签选中样式
+        updateTagSelection();
+
         // 默认加载全部文章
         loadAllArticles();
     }
@@ -152,9 +155,9 @@ public class ArticleView extends FrameLayout {
         tagGrowth.setBackgroundResource("自我成长".equals(currentCategory) ? R.drawable.bg_chip_selected : R.drawable.bg_chip_unselected);
         tagStress.setBackgroundResource("压力管理".equals(currentCategory) ? R.drawable.bg_chip_selected : R.drawable.bg_chip_unselected);
         tagRelationship.setBackgroundResource("关系经营".equals(currentCategory) ? R.drawable.bg_chip_selected : R.drawable.bg_chip_unselected);
-        // 文字颜色：选中为蓝色，未选中为灰色
-        int sel = android.graphics.Color.parseColor("#2C6ECB");
-        int unsel = android.graphics.Color.parseColor("#4E5969");
+        // 文字颜色：选中为白色，未选中为灰色
+        int sel = android.graphics.Color.parseColor("#FFFFFF");
+        int unsel = android.graphics.Color.parseColor("#6B7280");
         tagAll.setTextColor(currentCategory == null ? sel : unsel);
         tagEmotion.setTextColor("情绪管理".equals(currentCategory) ? sel : unsel);
         tagGrowth.setTextColor("自我成长".equals(currentCategory) ? sel : unsel);

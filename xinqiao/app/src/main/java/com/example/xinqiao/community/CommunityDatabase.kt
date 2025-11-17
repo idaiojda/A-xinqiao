@@ -10,6 +10,7 @@ import androidx.room.Dao
 import androidx.room.Query
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
+import kotlinx.coroutines.launch
 
 @Entity(tableName = "posts")
 data class PostEntity(
@@ -102,6 +103,9 @@ interface PostDao {
 
     @Query("SELECT * FROM posts WHERE id = :id LIMIT 1")
     suspend fun getById(id: String): PostEntity?
+
+    @Query("DELETE FROM posts WHERE author IN ('小桥','明月','安然') OR title LIKE '%夜深时的情绪波动%' OR title LIKE '%和室友相处的边界感%' OR title LIKE '%晚间散步的声音%'")
+    fun purgeSamples(): Int
 }
 
 @Dao
@@ -197,6 +201,7 @@ abstract class CommunityDatabase : RoomDatabase() {
 object CommunityLocalCache {
     @Volatile
     private var db: CommunityDatabase? = null
+    private val appScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO)
 
     fun init(context: Context) {
         if (db == null) {
@@ -213,6 +218,15 @@ object CommunityLocalCache {
     }
 
     fun database(): CommunityDatabase? = db
+
+    fun purgeSamples() {
+        try {
+            val d = database()
+            if (d != null) {
+                appScope.launch { try { d.postDao().purgeSamples() } catch (_: Exception) { } }
+            }
+        } catch (_: Exception) { }
+    }
 }
 
 private fun List<String>.toJson(): String = try {

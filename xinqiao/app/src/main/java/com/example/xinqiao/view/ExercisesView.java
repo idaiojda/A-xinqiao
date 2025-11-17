@@ -49,7 +49,7 @@ public class ExercisesView {
      */
     private void initView() {
         mCurrentView = mInflater
-                .inflate(R.layout.main_view_exercises, null);
+                .inflate(R.layout.main_view_exercises_mod, null);
         // 初始化主RecyclerView
         rv_list = mCurrentView.findViewById(R.id.rv_list);
         rv_list.setLayoutManager(new androidx.recyclerview.widget.LinearLayoutManager(mContext));

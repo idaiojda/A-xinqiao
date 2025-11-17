@@ -20,6 +20,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.work.*
 import androidx.compose.ui.platform.LocalContext
 import java.util.concurrent.TimeUnit
@@ -59,15 +60,7 @@ fun CommunityScreenNew(controller: CommunityController) {
     }
     var previewImageUrl by remember { mutableStateOf<String?>(null) }
     val ctx = LocalContext.current
-    LaunchedEffect(Unit) {
-        try {
-            if (CommunityRepositoryProvider.current === FakeCommunityRepository) {
-                val baseUrl = com.example.xinqiao.network.NetworkConfig.getBaseUrl(ctx)
-                val api = com.example.xinqiao.community.CommunityServiceFactory.create(baseUrl)
-                CommunityRepositoryProvider.current = RemoteCommunityRepository(api)
-            }
-        } catch (_: Throwable) { }
-    }
+    
     var notificationsOpen by remember { mutableStateOf(false) }
     var notifications by remember { mutableStateOf<List<NotificationItem>>(emptyList()) }
     var notificationsLoading by remember { mutableStateOf(false) }
@@ -185,8 +178,44 @@ fun CommunityScreenNew(controller: CommunityController) {
         }
     }
 
+    var postRealtimeSubscribed by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        val user = com.example.xinqiao.util.AnalysisUtils.readLoginUserName(ctx) ?: ""
+        if (!postRealtimeSubscribed && user.isNotBlank()) {
+            try {
+                com.example.xinqiao.community.PostRealtimeClient.subscribeUser(ctx, user) { payload ->
+                    try {
+                        val obj = org.json.JSONObject(payload)
+                        val type = obj.optString("type", "")
+                        val postId = obj.optString("postId", "")
+                        val author = obj.optString("author", "")
+                        val text = obj.optString("text", "")
+                        val id = obj.optString("id", ("n" + System.currentTimeMillis()))
+                        val title = when (type.lowercase()) {
+                            "like" -> "点赞提醒"
+                            "comment" -> "评论提醒"
+                            "reply" -> "回复提醒"
+                            else -> "互动提醒"
+                        }
+                        val content = when (type.lowercase()) {
+                            "like" -> (author.ifBlank { "用户" }) + " 点赞了你的帖子"
+                            "comment", "reply" -> (author.ifBlank { "用户" }) + ": " + text
+                            else -> text.ifBlank { "你有新的帖子互动" }
+                        }
+                        val item = NotificationItem(id = id, title = title, content = content, read = false, postId = postId.takeIf { it.isNotBlank() })
+                        notifications = notifications + item
+                    } catch (_: Exception) { }
+                }
+                postRealtimeSubscribed = true
+            } catch (_: Exception) { }
+        }
+    }
+
     DisposableEffect(Unit) {
-        onDispose { try { com.example.xinqiao.community.RealtimeChatClient.closeAll() } catch (_: Exception) {} }
+        onDispose {
+            try { com.example.xinqiao.community.RealtimeChatClient.closeAll() } catch (_: Exception) {}
+            try { com.example.xinqiao.community.PostRealtimeClient.close() } catch (_: Exception) {}
+        }
     }
 
     // 加载帖子
@@ -195,13 +224,6 @@ fun CommunityScreenNew(controller: CommunityController) {
             controller.isLoading = true
             controller.errorMessage = null
             try {
-                try {
-                    val cached = CommunityLocalCache.database()?.postDao()?.getAll()?.map { it.toThemePost() } ?: emptyList()
-                    if (cached.isNotEmpty()) {
-                        feedPosts.clear()
-                        feedPosts.addAll(cached)
-                    }
-                } catch (_: Exception) {}
                 val list = CommunityRepositoryProvider.current.getPosts(
                     page = 0,
                     size = 10,
@@ -213,6 +235,7 @@ fun CommunityScreenNew(controller: CommunityController) {
                 feedPage = 0
                 feedReachedEnd = list.isEmpty()
             } catch (e: Exception) {
+                feedPosts.clear()
                 controller.errorMessage = "加载失败：" + (e.message ?: "网络异常")
             } finally {
                 controller.isLoading = false
@@ -260,7 +283,7 @@ fun CommunityScreenNew(controller: CommunityController) {
                             scope.launch { reloadMyGroups() }
                         }
                     }
-                    item { HotTopicCardNew() }
+                    item { HotTopicCardNew(controller) }
                 }
             }
 
@@ -2056,6 +2079,46 @@ fun CommunityScreenNew(controller: CommunityController) {
                             }
                         }
                     }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconToggleButton(checked = p.liked, onCheckedChange = {
+                                val idx = feedPosts.indexOfFirst { it.id == p.id }
+                                if (idx >= 0) {
+                                    val cur = feedPosts[idx]
+                                    val liked = !cur.liked
+                                    val count = if (liked) cur.likeCount + 1 else (cur.likeCount - 1).coerceAtLeast(0)
+                                    val updated = cur.copy(liked = liked, likeCount = count)
+                                    feedPosts[idx] = updated
+                                    selectedPostDetail = updated
+                                }
+                            }) {
+                                Icon(imageVector = if (p.liked) Icons.Filled.Favorite else Icons.Outlined.Favorite, contentDescription = null, tint = if (p.liked) tokens.color.Danger else tokens.color.Neutral500)
+                            }
+                            Text(p.likeCount.toString(), style = MaterialTheme.typography.bodySmall)
+                        }
+                        IconToggleButton(checked = p.bookmarked, onCheckedChange = {
+                            val idx = feedPosts.indexOfFirst { it.id == p.id }
+                            if (idx >= 0) {
+                                val cur = feedPosts[idx]
+                                val updated = cur.copy(bookmarked = !cur.bookmarked)
+                                feedPosts[idx] = updated
+                                selectedPostDetail = updated
+                            }
+                        }) {
+                            Icon(imageVector = if (p.bookmarked) Icons.Filled.Bookmark else Icons.Outlined.Bookmark, contentDescription = null, tint = if (p.bookmarked) tokens.color.Primary else tokens.color.Neutral500)
+                        }
+                        IconButton(onClick = {
+                            try {
+                                val intent = android.content.Intent(android.content.Intent.ACTION_SEND)
+                                intent.type = "text/plain"
+                                val text = p.title + "\n\n" + p.content
+                                intent.putExtra(android.content.Intent.EXTRA_TEXT, text)
+                                ctx.startActivity(android.content.Intent.createChooser(intent, "分享帖子"))
+                            } catch (_: Exception) {}
+                        }) {
+                            Icon(imageVector = Icons.Outlined.Share, contentDescription = null, tint = tokens.color.Neutral500)
+                        }
+                    }
                     Divider()
                     Text("评论", style = MaterialTheme.typography.titleSmall)
                     if (detailLoading) {
@@ -2123,6 +2186,16 @@ fun CommunityScreenNew(controller: CommunityController) {
                     TextField(value = createTitle, onValueChange = { createTitle = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("填写标题") })
                     TextField(value = createContent, onValueChange = { createContent = it }, modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp), placeholder = { Text("分享你的想法…") })
                     TextField(value = createTags, onValueChange = { createTags = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("标签，逗号或空格分隔") })
+                    androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(tokens.spacing.S)) {
+                        itemsIndexed(categoryNames.filter { it != "全部话题" && it != "我的收藏" }) { _, name ->
+                            AssistChip(onClick = {
+                                val cur = createTags.split(',', '，', ' ').map { it.trim() }.filter { it.isNotBlank() }
+                                if (!cur.contains(name)) {
+                                    createTags = (cur + name).joinToString(",")
+                                }
+                            }, label = { Text(name) })
+                        }
+                    }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Button(onClick = { pickImagesLauncher.launch("image/*") }) { Text("选择图片") }
                     }
@@ -2265,47 +2338,89 @@ fun CommunityScreenNew(controller: CommunityController) {
                     if (notificationsLoading) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) { CircularProgressIndicator() }
                     } else {
-                        val grouped = remember(notifications) {
-                            notifications.groupBy { n ->
+                        val postNotifs = remember(notifications) { notifications.filter { it.postId != null } }
+                        val groupEntries = remember(notifications) {
+                            notifications.filter { it.postId == null }.groupBy { n ->
                                 val t = n.title
                                 if (t.startsWith("来自")) t.removePrefix("来自") else t
-                            }
+                            }.entries.toList()
                         }
-                        LazyColumn(verticalArrangement = Arrangement.spacedBy(tokens.spacing.S)) {
-                            itemsIndexed(grouped.entries.toList(), key = { _, e -> e.key }) { _, entry ->
-                                val groupName = entry.key
-                                val list = entry.value
-                                val unread = list.count { !it.read }
-                                val authors = list.mapNotNull {
-                                    val c = it.content
-                                    val idx = c.indexOf(": ")
-                                    if (idx > 0) c.substring(0, idx) else null
-                                }.distinct()
-                                Surface(onClick = {
-                                    try {
-                                        val intent = android.content.Intent(ctx, com.example.xinqiao.activity.GroupChatActivity::class.java)
-                                        intent.putExtra("group", groupName)
-                                        ctx.startActivity(intent)
-                                        notifications = notifications.map { n -> if ((n.title == "来自" + groupName) && !n.read) n.copy(read = true) else n }
-                                    } catch (_: Exception) {}
-                                }, tonalElevation = 1.dp) {
-                                    Row(modifier = Modifier.fillMaxWidth().padding(tokens.spacing.M), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                                Text(groupName, style = MaterialTheme.typography.bodyLarge)
-                                                if (unread > 0) {
-                                                    Surface(shape = CircleShape, color = MaterialTheme.colorScheme.error) {
-                                                        Text(unread.toString(), color = MaterialTheme.colorScheme.onError, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
-                                                    }
+                        if (postNotifs.isNotEmpty()) {
+                            Text("帖子互动", style = MaterialTheme.typography.titleSmall)
+                            LazyColumn(verticalArrangement = Arrangement.spacedBy(tokens.spacing.S)) {
+                                itemsIndexed(postNotifs, key = { _, n -> n.id }) { _, n ->
+                                    Surface(onClick = {
+                                        val pid = n.postId
+                                        if (pid != null) {
+                                            scope.launch {
+                                                var p: ThemePost? = try { CommunityLocalCache.database()?.postDao()?.getById(pid)?.toThemePost() } catch (_: Exception) { null }
+                                                if (p == null) {
+                                                    try {
+                                                        val list = CommunityRepositoryProvider.current.getPosts(page = 0, size = 20, category = null)
+                                                        p = list.firstOrNull { it.id == pid }
+                                                    } catch (_: Exception) { p = null }
+                                                }
+                                                if (p != null) {
+                                                    selectedPostDetail = p
+                                                    notifications = notifications.map { x -> if (x.id == n.id) x.copy(read = true) else x }
                                                 }
                                             }
-                                            val preview = authors.joinToString("、")
-                                            Text(if (preview.isNotBlank()) "最新：$preview" else "", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         }
-                                        Icon(Icons.Default.ChevronRight, contentDescription = null)
+                                    }, tonalElevation = 1.dp) {
+                                        Row(modifier = Modifier.fillMaxWidth().padding(tokens.spacing.M), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                Text(n.title, style = MaterialTheme.typography.bodyLarge)
+                                                Text(n.content, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            }
+                                            if (!n.read) {
+                                                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.error) { Text("新", color = MaterialTheme.colorScheme.onError, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)) }
+                                            }
+                                        }
                                     }
                                 }
                             }
+                        }
+                        if (groupEntries.isNotEmpty()) {
+                            Text("群消息", style = MaterialTheme.typography.titleSmall)
+                            LazyColumn(verticalArrangement = Arrangement.spacedBy(tokens.spacing.S)) {
+                                itemsIndexed(groupEntries, key = { _, e -> e.key }) { _, entry ->
+                                    val groupName = entry.key
+                                    val list = entry.value
+                                    val unread = list.count { !it.read }
+                                    val authors = list.mapNotNull {
+                                        val c = it.content
+                                        val idx = c.indexOf(": ")
+                                        if (idx > 0) c.substring(0, idx) else null
+                                    }.distinct()
+                                    Surface(onClick = {
+                                        try {
+                                            val intent = android.content.Intent(ctx, com.example.xinqiao.activity.GroupChatActivity::class.java)
+                                            intent.putExtra("group", groupName)
+                                            ctx.startActivity(intent)
+                                            notifications = notifications.map { n -> if ((n.title == "来自" + groupName) && !n.read) n.copy(read = true) else n }
+                                        } catch (_: Exception) {}
+                                    }, tonalElevation = 1.dp) {
+                                        Row(modifier = Modifier.fillMaxWidth().padding(tokens.spacing.M), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                    Text(groupName, style = MaterialTheme.typography.bodyLarge)
+                                                    if (unread > 0) {
+                                                        Surface(shape = CircleShape, color = MaterialTheme.colorScheme.error) {
+                                                            Text(unread.toString(), color = MaterialTheme.colorScheme.onError, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                                                        }
+                                                    }
+                                                }
+                                                val preview = authors.joinToString("、")
+                                                Text(if (preview.isNotBlank()) "最新：$preview" else "", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            }
+                                            Icon(Icons.Default.ChevronRight, contentDescription = null)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if (postNotifs.isEmpty() && groupEntries.isEmpty()) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) { Text("暂无消息", style = MaterialTheme.typography.bodyMedium) }
                         }
                     }
                 }

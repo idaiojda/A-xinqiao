@@ -35,7 +35,7 @@ public class ExercisesSearchActivity extends Activity {
     private TextView tvCancel;
     private RecyclerView rvResult;
     private RecyclerView rvHotRank;
-    private TextView tvEmpty;
+    private View tvEmpty;
     private ExercisesAdapter adapter;
     private List<ExercisesBean> allList = new ArrayList<>();
     private FlexboxLayout flowHot, flowHistory;
@@ -52,7 +52,7 @@ public class ExercisesSearchActivity extends Activity {
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_exercises_search);
+        setContentView(R.layout.activity_exercises_search_new);
         etSearch = findViewById(R.id.et_search);
         ivBack = findViewById(R.id.iv_back);
         ivClear = findViewById(R.id.iv_clear);
@@ -392,17 +392,17 @@ public class ExercisesSearchActivity extends Activity {
         tv.setText(text);
         tv.setTextColor(strokeColor);
         tv.setTextSize(14);
-        tv.setPadding(32, 12, 32, 12);
+        tv.setPadding(24, 12, 24, 12);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.WRAP_CONTENT, 
             ViewGroup.LayoutParams.WRAP_CONTENT
         );
-        lp.setMargins(0, 0, 24, 0);
+        lp.setMargins(0, 0, 16, 12);
         tv.setLayoutParams(lp);
         
         // 创建背景drawable
         GradientDrawable drawable = new GradientDrawable();
-        drawable.setCornerRadius(48);
+        drawable.setCornerRadius(24);
         drawable.setStroke(2, strokeColor);
         drawable.setColor(bgColor);
         
@@ -414,6 +414,10 @@ public class ExercisesSearchActivity extends Activity {
         
         // 设置背景
         tv.setBackground(drawable);
+        
+        // 添加触摸反馈
+        tv.setClickable(true);
+        tv.setFocusable(true);
         
         return tv;
     }

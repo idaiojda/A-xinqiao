@@ -148,11 +148,37 @@ public class CourseView {
             adapter.submitList(new ArrayList<com.example.xinqiao.bean.CourseBean>());
         }
         
-        // 初始化播放历史按钮（已迁移到全局标题栏）
-        View playHistoryBtn = mContext.findViewById(R.id.ll_play_history_top);
+        // 初始化自定义标题栏的搜索功能
+        View searchContainer = mCurrentView.findViewById(R.id.ll_search_container);
+        if (searchContainer != null) {
+            searchContainer.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    try {
+                        openCourseSearchFragment();
+                    } catch (Exception e) {
+                        android.util.Log.e("CourseView", "打开课程搜索失败: " + e.getMessage());
+                    }
+                }
+            });
+        }
+        View etSearchTop = mCurrentView.findViewById(R.id.et_search_top);
+        if (etSearchTop != null) {
+            etSearchTop.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    try {
+                        openCourseSearchFragment();
+                    } catch (Exception e) {
+                        android.util.Log.e("CourseView", "打开课程搜索失败: " + e.getMessage());
+                    }
+                }
+            });
+        }
+        
+        // 初始化自定义标题栏的播放历史功能
+        View playHistoryBtn = mCurrentView.findViewById(R.id.ll_play_history_custom);
         if (playHistoryBtn != null) {
-            // 添加调试日志
-            android.util.Log.d("CourseView", "播放历史按钮找到，设置点击事件");
             playHistoryBtn.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
@@ -170,9 +196,6 @@ public class CourseView {
                     }
                 }
             });
-        } else {
-            // 调试信息：如果找不到控件，输出日志
-            android.util.Log.e("CourseView", "播放历史按钮未找到（全局标题栏），请检查布局或可忽略，MainActivity 已处理点击");
         }
         
         // 初始化广告轮播ViewPager
@@ -388,6 +411,20 @@ public class CourseView {
     private boolean readLoginStatus() {
         SharedPreferences sp = mContext.getSharedPreferences("loginInfo", Activity.MODE_PRIVATE);
         return sp.getBoolean("isLogin", false);
+    }
+    
+    /**
+     * 打开课程搜索页面
+     */
+    private void openCourseSearchFragment() {
+        try {
+            // 使用MainActivity的搜索功能
+            if (mContext instanceof com.example.xinqiao.activity.MainActivity) {
+                ((com.example.xinqiao.activity.MainActivity) mContext).openCourseSearchFragment();
+            }
+        } catch (Exception e) {
+            android.util.Log.e("CourseView", "打开课程搜索失败: " + e.getMessage());
+        }
     }
     
     /**

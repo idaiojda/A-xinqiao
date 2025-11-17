@@ -157,6 +157,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                         transaction.replace(getBodyLayout().getId(), testRecordFragment, "TestRecordFragment");
                         transaction.addToBackStack(null);
                         transaction.commitAllowingStateLoss();
+                        
+                        // 隐藏底部导航栏
+                        if (mBottomLayout != null) {
+                            mBottomLayout.setVisibility(View.GONE);
+                        }
                     } catch (Exception e) {
                         Log.e("MainActivity", "Deep link to TestRecordFragment failed: " + e.getMessage());
                         // 回退到默认视图
@@ -384,11 +389,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             case 0:
                 iv_course.setImageResource(R.drawable.main_course_icon);
                 tv_course.setTextColor(getResources().getColor(R.color.bottom_nav_selected_healing));
-                rl_title_bar.setVisibility(View.VISIBLE);
+                rl_title_bar.setVisibility(View.GONE); // 课程页隐藏全局标题栏，使用自定义标题栏
                 tv_main_title.setText("心理课程");
-                // 课程页显示搜索与播放历史，隐藏居中标题
-                if (et_search_course != null) et_search_course.setVisibility(View.VISIBLE);
-                if (ll_play_history_top != null) ll_play_history_top.setVisibility(View.VISIBLE);
+                // 课程页搜索与播放历史功能移到自定义标题栏
+                if (et_search_course != null) et_search_course.setVisibility(View.GONE);
+                if (ll_play_history_top != null) ll_play_history_top.setVisibility(View.GONE);
                 if (tv_main_title != null) tv_main_title.setVisibility(View.GONE);
                 break;
             case 1:
@@ -454,6 +459,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     try {
                         if (getSupportFragmentManager().getBackStackEntryCount() > 0) {
                             getSupportFragmentManager().popBackStack(null, FragmentManager.POP_BACK_STACK_INCLUSIVE);
+                        }
+                        
+                        // 显示底部导航栏（当清除所有Fragment时）
+                        if (mBottomLayout != null) {
+                            mBottomLayout.setVisibility(View.VISIBLE);
                         }
                         List<Fragment> fragments = getSupportFragmentManager().getFragments();
                         if (fragments != null && !fragments.isEmpty()) {
@@ -668,6 +678,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     mBodyLayout.post(() -> {
                         try {
                             getSupportFragmentManager().popBackStack();
+                            
+                            // 显示底部导航栏（当从Fragment返回时）
+                            if (mBottomLayout != null) {
+                                mBottomLayout.setVisibility(View.VISIBLE);
+                            }
+                            
                             if (mExercisesView != null && mExercisesView.getView().getVisibility() == View.VISIBLE) {
                                 setSelectedStatus(1);
                             } else if (mCourseView != null && mCourseView.getView().getVisibility() == View.VISIBLE) {
@@ -884,9 +900,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 } catch (Exception ignore2) {}
 
                 if (courseVisible || currentIndex == 0) {
-                    if (rl_title_bar != null) rl_title_bar.setVisibility(View.VISIBLE);
-                    if (et_search_course != null) et_search_course.setVisibility(View.VISIBLE);
-                    if (ll_play_history_top != null) ll_play_history_top.setVisibility(View.VISIBLE);
+                    if (rl_title_bar != null) rl_title_bar.setVisibility(View.GONE);
+                    if (et_search_course != null) et_search_course.setVisibility(View.GONE);
+                    if (ll_play_history_top != null) ll_play_history_top.setVisibility(View.GONE);
                     if (tv_main_title != null) tv_main_title.setVisibility(View.GONE);
                 }
             }
@@ -896,7 +912,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     /**
      * 打开课程搜索 Fragment 页面
      */
-    private void openCourseSearchFragment() {
+    public void openCourseSearchFragment() {
         try {
             if (mBodyLayout != null) {
                 mBodyLayout.post(() -> {

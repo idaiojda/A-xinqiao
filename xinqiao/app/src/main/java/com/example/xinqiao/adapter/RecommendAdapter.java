@@ -37,7 +37,7 @@ public class RecommendAdapter extends RecyclerView.Adapter<RecommendAdapter.View
     @NonNull
     @Override
     public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View view = LayoutInflater.from(mContext).inflate(R.layout.item_recommend, parent, false);
+        View view = LayoutInflater.from(mContext).inflate(R.layout.item_exercise_grid_new, parent, false);
         return new ViewHolder(view);
     }
 
