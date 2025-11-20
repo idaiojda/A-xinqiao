@@ -26,8 +26,8 @@ fun RecommendedGroupCardNew(
 
     LaunchedEffect(Unit) {
         try {
-            val remote = CommunityRepositoryProvider.current.getGroups()
-            groups = remote
+            val dbList = try { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { com.example.xinqiao.mysql.DBUtils.getInstance(ctx).listCommunityGroups() } } catch (_: Exception) { emptyList() }
+            groups = if (dbList.isNotEmpty()) dbList else CommunityRepositoryProvider.current.getGroups()
         } catch (e: Exception) {
             groups = emptyList()
             loadErr = "加载推荐小组失败：" + (e.message ?: "网络异常")

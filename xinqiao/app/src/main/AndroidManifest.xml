@@ -112,6 +112,18 @@
             android:exported="false"
             android:label="授权管理" />
         <activity
+            android:name=".activity.PrivacySettingActivity"
+            android:exported="false"
+            android:label="隐私设置" />
+        <activity
+            android:name=".activity.AccountDeactivationActivity"
+            android:exported="false"
+            android:label="注销申请" />
+        <activity
+            android:name=".activity.AboutActivity"
+            android:exported="false"
+            android:label="关于心桥" />
+        <activity
             android:name=".activity.OrderQueryActivity"
             android:exported="false"
             android:label="订单查询" />
@@ -134,11 +146,11 @@
         <activity
             android:name=".activity.ArticleSearchActivity"
             android:exported="true"
-            android:label="文章搜索" />
+            android:label="@string/article_search_title" />
         <activity
             android:name=".activity.ArticleSearchHostActivity"
             android:exported="true"
-            android:label="文章搜索预览" />
+            android:label="@string/article_search_preview_title" />
         <activity
             android:name=".activity.ArticleHistoryActivity"
             android:exported="false"
@@ -147,6 +159,10 @@
             android:name=".activity.GroupChatActivity"
             android:exported="true"
             android:label="会话" />
+        <activity
+            android:name=".activity.CounselorScheduleActivity"
+            android:exported="false"
+            android:label="排班管理" />
     </application>
 
 </manifest>

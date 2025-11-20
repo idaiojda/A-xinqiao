@@ -1,46 +1,46 @@
 package com.example.xinqiaobackend.ws;
 
+import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
-import java.io.IOException;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.List;
 
+@Component
 public class ChatWebSocketHandler extends TextWebSocketHandler {
-    private final ConcurrentHashMap<String, CopyOnWriteArraySet<WebSocketSession>> groups = new ConcurrentHashMap<>();
+    private final RedisChatBroker broker;
+
+    public ChatWebSocketHandler(RedisChatBroker broker) { this.broker = broker; }
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
         Object g = session.getAttributes().get("group");
         String group = g instanceof String ? (String) g : "default";
-        groups.computeIfAbsent(group, k -> new CopyOnWriteArraySet<>()).add(session);
+        broker.register(group, session);
+        List<String> history = broker.history(group, 20);
+        try {
+            for (String msg : history) { session.sendMessage(new TextMessage(msg)); }
+        } catch (Exception ignored) {}
     }
 
     @Override
-    protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
+    protected void handleTextMessage(WebSocketSession session, TextMessage message) {
+        String text = message.getPayload();
         Object g = session.getAttributes().get("group");
         String group = g instanceof String ? (String) g : "default";
-        Set<WebSocketSession> set = groups.getOrDefault(group, new CopyOnWriteArraySet<>());
-        for (WebSocketSession s : set) {
-            if (s.isOpen()) {
-                try { s.sendMessage(message); } catch (IOException ignored) {}
-            }
-        }
+        Object u = session.getAttributes().get("user");
+        String user = u instanceof String ? (String) u : "anonymous";
+        long ts = System.currentTimeMillis();
+        String payload = "{\"group\":\"" + group + "\",\"user\":\"" + user + "\",\"text\":\"" + text.replace("\"", "\\\"") + "\",\"ts\":" + ts + "}";
+        broker.publish(group, payload);
     }
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
         Object g = session.getAttributes().get("group");
         String group = g instanceof String ? (String) g : "default";
-        Set<WebSocketSession> set = groups.get(group);
-        if (set != null) {
-            set.remove(session);
-            if (set.isEmpty()) groups.remove(group);
-        }
+        broker.unregister(group, session);
     }
 }
-

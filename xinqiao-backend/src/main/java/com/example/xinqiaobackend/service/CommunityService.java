@@ -19,4 +19,5 @@ public interface CommunityService {
     HealthDto health();
     // 新增接口：主题交流区帖子流
     List<PostDto> getPosts(String category, int page, int size);
+    PostDto createPost(String title, String content, List<String> tags, List<String> images, boolean anonymous, String authorName, String authorAvatar);
 }

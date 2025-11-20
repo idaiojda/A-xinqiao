@@ -10,8 +10,9 @@ data class PostDto(
     val time: String,
     val title: String,
     val content: String,
-    val tags: List<String>,
-    val images: List<String> = emptyList(),
-    val voiceDurationSec: Int? = null
+    val tags: List<String>?,
+    val images: List<String>? = null,
+    val voiceDurationSec: Int? = null,
+    val authorAvatar: String? = null,
+    val authorNickname: String? = null
 )
-

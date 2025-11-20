@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -83,6 +84,8 @@ fun CommunityScreenNew(controller: CommunityController) {
     var editTitle by remember { mutableStateOf("") }
     var editContent by remember { mutableStateOf("") }
     var editTags by remember { mutableStateOf("") }
+    var detailEditMode by remember { mutableStateOf(false) }
+    var deleteConfirmTarget by remember { mutableStateOf<ThemePost?>(null) }
     // 我的小组（新会话入口）
     var myGroups by remember { mutableStateOf<List<String>>(emptyList()) }
     var realtimeSubscribed by remember { mutableStateOf(false) }
@@ -152,6 +155,30 @@ fun CommunityScreenNew(controller: CommunityController) {
                 }
             }
             else -> {}
+        }
+    }
+
+    // 自动同步本地未同步帖子（网络可用时）
+    LaunchedEffect(feedPosts) {
+        val pending = feedPosts.filter { it.pendingSync }
+        if (pending.isNotEmpty()) {
+            pending.take(3).forEach { p ->
+                scope.launch {
+                    try {
+                        val authorName = if (p.isAnonymous) null else try { com.example.xinqiao.mysql.DBUtils.getInstance(ctx).getUserNicknameSync(com.example.xinqiao.util.AnalysisUtils.readLoginUserName(ctx)) } catch (_: Exception) { p.author }
+                        val created = CommunityRepositoryProvider.current.createPost(
+                            title = p.title,
+                            content = p.content,
+                            tags = p.tags,
+                            images = p.images,
+                            anonymous = p.isAnonymous,
+                            authorName = authorName
+                        )
+                        val idx = feedPosts.indexOfFirst { it.id == p.id }
+                        if (idx >= 0) feedPosts[idx] = created
+                    } catch (_: Exception) { }
+                }
+            }
         }
     }
 
@@ -298,7 +325,15 @@ fun CommunityScreenNew(controller: CommunityController) {
                             val cur = feedPosts[idx]
                             val liked = !cur.liked
                             val count = if (liked) cur.likeCount + 1 else (cur.likeCount - 1).coerceAtLeast(0)
+                            val before = cur
                             feedPosts[idx] = cur.copy(liked = liked, likeCount = count)
+                            scope.launch {
+                                val ok = try { CommunityRepositoryProvider.current.setPostLike(post.id, liked) } catch (_: Exception) { false }
+                                if (!ok) {
+                                    val i2 = feedPosts.indexOfFirst { it.id == post.id }
+                                    if (i2 >= 0) feedPosts[i2] = before
+                                }
+                            }
                         }
                     },
                     onToggleComments = {
@@ -334,13 +369,23 @@ fun CommunityScreenNew(controller: CommunityController) {
                         if (idx >= 0) {
                             scope.launch {
                                 try {
-                                    val created = CommunityRepositoryProvider.current.createPost(
-                                        title = post.title,
-                                        content = post.content,
-                                        tags = post.tags,
-                                        images = post.images,
-                                        anonymous = post.isAnonymous
-                                    )
+                                    val authorName = if (createAnonymous) null else withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                        try { com.example.xinqiao.mysql.DBUtils.getInstance(ctx).getUserNicknameSync(com.example.xinqiao.util.AnalysisUtils.readLoginUserName(ctx)) } catch (_: Exception) { com.example.xinqiao.util.AnalysisUtils.readLoginUserName(ctx) }
+                                    }
+                                    val authorAvatar = if (createAnonymous) null else withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                        try { com.example.xinqiao.mysql.DBUtils.getInstance(ctx).getUserAvatarPathSync(com.example.xinqiao.util.AnalysisUtils.readLoginUserName(ctx)) } catch (_: Exception) { null }
+                                    }
+                                    val created = withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                        CommunityRepositoryProvider.current.createPost(
+                                            title = post.title,
+                                            content = post.content,
+                                            tags = post.tags,
+                                            images = post.images,
+                                            anonymous = post.isAnonymous,
+                                            authorName = authorName,
+                                            authorAvatar = authorAvatar
+                                        )
+                                    }
                                     feedPosts[idx] = created
                                 } catch (_: Exception) {
                                 }
@@ -351,21 +396,27 @@ fun CommunityScreenNew(controller: CommunityController) {
                         val idx = feedPosts.indexOfFirst { it.id == post.id }
                         if (idx >= 0) {
                             val cur = feedPosts[idx]
-                            feedPosts[idx] = cur.copy(bookmarked = !cur.bookmarked)
+                            val on = !cur.bookmarked
+                            val before = cur
+                            feedPosts[idx] = cur.copy(bookmarked = on)
+                            scope.launch {
+                                val ok = try { CommunityRepositoryProvider.current.setPostBookmark(post.id, on) } catch (_: Exception) { false }
+                                if (!ok) {
+                                    val i2 = feedPosts.indexOfFirst { it.id == post.id }
+                                    if (i2 >= 0) feedPosts[i2] = before
+                                }
+                            }
                         }
                     },
                     onEdit = {
-                        editPost = post
+                        selectedPostDetail = post
+                        detailEditMode = true
                         editTitle = post.title
                         editContent = post.content
                         editTags = post.tags.joinToString(",")
                     },
                     onDelete = {
-                        val idx = feedPosts.indexOfFirst { it.id == post.id }
-                        if (idx >= 0) {
-                            val removed = feedPosts.removeAt(idx)
-                            scope.launch { try { CommunityRepositoryProvider.current.deletePost(removed.id) } catch (_: Exception) {} }
-                        }
+                        deleteConfirmTarget = post
                     },
                     onShare = {
                         try {
@@ -479,7 +530,15 @@ fun CommunityScreenNew(controller: CommunityController) {
                                                     val cur = feedPosts[idx]
                                                     val liked = !cur.liked
                                                     val count = if (liked) cur.likeCount + 1 else (cur.likeCount - 1).coerceAtLeast(0)
+                                                    val before = cur
                                                     feedPosts[idx] = cur.copy(liked = liked, likeCount = count)
+                                                    scope.launch {
+                                                        val ok = try { CommunityRepositoryProvider.current.setPostLike(post.id, liked) } catch (_: Exception) { false }
+                                                        if (!ok) {
+                                                            val i2 = feedPosts.indexOfFirst { it.id == post.id }
+                                                            if (i2 >= 0) feedPosts[i2] = before
+                                                        }
+                                                    }
                                                 }
                                             },
                                             onToggleComments = {
@@ -514,21 +573,27 @@ fun CommunityScreenNew(controller: CommunityController) {
                                                 val idx = feedPosts.indexOfFirst { it.id == post.id }
                                                 if (idx >= 0) {
                                                     val cur = feedPosts[idx]
-                                                    feedPosts[idx] = cur.copy(bookmarked = !cur.bookmarked)
+                                                    val on = !cur.bookmarked
+                                                    val before = cur
+                                                    feedPosts[idx] = cur.copy(bookmarked = on)
+                                                    scope.launch {
+                                                        val ok = try { CommunityRepositoryProvider.current.setPostBookmark(post.id, on) } catch (_: Exception) { false }
+                                                        if (!ok) {
+                                                            val i2 = feedPosts.indexOfFirst { it.id == post.id }
+                                                            if (i2 >= 0) feedPosts[i2] = before
+                                                        }
+                                                    }
                                                 }
                                             },
                                             onEdit = {
-                                                editPost = post
+                                                selectedPostDetail = post
+                                                detailEditMode = true
                                                 editTitle = post.title
                                                 editContent = post.content
                                                 editTags = post.tags.joinToString(",")
                                             },
                                             onDelete = {
-                                                val idx = feedPosts.indexOfFirst { it.id == post.id }
-                                                if (idx >= 0) {
-                                                    val removed = feedPosts.removeAt(idx)
-                                                    scope.launch { try { CommunityRepositoryProvider.current.deletePost(removed.id) } catch (_: Exception) {} }
-                                                }
+                                                deleteConfirmTarget = post
                                             },
                                         onShare = {}
                                     )
@@ -604,8 +669,18 @@ fun CommunityScreenNew(controller: CommunityController) {
                                                         }
                                                         if (!nick.isNullOrBlank()) displayName = nick
                                                     } catch (_: Exception) { }
+                                                    try {
+                                                        val currentUser = com.example.xinqiao.util.AnalysisUtils.readLoginUserName(ctx)
+                                                        if (!currentUser.isNullOrBlank() && name.equals(currentUser, ignoreCase = true)) {
+                                                            if (com.example.xinqiao.community.SettingsRepository.isAnonymous(ctx, currentUser)) {
+                                                                displayName = ctx.getString(com.example.xinqiao.R.string.anonymous_user)
+                                                            }
+                                                        }
+                                                    } catch (_: Exception) { }
                                                 }
                                                 Text(displayName, style = MaterialTheme.typography.bodyLarge)
+                                                val currentUser = com.example.xinqiao.util.AnalysisUtils.readLoginUserName(ctx)
+                                                val canView = !(currentUser != null && name.equals(currentUser, ignoreCase = true) && com.example.xinqiao.community.SettingsRepository.isAnonymous(ctx, currentUser))
                                                 TextButton(onClick = {
                                                     selectedUserName = name
                                                     selectedUserProfile = null
@@ -649,7 +724,7 @@ fun CommunityScreenNew(controller: CommunityController) {
                                                             selectedUserOwnedLoading = false
                                                         }
                                                     }
-                                                }) { Text("查看") }
+                                                }, enabled = canView) { Text("查看") }
                                             }
                                         }
                                     }
@@ -695,8 +770,13 @@ fun CommunityScreenNew(controller: CommunityController) {
                                                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                                     Text(g, style = MaterialTheme.typography.bodyLarge)
                                                     if (!ownerNickname.isNullOrBlank()) {
+                                                        val displayOwner = try {
+                                                            if (ownerNickname.equals(ownerName, ignoreCase = true) && com.example.xinqiao.community.SettingsRepository.isAnonymous(ctxLocal, ownerName)) {
+                                                                ctxLocal.getString(com.example.xinqiao.R.string.anonymous_user)
+                                                            } else ownerNickname
+                                                        } catch (_: Exception) { ownerNickname }
                                                         Text(
-                                                            text = "群主：$ownerNickname",
+                                                            text = "群主：$displayOwner",
                                                             style = MaterialTheme.typography.labelSmall,
                                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                                         )
@@ -848,17 +928,14 @@ fun CommunityScreenNew(controller: CommunityController) {
                                         }
                                     },
                                     onEdit = {
-                                        editPost = post
+                                        selectedPostDetail = post
+                                        detailEditMode = true
                                         editTitle = post.title
                                         editContent = post.content
                                         editTags = post.tags.joinToString(",")
                                     },
                                     onDelete = {
-                                        val idx = feedPosts.indexOfFirst { it.id == post.id }
-                                        if (idx >= 0) {
-                                            val removed = feedPosts.removeAt(idx)
-                                            scope.launch { try { CommunityRepositoryProvider.current.deletePost(removed.id) } catch (_: Exception) {} }
-                                        }
+                                        deleteConfirmTarget = post
                                     },
                                     onShare = {}
                                 )
@@ -2051,72 +2128,130 @@ fun CommunityScreenNew(controller: CommunityController) {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text("帖子详情", style = MaterialTheme.typography.titleMedium)
-                        TextButton(onClick = { selectedPostDetail = null }) { Text("关闭") }
-                    }
-                    val p = selectedPostDetail!!
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(tokens.spacing.S)) {
-                        Text(p.title, style = MaterialTheme.typography.titleSmall)
-                        if (p.pendingSync) {
-                            AssistChip(onClick = {}, label = { Text("未同步") })
-                        }
-                    }
-                    Text(p.content, style = MaterialTheme.typography.bodyMedium)
-                    if (p.tags.isNotEmpty()) {
-                        androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(tokens.spacing.S)) {
-                            itemsIndexed(p.tags) { _, t ->
-                                AssistChip(onClick = {}, label = { Text(t) })
+                        Row(horizontalArrangement = Arrangement.spacedBy(tokens.spacing.S)) {
+                            if (!detailEditMode) {
+                                TextButton(onClick = {
+                                    detailEditMode = true
+                                    val p = selectedPostDetail!!
+                                    editTitle = p.title
+                                    editContent = p.content
+                                    editTags = p.tags.joinToString(",")
+                                }) { Text("编辑") }
                             }
+                            TextButton(onClick = { selectedPostDetail = null; detailEditMode = false }) { Text("关闭") }
                         }
                     }
-                    if (p.images.isNotEmpty()) {
-                        androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(tokens.spacing.S)) {
-                            itemsIndexed(p.images) { _, url ->
-                                androidx.compose.foundation.Image(
-                                    painter = rememberAsyncImagePainter(url),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(120.dp).clickable { previewImageUrl = url }
-                                )
-                            }
-                        }
-                    }
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconToggleButton(checked = p.liked, onCheckedChange = {
-                                val idx = feedPosts.indexOfFirst { it.id == p.id }
+                    val pCurrent = selectedPostDetail!!
+                    if (detailEditMode) {
+                        TextField(value = editTitle, onValueChange = { editTitle = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("标题") })
+                        TextField(value = editContent, onValueChange = { editContent = it }, modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp), placeholder = { Text("内容") })
+                        TextField(value = editTags, onValueChange = { editTags = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("标签，逗号分隔") })
+                        Row(horizontalArrangement = Arrangement.spacedBy(tokens.spacing.S)) {
+                            Button(onClick = {
+                                val id = selectedPostDetail!!.id
+                                val tags = editTags.split(',', '，', ' ').map { it.trim() }.filter { it.isNotBlank() }
+                                val idx = feedPosts.indexOfFirst { it.id == id }
                                 if (idx >= 0) {
-                                    val cur = feedPosts[idx]
-                                    val liked = !cur.liked
-                                    val count = if (liked) cur.likeCount + 1 else (cur.likeCount - 1).coerceAtLeast(0)
-                                    val updated = cur.copy(liked = liked, likeCount = count)
+                                    val updated = feedPosts[idx].copy(title = editTitle, content = editContent, tags = tags)
                                     feedPosts[idx] = updated
                                     selectedPostDetail = updated
+                                    scope.launch { try { CommunityRepositoryProvider.current.updatePost(id, editTitle, editContent, tags) } catch (_: Exception) {} }
+                                }
+                                detailEditMode = false
+                            }) { Text("保存") }
+                            TextButton(onClick = { detailEditMode = false }) { Text("取消") }
+                        }
+                    } else {
+                        val p = pCurrent
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(tokens.spacing.S)) {
+                            Text(p.title, style = MaterialTheme.typography.titleSmall)
+                            if (p.pendingSync) {
+                                AssistChip(onClick = {}, label = { Text("未同步") })
+                            }
+                        }
+                        Text(p.content, style = MaterialTheme.typography.bodyMedium)
+                        if (p.tags.isNotEmpty()) {
+                            androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(tokens.spacing.S)) {
+                                itemsIndexed(p.tags) { _, t ->
+                                    AssistChip(onClick = {}, label = { Text(t) })
+                                }
+                            }
+                        }
+                        if (p.images.isNotEmpty()) {
+                            androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(tokens.spacing.S)) {
+                                itemsIndexed(p.images) { _, url ->
+                                    androidx.compose.foundation.Image(
+                                        painter = rememberAsyncImagePainter(url),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(120.dp).clickable { previewImageUrl = url }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    if (!detailEditMode) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                IconToggleButton(checked = pCurrent.liked, onCheckedChange = {
+                                    val idx = feedPosts.indexOfFirst { it.id == pCurrent.id }
+                                    if (idx >= 0) {
+                                        val cur = feedPosts[idx]
+                                        val liked = !cur.liked
+                                        val count = if (liked) cur.likeCount + 1 else (cur.likeCount - 1).coerceAtLeast(0)
+                                        val before = cur
+                                        val updated = cur.copy(liked = liked, likeCount = count)
+                                        feedPosts[idx] = updated
+                                        selectedPostDetail = updated
+                                        scope.launch {
+                                            val ok = try { CommunityRepositoryProvider.current.setPostLike(pCurrent.id, liked) } catch (_: Exception) { false }
+                                            if (!ok) {
+                                                val i2 = feedPosts.indexOfFirst { it.id == pCurrent.id }
+                                                if (i2 >= 0) {
+                                                    feedPosts[i2] = before
+                                                    selectedPostDetail = before
+                                                }
+                                            }
+                                        }
+                                    }
+                                }) {
+                                    Icon(imageVector = if (pCurrent.liked) Icons.Filled.Favorite else Icons.Outlined.Favorite, contentDescription = null, tint = if (pCurrent.liked) tokens.color.Danger else tokens.color.Neutral500)
+                                }
+                                Text(pCurrent.likeCount.toString(), style = MaterialTheme.typography.bodySmall)
+                            }
+                            IconToggleButton(checked = pCurrent.bookmarked, onCheckedChange = {
+                                val idx = feedPosts.indexOfFirst { it.id == pCurrent.id }
+                                if (idx >= 0) {
+                                    val cur = feedPosts[idx]
+                                    val on = !cur.bookmarked
+                                    val before = cur
+                                    val updated = cur.copy(bookmarked = on)
+                                    feedPosts[idx] = updated
+                                    selectedPostDetail = updated
+                                    scope.launch {
+                                        val ok = try { CommunityRepositoryProvider.current.setPostBookmark(pCurrent.id, on) } catch (_: Exception) { false }
+                                        if (!ok) {
+                                            val i2 = feedPosts.indexOfFirst { it.id == pCurrent.id }
+                                            if (i2 >= 0) {
+                                                feedPosts[i2] = before
+                                                selectedPostDetail = before
+                                            }
+                                        }
+                                    }
                                 }
                             }) {
-                                Icon(imageVector = if (p.liked) Icons.Filled.Favorite else Icons.Outlined.Favorite, contentDescription = null, tint = if (p.liked) tokens.color.Danger else tokens.color.Neutral500)
+                                Icon(imageVector = if (pCurrent.bookmarked) Icons.Filled.Bookmark else Icons.Outlined.Bookmark, contentDescription = null, tint = if (pCurrent.bookmarked) tokens.color.Primary else tokens.color.Neutral500)
                             }
-                            Text(p.likeCount.toString(), style = MaterialTheme.typography.bodySmall)
-                        }
-                        IconToggleButton(checked = p.bookmarked, onCheckedChange = {
-                            val idx = feedPosts.indexOfFirst { it.id == p.id }
-                            if (idx >= 0) {
-                                val cur = feedPosts[idx]
-                                val updated = cur.copy(bookmarked = !cur.bookmarked)
-                                feedPosts[idx] = updated
-                                selectedPostDetail = updated
+                            IconButton(onClick = {
+                                try {
+                                    val intent = android.content.Intent(android.content.Intent.ACTION_SEND)
+                                    intent.type = "text/plain"
+                                    val shareText: String = pCurrent.title + "\n\n" + pCurrent.content
+                                    intent.putExtra(android.content.Intent.EXTRA_TEXT, shareText)
+                                    ctx.startActivity(android.content.Intent.createChooser(intent, "分享帖子"))
+                                } catch (_: Exception) {}
+                            }) {
+                                Icon(imageVector = Icons.Outlined.Share, contentDescription = null, tint = tokens.color.Neutral500)
                             }
-                        }) {
-                            Icon(imageVector = if (p.bookmarked) Icons.Filled.Bookmark else Icons.Outlined.Bookmark, contentDescription = null, tint = if (p.bookmarked) tokens.color.Primary else tokens.color.Neutral500)
-                        }
-                        IconButton(onClick = {
-                            try {
-                                val intent = android.content.Intent(android.content.Intent.ACTION_SEND)
-                                intent.type = "text/plain"
-                                val text = p.title + "\n\n" + p.content
-                                intent.putExtra(android.content.Intent.EXTRA_TEXT, text)
-                                ctx.startActivity(android.content.Intent.createChooser(intent, "分享帖子"))
-                            } catch (_: Exception) {}
-                        }) {
-                            Icon(imageVector = Icons.Outlined.Share, contentDescription = null, tint = tokens.color.Neutral500)
                         }
                     }
                     Divider()
@@ -2229,18 +2364,6 @@ fun CommunityScreenNew(controller: CommunityController) {
                                 return@Button
                             }
                             scope.launch {
-                                val nowId = "p" + System.currentTimeMillis()
-                                val fallback = ThemePost(
-                                    id = nowId,
-                                    author = if (createAnonymous) "匿名用户" else "我",
-                                    isAnonymous = createAnonymous,
-                                    time = "刚刚",
-                                    title = if (createTitle.isNotBlank()) createTitle else "未命名",
-                                    content = createContent,
-                                    tags = tags,
-                                    images = createImages.toList(),
-                                    pendingSync = true
-                                )
                                 var created: ThemePost? = null
                                 try {
                                     var remoteImages = emptyList<String>()
@@ -2258,49 +2381,66 @@ fun CommunityScreenNew(controller: CommunityController) {
                                                 .setInputData(Data.Builder().putString(ImageUploadWorker.KEY_INPUT_URI, uri).build())
                                                 .build()
                                         }
-                                        requests.forEach { wm.enqueue(it) }
-                                        val urls = mutableListOf<String>()
-                                        var completed = 0
-                                        for (req in requests) {
-                                            var progress = 0
-                                            while (true) {
-                                                val info = wm.getWorkInfoById(req.id).get()
-                                                if (info != null) {
-                                                    progress = info.progress.getInt(ImageUploadWorker.KEY_PROGRESS, progress)
-                                                    uploadProgress = (completed.toFloat() / requests.size) + (progress / 100f) / requests.size
-                                                    if (info.state.isFinished) {
-                                                        val url = info.outputData.getString(ImageUploadWorker.KEY_REMOTE_URL)
-                                                        if (url != null) urls.add(url)
-                                                        if (info.state == WorkInfo.State.FAILED) {
-                                                            // 保留占位，继续队列，其它成功的图片将使用远程URL
+                                        withContext(kotlinx.coroutines.Dispatchers.IO) { requests.forEach { wm.enqueue(it) } }
+                                        val urls = withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                            val acc = mutableListOf<String>()
+                                            var completed = 0
+                                            for (req in requests) {
+                                                var progress = 0
+                                                while (true) {
+                                                    val info = wm.getWorkInfoById(req.id).get()
+                                                    if (info != null) {
+                                                        val p = info.progress.getInt(ImageUploadWorker.KEY_PROGRESS, progress)
+                                                        progress = p
+                                                        withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                                            uploadProgress = (completed.toFloat() / requests.size) + (p / 100f) / requests.size
                                                         }
-                                                        completed++
-                                                        break
+                                                        if (info.state.isFinished) {
+                                                            val url = info.outputData.getString(ImageUploadWorker.KEY_REMOTE_URL)
+                                                            if (url != null) acc.add(url)
+                                                            completed++
+                                                            break
+                                                        }
                                                     }
+                                                    kotlinx.coroutines.delay(200)
                                                 }
-                                                kotlinx.coroutines.delay(200)
                                             }
+                                            acc
                                         }
                                         remoteImages = urls
                                         uploading = false
                                     }
-                                    created = CommunityRepositoryProvider.current.createPost(
-                                        title = createTitle,
-                                        content = createContent,
-                                        tags = tags,
-                                        images = remoteImages,
-                                        anonymous = createAnonymous
-                                    )
+                                    val authorName2 = if (createAnonymous) null else withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                        try { com.example.xinqiao.mysql.DBUtils.getInstance(ctx).getUserNicknameSync(com.example.xinqiao.util.AnalysisUtils.readLoginUserName(ctx)) } catch (_: Exception) { com.example.xinqiao.util.AnalysisUtils.readLoginUserName(ctx) }
+                                    }
+                                    val authorAvatar2 = if (createAnonymous) null else withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                        try { com.example.xinqiao.mysql.DBUtils.getInstance(ctx).getUserAvatarPathSync(com.example.xinqiao.util.AnalysisUtils.readLoginUserName(ctx)) } catch (_: Exception) { null }
+                                    }
+                                    created = withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                        CommunityRepositoryProvider.current.createPost(
+                                            title = createTitle,
+                                            content = createContent,
+                                            tags = tags,
+                                            images = remoteImages,
+                                            anonymous = createAnonymous,
+                                            authorName = authorName2,
+                                            authorAvatar = authorAvatar2
+                                        )
+                                    }
                                 } catch (_: Exception) {
-                                    created = fallback
+                                    created = null
                                 }
-                                feedPosts.add(0, created!!)
-                                showCreateSheet = false
-                                createTitle = ""
-                                createContent = ""
-                                createTags = ""
-                                createAnonymous = false
-                                createImages.clear()
+                                if (created != null) {
+                                    feedPosts.add(0, created)
+                                    showCreateSheet = false
+                                    createTitle = ""
+                                    createContent = ""
+                                    createTags = ""
+                                    createAnonymous = false
+                                    createImages.clear()
+                                } else {
+                                    snackbarHostState.showSnackbar("发布失败，请稍后重试")
+                                }
                             }
                         }) { Text("发布") }
                         if (uploading) {
@@ -2453,18 +2593,6 @@ fun CommunityScreenNew(controller: CommunityController) {
                                     askTitle = ""
                                     askContent = ""
                                 } catch (_: Exception) {
-                                    // 本地兜底
-                                    val local = ThemePost(
-                                        id = "p" + System.currentTimeMillis(),
-                                        author = "匿名用户",
-                                        isAnonymous = true,
-                                        time = "刚刚",
-                                        title = askTitle.ifBlank { "未命名" },
-                                        content = askContent,
-                                        tags = listOf("问答"),
-                                        pendingSync = true
-                                    )
-                                    feedPosts.add(0, local)
                                     askOpen = false
                                     askTitle = ""
                                     askContent = ""
@@ -2477,28 +2605,26 @@ fun CommunityScreenNew(controller: CommunityController) {
             }
         }
 
-        if (editPost != null) {
-            ModalBottomSheet(onDismissRequest = { editPost = null }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-                Column(modifier = Modifier.fillMaxWidth().padding(tokens.spacing.L), verticalArrangement = Arrangement.spacedBy(tokens.spacing.M)) {
-                    TextField(value = editTitle, onValueChange = { editTitle = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("标题") })
-                    TextField(value = editContent, onValueChange = { editContent = it }, modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp), placeholder = { Text("内容") })
-                    TextField(value = editTags, onValueChange = { editTags = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("标签，逗号分隔") })
-                    Row(horizontalArrangement = Arrangement.spacedBy(tokens.spacing.S)) {
-                        Button(onClick = {
-                            val id = editPost!!.id
-                            val tags = editTags.split(',', '，', ' ').map { it.trim() }.filter { it.isNotBlank() }
-                            val idx = feedPosts.indexOfFirst { it.id == id }
-                            if (idx >= 0) {
-                                val updated = feedPosts[idx].copy(title = editTitle, content = editContent, tags = tags)
-                                feedPosts[idx] = updated
-                                scope.launch { try { CommunityRepositoryProvider.current.updatePost(id, editTitle, editContent, tags) } catch (_: Exception) {} }
-                            }
-                            editPost = null
-                        }) { Text("保存") }
-                        TextButton(onClick = { editPost = null }) { Text("取消") }
-                    }
-                }
-            }
+        // 删除确认弹框
+        if (deleteConfirmTarget != null) {
+            AlertDialog(
+                onDismissRequest = { deleteConfirmTarget = null },
+                title = { Text("确认删除") },
+                text = { Text("删除后不可恢复，确定要删除这条帖子吗？") },
+                confirmButton = {
+                    Button(onClick = {
+                        val target = deleteConfirmTarget!!
+                        val idx = feedPosts.indexOfFirst { it.id == target.id }
+                        if (idx >= 0) {
+                            feedPosts.removeAt(idx)
+                            scope.launch { try { CommunityRepositoryProvider.current.deletePost(target.id) } catch (_: Exception) {} }
+                        }
+                        if (selectedPostDetail?.id == target.id) selectedPostDetail = null
+                        deleteConfirmTarget = null
+                    }) { Text("删除") }
+                },
+                dismissButton = { TextButton(onClick = { deleteConfirmTarget = null }) { Text("取消") } }
+            )
         }
     }
 }

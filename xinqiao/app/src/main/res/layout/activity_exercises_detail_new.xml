@@ -28,7 +28,7 @@
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:src="@drawable/ic_back"
                 android:tint="#FFFFFF"
-                android:contentDescription="返回"
+                android:contentDescription="@string/back"
                 android:layout_alignParentStart="true"/>
 
             <TextView
@@ -36,7 +36,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_centerInParent="true"
-                android:text="心理测评"
+                android:text="@string/ex_detail_title"
                 android:textSize="20sp"
                 android:textStyle="bold"
                 android:textColor="#FFFFFF"/>
@@ -64,7 +64,7 @@
                 android:id="@+id/progressText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="第 1/6 题"
+                android:text="@string/ex_question_progress_sample"
                 android:textSize="14sp"
                 android:textStyle="normal"
                 android:textColor="#10B981"/>
@@ -79,7 +79,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="预计用时 2-3 分钟"
+                android:text="@string/ex_estimated_time_sample"
                 android:textSize="12sp"
                 android:textColor="#9CA3AF"/>
 
@@ -130,7 +130,7 @@
                         android:id="@+id/gradeTextView"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="等级: A"
+                        android:text="@string/ex_result_grade_sample"
                         android:textSize="22sp"
                         android:textStyle="bold"
                         android:textColor="#10B981"
@@ -141,7 +141,7 @@
                         android:id="@+id/analysisTextView"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="分析结果将在这里显示"
+                        android:text="@string/ex_analysis_placeholder"
                         android:textSize="16sp"
                         android:textColor="#6B7280"
                         android:gravity="center"
@@ -172,7 +172,7 @@
                         android:id="@+id/questionTextView"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="你最近是否经常感到情绪低落？"
+                        android:text="@string/ex_sample_question_1"
                         android:textSize="18sp"
                         android:textStyle="bold"
                         android:textColor="#111827"
@@ -201,7 +201,7 @@
                         android:id="@+id/nextButton"
                         android:layout_width="match_parent"
                         android:layout_height="56dp"
-                        android:text="下一题"
+                        android:text="@string/ex_next_question"
                         android:textSize="16sp"
                         android:textStyle="normal"
                         android:textColor="#FFFFFF"

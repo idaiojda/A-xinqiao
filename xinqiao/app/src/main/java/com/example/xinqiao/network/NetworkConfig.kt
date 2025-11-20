@@ -16,12 +16,31 @@ object NetworkConfig {
     fun getBaseUrl(context: Context): String {
         val sp = context.getSharedPreferences("network_config", Context.MODE_PRIVATE)
         val override = sp.getString("base_url_override", null)?.trim()?.removeSuffix("/")
-        if (!override.isNullOrEmpty()) return override
+        if (!override.isNullOrEmpty()) {
+            val o = override
+            val lower = o.lowercase()
+            val isLoopback = lower.contains("127.0.0.1") || lower.contains("localhost")
+            if (isLoopback) {
+                val parts = o.split("://")
+                val scheme = if (parts.size > 1) parts[0] else "http"
+                val rest = if (parts.size > 1) parts[1] else o
+                val port = if (rest.contains(":")) rest.substringAfter(":") else "8082"
+                val host = when {
+                    isGenymotion() -> "10.0.3.2"
+                    isAndroidEmulator() -> "10.0.2.2"
+                    else -> "127.0.0.1"
+                }
+                return "$scheme://$host:$port"
+            }
+            return override
+        }
+        val forced = com.example.xinqiao.BuildConfig.BACKEND_URL.trim().removeSuffix("/")
+        if (forced.isNotEmpty()) return forced
 
         return when {
-            isGenymotion() -> "http://10.0.3.2:8081"
-            isAndroidEmulator() -> "http://10.0.2.2:8081"
-            else -> "http://127.0.0.1:8081" // for real device with adb reverse
+            isGenymotion() -> "http://10.0.3.2:8082"
+            isAndroidEmulator() -> "http://10.0.2.2:8082"
+            else -> "http://127.0.0.1:8082" // for real device with adb reverse
         }
     }
 

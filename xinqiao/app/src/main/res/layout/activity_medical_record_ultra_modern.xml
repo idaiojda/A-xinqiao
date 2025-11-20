@@ -25,15 +25,15 @@
             android:alpha="0.1" />
 
         <!-- Back Button with Enhanced Ripple -->
-        <ImageButton
-            android:id="@+id/btn_back"
+            <ImageButton
+                android:id="@+id/btn_back"
             android:layout_width="44dp"
             android:layout_height="44dp"
             android:layout_gravity="start|center_vertical"
             android:background="@drawable/circle_ripple_white"
             android:src="@drawable/ic_arrow_back_white"
             android:padding="10dp"
-            android:contentDescription="返回"
+                android:contentDescription="@string/back"
             android:elevation="2dp" />
 
         <!-- Enhanced Title Section with Animation Container -->
@@ -49,7 +49,7 @@
                 android:id="@+id/tv_title"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="我的诊疗档案"
+                android:text="@string/medical_record_title"
                 android:textColor="#FFFFFF"
                 android:textSize="22sp"
                 android:textStyle="bold"
@@ -66,7 +66,7 @@
                 android:id="@+id/tv_subtitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="健康管理 · 专业贴心"
+                android:text="@string/medical_record_subtitle"
                 android:textColor="#E6FFFFFF"
                 android:textSize="13sp"
                 android:letterSpacing="0.08"
@@ -80,15 +80,15 @@
         </LinearLayout>
 
         <!-- Settings Button with Enhanced Design -->
-        <ImageButton
-            android:id="@+id/btn_settings"
+            <ImageButton
+                android:id="@+id/btn_settings"
             android:layout_width="44dp"
             android:layout_height="44dp"
             android:layout_gravity="end|center_vertical"
             android:background="@drawable/circle_ripple_white"
             android:src="@drawable/ic_settings_white"
             android:padding="10dp"
-            android:contentDescription="设置"
+                android:contentDescription="@string/settings"
             android:elevation="2dp"
             android:visibility="visible" />
 

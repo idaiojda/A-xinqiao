@@ -17,7 +17,7 @@
             android:id="@+id/btn_back"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="返回"
+            android:text="@string/back"
             android:textSize="16sp"
             android:textColor="#30B4FF"/>
         <TextView
@@ -25,7 +25,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="报告详情"
+            android:text="@string/test_report_detail_title"
             android:textColor="#222222"
             android:textSize="17sp"
             android:gravity="center"/>
@@ -52,7 +52,7 @@
                     android:id="@+id/tv_title"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="测评标题"
+                    android:text="@string/test_report_title_sample"
                     android:textSize="18sp"
                     android:textStyle="bold"
                     android:textColor="#222222"/>
@@ -65,7 +65,7 @@
                         android:id="@+id/tv_status"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="待支付"
+                        android:text="@string/status_pending_pay"
                         android:textColor="#FF7A45"
                         android:textSize="13sp"
                         android:background="@drawable/bg_tag_free"
@@ -86,7 +86,7 @@
                     android:id="@+id/tv_report_id"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="报告ID: RPT..."
+                    android:text="@string/test_report_id_sample"
                     android:textSize="13sp"
                     android:textColor="#666666"
                     android:layout_marginTop="8dp"/>
@@ -94,7 +94,7 @@
                     android:id="@+id/tv_date"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="日期: 2025-01-01"
+                    android:text="@string/test_report_date_sample"
                     android:textSize="13sp"
                     android:textColor="#666666"
                     android:layout_marginTop="2dp"/>
@@ -104,7 +104,7 @@
                 android:id="@+id/tv_report_content"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="报告内容将在支付完成后展示或自动生成"
+                android:text="@string/test_report_content_tip"
                 android:textColor="#222222"
                 android:textSize="16sp"
                 android:lineSpacingExtra="6dp"
@@ -120,14 +120,14 @@
                     android:id="@+id/tv_pay_tip"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="支付后可查看完整报告（含风险等级与建议）"
+                    android:text="@string/test_report_pay_tip"
                     android:textColor="#666666"
                     android:textSize="14sp"/>
                 <TextView
                     android:id="@+id/tv_balance"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="余额：--"
+                    android:text="@string/balance_placeholder"
                     android:textColor="#999999"
                     android:textSize="13sp"
                     android:layout_marginTop="8dp"/>
@@ -137,7 +137,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
                     android:background="@drawable/btn_bg"
-                    android:text="支付 ¥9.9"
+                    android:text="@string/pay_price_sample"
                     android:textColor="#FFFFFF"
                     android:textSize="16sp"/>
                 <Button
@@ -145,7 +145,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:text="去充值"
+                    android:text="@string/go_recharge"
                     android:textColor="#FFFFFF"
                     android:background="@drawable/btn_bg"
                     android:textSize="16sp"/>

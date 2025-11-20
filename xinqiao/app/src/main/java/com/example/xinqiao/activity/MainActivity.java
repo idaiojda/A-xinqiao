@@ -218,7 +218,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private void init() {
         tv_back = (TextView) findViewById(R.id.tv_back);
         tv_main_title = (TextView) findViewById(R.id.tv_main_title);
-        tv_main_title.setText("心理课程");
+        tv_main_title.setText(getString(R.string.psych_courses));
         rl_title_bar = (RelativeLayout) findViewById(R.id.title_bar);
         tv_back.setVisibility(View.GONE);
         // 顶部课程搜索与播放历史（默认隐藏，课程页显示）
@@ -234,7 +234,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 if (isEnter || isSearchAction) {
                     String query = v.getText() != null ? v.getText().toString().trim() : "";
                     if (query.isEmpty()) {
-                        Toast.makeText(MainActivity.this, "请输入搜索关键词", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(MainActivity.this, getString(R.string.search_keyword_empty), Toast.LENGTH_SHORT).show();
                         return true;
                     }
                     try {
@@ -350,7 +350,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                         Intent intent = new Intent(MainActivity.this, com.example.xinqiao.activity.PlayHistoryActivity.class);
                         startActivity(intent);
                     } else {
-                        Toast.makeText(MainActivity.this, "您还未登录，请先登录", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(MainActivity.this, getString(R.string.login_required), Toast.LENGTH_SHORT).show();
                     }
                 }
             });
@@ -389,8 +389,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             case 0:
                 iv_course.setImageResource(R.drawable.main_course_icon);
                 tv_course.setTextColor(getResources().getColor(R.color.bottom_nav_selected_healing));
-                rl_title_bar.setVisibility(View.GONE); // 课程页隐藏全局标题栏，使用自定义标题栏
-                tv_main_title.setText("心理课程");
+                rl_title_bar.setVisibility(View.GONE);
+                tv_main_title.setText(getString(R.string.psych_courses));
                 // 课程页搜索与播放历史功能移到自定义标题栏
                 if (et_search_course != null) et_search_course.setVisibility(View.GONE);
                 if (ll_play_history_top != null) ll_play_history_top.setVisibility(View.GONE);
@@ -719,7 +719,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             } else {
                 // 返回栈为空时，执行双击退出逻辑
                 if ((System.currentTimeMillis() - exitTime) > 2000) {
-                    Toast.makeText(MainActivity.this, "再按一次退出心桥",
+                    Toast.makeText(MainActivity.this, getString(R.string.exit_confirm),
                             Toast.LENGTH_SHORT).show();
                     exitTime = System.currentTimeMillis();
                 } else {
@@ -883,6 +883,30 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             selectDisplayViewInternal(targetIndex, false);
         }
 
+        // 额外兜底：当容器中没有任何子视图（例如语言切换后返回导致视图销毁），强制初始化默认视图
+        try {
+            if (mBodyLayout != null && mBodyLayout.getChildCount() == 0) {
+                setInitStatus();
+            }
+            // 若所有子视图均为 GONE，且当前索引未能恢复，主动显示课程视图
+            boolean allGone = true;
+            try {
+                allGone = (mCourseView == null || mCourseView.getView() == null || mCourseView.getView().getVisibility() != View.VISIBLE)
+                        && (mExercisesView == null || mExercisesView.getView() == null || mExercisesView.getView().getVisibility() != View.VISIBLE)
+                        && (mMyInfoView == null || mMyInfoView.getView() == null || mMyInfoView.getView().getVisibility() != View.VISIBLE)
+                        && (mArticleView == null || mArticleView.getView() == null || mArticleView.getView().getVisibility() != View.VISIBLE)
+                        && (mConsultationView == null || mConsultationView.getView() == null || mConsultationView.getView().getVisibility() != View.VISIBLE)
+                        && (mCommunityView == null || mCommunityView.getView() == null || mCommunityView.getView().getVisibility() != View.VISIBLE);
+            } catch (Exception ignore2) {}
+            if (allGone) {
+                try {
+                    createView(0);
+                    setSelectedStatus(0);
+                    currentIndex = 0;
+                } catch (Exception ignore3) {}
+            }
+        } catch (Exception ignore) {}
+
         // 若当前顶部是课程搜索Fragment，则确保标题栏与课程页特有控件保持隐藏，避免返回后出现双搜索框
         try {
             Fragment f = getSupportFragmentManager().findFragmentByTag("CourseSearchFragment");
@@ -909,6 +933,19 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         } catch (Exception ignore) {}
     }
     
+    @Override
+    public void onConfigurationChanged(android.content.res.Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        try {
+            if (mBodyLayout != null && mBodyLayout.getChildCount() == 0) {
+                setInitStatus();
+                return;
+            }
+            int targetIndex = (currentIndex != -1) ? currentIndex : 0;
+            selectDisplayViewInternal(targetIndex, false);
+        } catch (Exception ignore) {}
+    }
+
     /**
      * 打开课程搜索 Fragment 页面
      */

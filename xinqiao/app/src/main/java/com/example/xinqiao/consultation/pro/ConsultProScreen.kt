@@ -1,4 +1,4 @@
-﻿package com.example.xinqiao.consultation.pro
+package com.example.xinqiao.consultation.pro
 
 import android.app.Activity
 import android.Manifest

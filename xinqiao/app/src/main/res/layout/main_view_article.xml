@@ -18,7 +18,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="心理健康"
+            android:text="@string/articles_page_title_top"
             android:textColor="#FFFFFF"
             android:textSize="28sp"
             android:textStyle="bold"
@@ -55,7 +55,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:paddingLeft="12dp"
-                    android:hint="搜索文章标题/标签"
+                    android:hint="@string/search_article_hint_full"
                     android:textColorHint="#A78BFA"
                     android:textColor="#1F2937"
                     android:textSize="15sp"
@@ -72,7 +72,7 @@
                 android:padding="10dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:tint="#FFFFFF"
-                android:contentDescription="阅读历史"
+                android:contentDescription="@string/read_history"
                 android:src="@drawable/ic_history_blue" />
         </LinearLayout>
     </LinearLayout>
@@ -88,7 +88,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="热门分类"
+            android:text="@string/popular_categories"
             android:textColor="#1F2937"
             android:textSize="18sp"
             android:textStyle="bold"
@@ -113,7 +113,7 @@
                     android:paddingRight="20dp"
                     android:gravity="center"
                     android:layout_marginRight="8dp"
-                    android:text="全部文章"
+                    android:text="@string/all_articles"
                     android:textSize="14sp"
                     android:textColor="#FFFFFF"
                     android:background="@drawable/bg_chip_selected" />
@@ -126,7 +126,7 @@
                     android:paddingRight="20dp"
                     android:gravity="center"
                     android:layout_marginRight="8dp"
-                    android:text="情绪管理"
+                    android:text="@string/category_emotion_mgmt"
                     android:textSize="14sp"
                     android:textColor="#6B7280"
                     android:background="@drawable/bg_chip_unselected" />
@@ -139,7 +139,7 @@
                     android:paddingRight="20dp"
                     android:gravity="center"
                     android:layout_marginRight="8dp"
-                    android:text="自我成长"
+                    android:text="@string/self_growth"
                     android:textSize="14sp"
                     android:textColor="#6B7280"
                     android:background="@drawable/bg_chip_unselected" />
@@ -152,7 +152,7 @@
                     android:paddingRight="20dp"
                     android:gravity="center"
                     android:layout_marginRight="8dp"
-                    android:text="压力管理"
+                    android:text="@string/stress_management"
                     android:textSize="14sp"
                     android:textColor="#6B7280"
                     android:background="@drawable/bg_chip_unselected" />
@@ -165,7 +165,7 @@
                     android:paddingRight="20dp"
                     android:gravity="center"
                     android:layout_marginRight="8dp"
-                    android:text="关系经营"
+                    android:text="@string/relationship_management"
                     android:textSize="14sp"
                     android:textColor="#6B7280"
                     android:background="@drawable/bg_chip_unselected" />

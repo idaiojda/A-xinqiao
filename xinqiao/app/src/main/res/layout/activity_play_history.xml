@@ -24,14 +24,14 @@
             android:layout_height="24dp"
             android:src="@drawable/ic_back"
             app:tint="@color/topBarOnPrimary"
-            android:contentDescription="返回" />
+            android:contentDescription="@string/back" />
 
         <TextView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:layout_marginStart="16dp"
-            android:text="播放历史"
+            android:text="@string/play_history_title"
             android:textColor="#FFFFFF"
             android:textSize="18sp"
             android:textStyle="bold" />
@@ -40,7 +40,7 @@
             android:id="@+id/tv_clear"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="清空"
+            android:text="@string/clear"
             android:textColor="@color/historyTopBarOnPrimary"
             android:textStyle="bold"
             android:textSize="14sp"
@@ -72,13 +72,13 @@
             android:layout_width="80dp"
             android:layout_height="80dp"
             android:src="@drawable/ic_history_empty"
-            android:contentDescription="空状态" />
+            android:contentDescription="@string/empty_state" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:text="暂无播放历史"
+            android:text="@string/no_play_history"
             android:textColor="#999999"
             android:textSize="16sp" />
 
@@ -86,7 +86,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="观看视频后会自动记录在这里"
+            android:text="@string/play_history_tip"
             android:textColor="#CCCCCC"
             android:textSize="14sp" />
 
@@ -95,7 +95,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:text="去探索"
+            android:text="@string/explore"
             android:textColor="#2C6ECB"
             android:textSize="14sp"
             android:background="@drawable/bg_button_outline_blue"

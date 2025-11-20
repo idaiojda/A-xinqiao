@@ -10,7 +10,7 @@
         android:id="@+id/tv_counselor_name"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="咨询师姓名"
+        android:text="@string/counselor_name_label"
         android:textColor="#111111"
         android:textSize="16sp"
         android:textStyle="bold" />
@@ -20,7 +20,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
-        android:text="权限：consult,test,diary"
+        android:text="@string/authorization_scopes_sample"
         android:textColor="#666666"
         android:textSize="14sp" />
 
@@ -29,7 +29,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="2dp"
-        android:text="有效期：3天"
+        android:text="@string/authorization_duration_sample"
         android:textColor="#666666"
         android:textSize="14sp" />
 
@@ -38,7 +38,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="2dp"
-        android:text="状态：已生效"
+        android:text="@string/authorization_status_active"
         android:textColor="#30B4FF"
         android:textSize="13sp" />
 

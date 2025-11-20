@@ -292,6 +292,10 @@ class AppointmentDetailViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun reloadSlots() {
+        loadSlots(_ui.value.selectedDate)
+    }
+
     fun submit(onResult: (Boolean, String?) -> Unit) {
         val s = _ui.value
         if (s.loginRequired || !s.profileComplete) {

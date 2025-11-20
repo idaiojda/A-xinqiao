@@ -18,7 +18,7 @@
             android:src="@drawable/ic_video_placeholder"
             android:scaleType="centerCrop"
             android:background="#F0F0F0"
-            android:contentDescription="视频缩略图" />
+            android:contentDescription="@string/play_history_thumbnail_desc" />
 
         <!-- 右下角“视频”标签 -->
         <TextView
@@ -33,7 +33,7 @@
             android:paddingRight="6dp"
             android:paddingTop="2dp"
             android:paddingBottom="2dp"
-            android:text="视频"
+            android:text="@string/video_label"
             android:textColor="#FFFFFF"
             android:textSize="10sp"
             android:background="@drawable/bg_video_badge"
@@ -64,7 +64,7 @@
             android:id="@+id/tv_title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="视频标题"
+            android:text="@string/video_title_label"
             android:textColor="#333333"
             android:textSize="16sp"
             android:textStyle="bold"
@@ -76,7 +76,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:text="视频副标题"
+            android:text="@string/video_subtitle_label"
             android:textColor="#666666"
             android:textSize="14sp"
             android:maxLines="1"
@@ -87,7 +87,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:text="播放时间"
+            android:text="@string/play_time_label"
             android:textColor="#999999"
             android:textSize="12sp" />
     </LinearLayout>
@@ -100,6 +100,6 @@
         android:layout_gravity="center_vertical"
         android:src="@drawable/ic_delete"
         android:padding="4dp"
-        android:contentDescription="删除" />
+        android:contentDescription="@string/delete_action" />
 
 </LinearLayout> 

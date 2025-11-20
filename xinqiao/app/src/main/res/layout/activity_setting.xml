@@ -5,30 +5,196 @@
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/settings_bg"
     tools:context=".activity.SettingActivity">
 
-    <ImageButton
-        android:id="@+id/btn_back"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:background="?attr/selectableItemBackgroundBorderless"
-        android:src="@drawable/ic_back"
-        android:tint="#667eea"
-        android:contentDescription="返回"
-        android:layout_marginTop="16dp"
-        android:layout_marginStart="0dp"
+    <!-- Top Bar -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/top_bar"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:background="@color/settings_card_bg"
+        android:elevation="2dp"
+        app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"/>
+        app:layout_constraintEnd_toEndOf="parent">
 
+        <ImageButton
+            android:id="@+id/btn_back"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_back"
+            android:tint="@color/settings_accent"
+            android:contentDescription="@string/back"
+            android:layout_marginTop="8dp"
+            android:layout_marginStart="4dp"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"/>
+
+        <TextView
+            android:id="@+id/tv_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/settings_title"
+            android:textColor="@color/settings_title"
+            android:textSize="18sp"
+            android:fontFamily="sans-serif-medium"
+            app:layout_constraintStart_toEndOf="@id/btn_back"
+            app:layout_constraintTop_toTopOf="@id/btn_back"
+            app:layout_constraintBottom_toBottomOf="@id/btn_back"
+            android:layout_marginStart="8dp"/>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <!-- Content -->
+    <ScrollView
+        android:id="@+id/scroll_container"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:fillViewport="true"
+        android:scrollbars="none"
+        app:layout_constraintTop_toBottomOf="@id/top_bar"
+        app:layout_constraintBottom_toTopOf="@id/btn_logout"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <LinearLayout
+            android:id="@+id/content_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingTop="8dp"
+            android:paddingBottom="24dp">
+
+            <!-- Privacy Card -->
+            <LinearLayout style="@style/SettingsCard" android:orientation="vertical">
+                <TextView style="@style/SettingsSectionTitle" android:text="@string/settings_privacy"/>
+                <LinearLayout style="@style/SettingsCardItem" android:id="@+id/item_privacy_mode">
+                    <ImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@drawable/ic_privacy"
+                        android:layout_marginEnd="16dp"/>
+                    <TextView style="@style/SettingsItemTitle" android:text="@string/privacy_mode"/>
+                    <TextView
+                        android:id="@+id/subtitle_privacy_mode"
+                        style="@style/SettingsItemSubtitle"
+                        android:text=""/>
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Security Card -->
+            <LinearLayout style="@style/SettingsCard" android:orientation="vertical">
+                <TextView style="@style/SettingsSectionTitle" android:text="@string/settings_security"/>
+                <LinearLayout style="@style/SettingsCardItem">
+                    <ImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@drawable/ic_security"
+                        android:layout_marginEnd="16dp"/>
+                    <TextView style="@style/SettingsItemTitle" android:text="@string/two_factor"/>
+                    <Switch
+                        android:id="@+id/switch_two_factor"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:thumbTint="@color/settings_accent"
+                        android:trackTint="@color/settings_accent_light"/>
+                </LinearLayout>
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/settings_divider" android:layout_marginVertical="4dp"/>
+                <LinearLayout style="@style/SettingsCardItem" android:id="@+id/item_deactivation">
+                    <ImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@drawable/ic_logout"
+                        android:layout_marginEnd="16dp"/>
+                    <TextView style="@style/SettingsItemTitle" android:text="@string/account_deactivation"/>
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Profile Card -->
+            <LinearLayout style="@style/SettingsCard" android:orientation="vertical">
+                <TextView style="@style/SettingsSectionTitle" android:text="@string/settings_profile"/>
+                <LinearLayout style="@style/SettingsCardItem" android:id="@+id/item_edit_profile">
+                    <ImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@drawable/ic_profile"
+                        android:layout_marginEnd="16dp"/>
+                    <TextView style="@style/SettingsItemTitle" android:text="@string/edit_profile"/>
+                </LinearLayout>
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/settings_divider" android:layout_marginVertical="4dp"/>
+                <LinearLayout style="@style/SettingsCardItem" android:id="@+id/item_authorization">
+                    <ImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@drawable/ic_add"
+                        android:layout_marginEnd="16dp"/>
+                    <TextView style="@style/SettingsItemTitle" android:text="@string/authorization_manage"/>
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- About Card -->
+            <LinearLayout style="@style/SettingsCard" android:orientation="vertical">
+                <TextView style="@style/SettingsSectionTitle" android:text="@string/settings_about"/>
+                <LinearLayout style="@style/SettingsCardItem" android:id="@+id/item_about">
+                    <ImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@drawable/ic_info"
+                        android:layout_marginEnd="16dp"/>
+                    <TextView style="@style/SettingsItemTitle" android:text="@string/about_xinqiao"/>
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- General Card -->
+            <LinearLayout style="@style/SettingsCard" android:orientation="vertical">
+                <TextView style="@style/SettingsSectionTitle" android:text="@string/settings_general"/>
+                <LinearLayout style="@style/SettingsCardItem">
+                    <ImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@drawable/ic_notifications"
+                        android:layout_marginEnd="16dp"/>
+                    <TextView style="@style/SettingsItemTitle" android:text="@string/notifications"/>
+                    <Switch
+                        android:id="@+id/switch_notifications"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:thumbTint="@color/settings_accent"
+                        android:trackTint="@color/settings_accent_light"/>
+                </LinearLayout>
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/settings_divider" android:layout_marginVertical="4dp"/>
+                <LinearLayout style="@style/SettingsCardItem" android:id="@+id/item_language">
+                    <ImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@drawable/ic_language"
+                        android:layout_marginEnd="16dp"/>
+                    <TextView style="@style/SettingsItemTitle" android:text="@string/language"/>
+                    <TextView
+                        android:id="@+id/subtitle_language"
+                        style="@style/SettingsItemSubtitle"
+                        android:text="@string/language_zh"/>
+                </LinearLayout>
+            </LinearLayout>
+
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- Logout Button -->
     <Button
         android:id="@+id/btn_logout"
+        style="@style/Widget.Material3.Button.TonalButton"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:text="@string/logout"
+        android:textColor="@color/settings_accent"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintHorizontal_bias="0.5"
-        app:layout_constraintVertical_bias="0.9"/>
+        android:layout_marginHorizontal="24dp"
+        android:layout_marginBottom="24dp"/>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

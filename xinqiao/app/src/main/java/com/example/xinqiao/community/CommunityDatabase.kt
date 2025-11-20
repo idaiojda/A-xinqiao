@@ -93,6 +93,15 @@ data class CheckinStatusEntity(
     val streakDays: Int
 )
 
+@Entity(tableName = "app_settings")
+data class AppSettingEntity(
+    @PrimaryKey val userName: String,
+    val privacyMode: String,
+    val twoFactorEnabled: Boolean,
+    val notificationsEnabled: Boolean,
+    val appLanguage: String
+)
+
 @Dao
 interface PostDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -183,9 +192,18 @@ interface CheckinDao {
     suspend fun get(user: String): CheckinStatusEntity?
 }
 
+@Dao
+interface SettingsDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(setting: AppSettingEntity)
+
+    @Query("SELECT * FROM app_settings WHERE userName = :user LIMIT 1")
+    suspend fun get(user: String): AppSettingEntity?
+}
+
 @Database(
-    entities = [PostEntity::class, CommentEntity::class, UserProfileEntity::class, GroupInfoEntity::class, GroupMessageEntity::class, BadgeEntity::class, CheckinStatusEntity::class],
-    version = 4,
+    entities = [PostEntity::class, CommentEntity::class, UserProfileEntity::class, GroupInfoEntity::class, GroupMessageEntity::class, BadgeEntity::class, CheckinStatusEntity::class, AppSettingEntity::class],
+    version = 5,
     exportSchema = false
 )
 abstract class CommunityDatabase : RoomDatabase() {
@@ -196,6 +214,7 @@ abstract class CommunityDatabase : RoomDatabase() {
     abstract fun groupChatDao(): GroupChatDao
     abstract fun badgeDao(): BadgeDao
     abstract fun checkinDao(): CheckinDao
+    abstract fun settingsDao(): SettingsDao
 }
 
 object CommunityLocalCache {

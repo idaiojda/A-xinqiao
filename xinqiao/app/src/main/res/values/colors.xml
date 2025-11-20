@@ -48,4 +48,44 @@
     <!-- Enhanced transparency colors for modern UI -->
     <color name="white_10_transparent">#1AFFFFFF</color>
     <color name="white_30_transparent">#4DFFFFFF</color>
+    <!-- Settings page modern palette -->
+    <color name="settings_bg">#F9FAFB</color>
+    <color name="settings_card_bg">#FFFFFF</color>
+    <color name="settings_card_stroke">#E5E7EB</color>
+    <color name="settings_title">#1F2937</color>
+    <color name="settings_subtitle">#6B7280</color>
+    <color name="settings_accent">#667eea</color>
+    <color name="settings_accent_light">#E0E7FF</color>
+    <color name="settings_divider">#F3F4F6</color>
+    
+    <!-- Privacy page modern palette -->
+    <color name="privacy_bg">#F8F5FF</color>
+    <color name="privacy_card_bg">#FFFFFF</color>
+    <color name="privacy_card_stroke">#E8E2F5</color>
+    <color name="privacy_title">#1A1A1A</color>
+    <color name="privacy_subtitle">#6B6B6B</color>
+    <color name="privacy_accent">#7E57C2</color>
+    <color name="privacy_description">#666666</color>
+    <color name="privacy_divider">#F0E6FF</color>
+    
+    <!-- Account deactivation modern palette -->
+    <color name="deactivation_bg">#FAF6FF</color>
+    <color name="deactivation_card_bg">#FFFFFF</color>
+    <color name="deactivation_title">#333333</color>
+    <color name="deactivation_accent">#5F72E6</color>
+    <color name="deactivation_description">#5A5A5A</color>
+    <color name="deactivation_subtitle">#888888</color>
+    <color name="deactivation_warning">#D32F2F</color>
+    <color name="deactivation_button_text">#FFFFFF</color>
+    
+    <!-- About page modern palette -->
+    <color name="about_bg">#FDF8FF</color>
+    <color name="about_card_bg">#FFFFFF</color>
+    <color name="about_card_stroke">#F0E6FF</color>
+    <color name="about_title">#222222</color>
+    <color name="about_subtitle">#666666</color>
+    <color name="about_accent">#667eea</color>
+    <color name="about_description">#555555</color>
+    <color name="about_copyright">#888888</color>
+    <color name="about_info">#777777</color>
 </resources>

@@ -28,7 +28,7 @@
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:src="@drawable/ic_back"
                 android:tint="@android:color/white"
-                android:contentDescription="返回"
+                android:contentDescription="@string/back"
                 android:layout_alignParentStart="true"
                 android:layout_marginStart="4dp"/>
                 
@@ -37,7 +37,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_centerInParent="true"
-                android:text="测评记录"
+                android:text="@string/test_records_title"
                 android:textColor="@android:color/white"
                 android:textSize="20sp"
                 android:textStyle="bold"/>
@@ -56,7 +56,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="管理您的心理测评记录"
+                android:text="@string/test_records_subtitle"
                 android:textColor="@android:color/white"
                 android:textSize="14sp"
                 android:alpha="0.8"/>
@@ -111,7 +111,7 @@
                 android:layout_width="0dp"
                 android:layout_weight="1"
                 android:layout_height="wrap_content"
-                android:text="查不到测评完成的报告？请点击此处进行订单查询"
+                android:text="@string/test_records_order_tip"
                 android:textColor="#30B4FF"
                 android:textSize="14sp"
                 android:layout_marginStart="12dp"/>
@@ -157,7 +157,7 @@
                     android:id="@+id/tv_tab_unfinished"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="未完成"
+                    android:text="@string/tab_unfinished"
                     android:textSize="15sp"
                     android:textColor="#7F8C8D"
                     android:textStyle="bold"/>
@@ -185,7 +185,7 @@
                     android:id="@+id/tv_tab_finished"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="已完成"
+                    android:text="@string/tab_finished"
                     android:textSize="15sp"
                     android:textColor="#8B5CF6"
                     android:textStyle="bold"/>
@@ -213,7 +213,7 @@
                     android:id="@+id/tv_tab_pending"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="待支付"
+                    android:text="@string/tab_pending"
                     android:textSize="15sp"
                     android:textColor="#7F8C8D"
                     android:textStyle="bold"/>

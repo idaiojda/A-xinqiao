@@ -34,7 +34,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="心情程度 (0-10)"
+                    android:text="@string/emotion_entry_scale_label"
                     android:textColor="#111827"
                     android:textStyle="bold"
                     android:textSize="15sp"/>
@@ -54,7 +54,7 @@
                 android:id="@+id/tv_mood_value"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="当前：5"
+                android:text="@string/current_value_label_sample"
                 android:textColor="#111827"
                 android:textSize="12sp"
                 android:paddingLeft="10dp"
@@ -67,7 +67,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="备注"
+                android:text="@string/remark_label"
                 android:textColor="#111827"
                 android:textSize="14sp"
                 android:layout_marginTop="12dp"/>
@@ -76,7 +76,7 @@
                 android:id="@+id/et_note"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="今天的感受..."
+                android:hint="@string/feeling_hint"
                 android:inputType="textMultiLine"
                 android:minLines="3"
                 android:maxLines="5"

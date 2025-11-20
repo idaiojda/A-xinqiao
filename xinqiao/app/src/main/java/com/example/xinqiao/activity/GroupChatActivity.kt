@@ -155,7 +155,7 @@ fun VoiceWaveIcon(
     }
 }
 
-private fun formatDateSection(timestamp: Long): String {
+private fun formatDateSection(ctx: android.content.Context, timestamp: Long): String {
     val now = java.util.Calendar.getInstance()
     val ts = java.util.Calendar.getInstance().apply { timeInMillis = timestamp }
     fun startOfDay(c: java.util.Calendar): Long {
@@ -169,9 +169,9 @@ private fun formatDateSection(timestamp: Long): String {
     val today = startOfDay(now)
     val tday = startOfDay(ts)
     val label = when {
-        tday == today -> "今天"
-        tday == today - 24L * 60 * 60 * 1000 -> "昨天"
-        tday == today - 2L * 24 * 60 * 60 * 1000 -> "前天"
+        tday == today -> ctx.getString(com.example.xinqiao.R.string.community_today)
+        tday == today - 24L * 60 * 60 * 1000 -> ctx.getString(com.example.xinqiao.R.string.community_yesterday)
+        tday == today - 2L * 24 * 60 * 60 * 1000 -> ctx.getString(com.example.xinqiao.R.string.community_day_before_yesterday)
         else -> java.text.SimpleDateFormat("MM-dd", java.util.Locale.getDefault()).format(java.util.Date(timestamp))
     }
     val time = android.text.format.DateFormat.format("HH:mm", java.util.Date(timestamp)).toString()
@@ -243,7 +243,7 @@ fun GroupChatScreen(groupName: String) {
                             Spacer(modifier = Modifier.width(6.dp))
                             Icon(
                                 imageVector = if (realtimeConnected) Icons.Default.CloudDone else Icons.Default.CloudOff,
-                                contentDescription = if (realtimeConnected) "已连接" else "未连接",
+                                contentDescription = if (realtimeConnected) ctx.getString(com.example.xinqiao.R.string.connected) else ctx.getString(com.example.xinqiao.R.string.disconnected),
                                 tint = if (realtimeConnected) Color(0xFF2E7D32) else Color(0xFFC62828),
                                 modifier = Modifier.size(18.dp)
                             )
@@ -257,7 +257,7 @@ fun GroupChatScreen(groupName: String) {
                         IconButton(onClick = { (ctx as? ComponentActivity)?.finish() }) {
                             Icon(
                                 imageVector = Icons.Default.ArrowBack,
-                                contentDescription = "返回",
+                                contentDescription = ctx.getString(com.example.xinqiao.R.string.back),
                                 tint = MaterialTheme.colorScheme.onSurface
                             )
                         }
@@ -268,12 +268,12 @@ fun GroupChatScreen(groupName: String) {
                             IconButton(onClick = { menuOpen = true }) {
                                 Icon(
                                     imageVector = Icons.Default.MoreVert,
-                                    contentDescription = "更多",
+                                    contentDescription = ctx.getString(com.example.xinqiao.R.string.more_label),
                                     tint = MaterialTheme.colorScheme.onSurface
                                 )
                             }
                             androidx.compose.material3.DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                                androidx.compose.material3.DropdownMenuItem(text = { Text("退出群组") }, onClick = {
+                                androidx.compose.material3.DropdownMenuItem(text = { Text(ctx.getString(com.example.xinqiao.R.string.menu_leave_group)) }, onClick = {
                                     menuOpen = false
                                     val user = AnalysisUtils.readLoginUserName(ctx)
                                     scope.launch(kotlinx.coroutines.Dispatchers.IO) {
@@ -292,7 +292,7 @@ fun GroupChatScreen(groupName: String) {
                                         }
                                     }
                                 })
-                                androidx.compose.material3.DropdownMenuItem(text = { Text("清空聊天记录") }, onClick = {
+                                androidx.compose.material3.DropdownMenuItem(text = { Text(ctx.getString(com.example.xinqiao.R.string.menu_clear_chat)) }, onClick = {
                                     menuOpen = false
                                     scope.launch(kotlinx.coroutines.Dispatchers.IO) {
                                         try { com.example.xinqiao.mysql.DBUtils.getInstance(ctx).deleteCommunityGroupMessagesByGroup(groupName.trim()) } catch (_: Exception) { }
@@ -304,7 +304,7 @@ fun GroupChatScreen(groupName: String) {
                                         } catch (_: Exception) { }
                                         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                                             chatMessages = emptyList()
-                                            snackbarHostState.showSnackbar("已清空")
+                                            snackbarHostState.showSnackbar(ctx.getString(com.example.xinqiao.R.string.snackbar_cleared))
                                         }
                                     }
                                 })
@@ -459,7 +459,7 @@ fun GroupChatScreen(groupName: String) {
                                                         try { com.example.xinqiao.community.RealtimeChatClient.send(org.json.JSONObject(mapOf("id" to finalCreated.id, "group" to finalCreated.groupName, "author" to finalCreated.author, "content" to finalCreated.content, "ts" to finalCreated.timestamp)).toString()) } catch (_: Exception) { }
                                                     } catch (_: Exception) { }
                                                 }
-                                            } catch (_: Exception) { snackbarHostState.showSnackbar("发送失败") }
+                                } catch (_: Exception) { snackbarHostState.showSnackbar(ctx.getString(com.example.xinqiao.R.string.snackbar_send_failed)) }
                                         }
                                     }
                                 }
@@ -469,10 +469,10 @@ fun GroupChatScreen(groupName: String) {
                         recording = false
                         recorder?.release()
                         recorder = null
-                        scope.launch { snackbarHostState.showSnackbar("录音启动失败") }
+                        scope.launch { snackbarHostState.showSnackbar(ctx.getString(com.example.xinqiao.R.string.snackbar_record_start_failed)) }
                     }
                 } else {
-                    scope.launch { snackbarHostState.showSnackbar("未授予录音权限") }
+                    scope.launch { snackbarHostState.showSnackbar(ctx.getString(com.example.xinqiao.R.string.snackbar_permission_denied)) }
                 }
             }
 
@@ -650,7 +650,7 @@ fun GroupChatScreen(groupName: String) {
                     }, { ok ->
                         realtimeConnected = ok
                         if (!ok) {
-                            try { scope.launch { snackbarHostState.showSnackbar("实时连接失败") } } catch (_: Exception) {}
+                            try { scope.launch { snackbarHostState.showSnackbar(ctx.getString(com.example.xinqiao.R.string.snackbar_realtime_failed)) } } catch (_: Exception) {}
                         }
                     })
                 } catch (_: Exception) {}
@@ -740,12 +740,12 @@ fun GroupChatScreen(groupName: String) {
                                 )
                                 Spacer(modifier = Modifier.height(16.dp))
                                 Text(
-                                    "暂无消息",
+                                    ctx.getString(com.example.xinqiao.R.string.no_messages),
                                     style = MaterialTheme.typography.bodyLarge,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                                 )
                                 Text(
-                                    "开始聊天吧！",
+                                    ctx.getString(com.example.xinqiao.R.string.start_chatting),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                                     modifier = Modifier.padding(top = 4.dp)
@@ -761,6 +761,7 @@ fun GroupChatScreen(groupName: String) {
                         ) {
                             itemsIndexed(chatMessages, key = { _, m -> m.id }) { index, m ->
                                 val isMyMessage = m.author == currentUserAll
+                                val isAnonymousMe = isMyMessage && com.example.xinqiao.community.SettingsRepository.isAnonymous(ctx, currentUserAll)
                                 val showDateSeparator = index == 0 || 
                                     (m.timestamp - chatMessages[index - 1].timestamp) > 5 * 60 * 1000L
                                 val prev = if (index > 0) chatMessages[index - 1] else null
@@ -793,7 +794,7 @@ fun GroupChatScreen(groupName: String) {
                                             modifier = Modifier.align(Alignment.Center)
                                         ) {
                                             Text(
-                                                text = formatDateSection(m.timestamp),
+                                                text = formatDateSection(ctx, m.timestamp),
                                                 style = MaterialTheme.typography.labelSmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
@@ -807,7 +808,7 @@ fun GroupChatScreen(groupName: String) {
                                     horizontalArrangement = if (isMyMessage) Arrangement.End else Arrangement.Start
                                 ) {
                                     if (!isMyMessage) {
-                                        val avatarLeft = m.authorAvatar ?: avatars[m.author]
+                                        val avatarLeft = if (isAnonymousMe) null else (m.authorAvatar ?: avatars[m.author])
                                         val painterLeft = if (avatarLeft != null) {
                                             rememberAsyncImagePainter(
                                                 model = coil.request.ImageRequest.Builder(ctx)
@@ -823,11 +824,13 @@ fun GroupChatScreen(groupName: String) {
                                             Surface(shape = RoundedCornerShape(avatarRadius), modifier = Modifier.size(avatarSize).padding(end = 8.dp)) {
                                                 Image(
                                                     painter = painterLeft,
-                                                    contentDescription = "${m.author}的头像",
+                                                    contentDescription = ctx.getString(com.example.xinqiao.R.string.avatar_of_fmt, m.author),
                                                     modifier = Modifier.fillMaxSize().clickable {
-                                                        val intent = android.content.Intent(ctx, com.example.xinqiao.activity.UserInfoActivity::class.java)
-                                                        intent.putExtra("name", m.author)
-                                                        ctx.startActivity(intent)
+                                                        if (!isAnonymousMe) {
+                                                            val intent = android.content.Intent(ctx, com.example.xinqiao.activity.UserInfoActivity::class.java)
+                                                            intent.putExtra("name", m.author)
+                                                            ctx.startActivity(intent)
+                                                        }
                                                     },
                                                     contentScale = androidx.compose.ui.layout.ContentScale.Crop
                                                 )
@@ -858,7 +861,7 @@ fun GroupChatScreen(groupName: String) {
                                                 ) {
                                                     Icon(
                                                         imageVector = Icons.Default.Undo,
-                                                        contentDescription = "撤回",
+                                                        contentDescription = ctx.getString(com.example.xinqiao.R.string.message_recalled),
                                                         modifier = Modifier.size(16.dp),
                                                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                                                     )
@@ -898,7 +901,7 @@ fun GroupChatScreen(groupName: String) {
                                                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                                                             )
                                                             Text(
-                                                                text = "消息已撤回",
+                                                                text = ctx.getString(com.example.xinqiao.R.string.message_recalled),
                                                                 style = MaterialTheme.typography.bodyMedium,
                                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                                 fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
@@ -906,7 +909,7 @@ fun GroupChatScreen(groupName: String) {
                                                         }
                                                     } else {
                                                         if (!isMyMessage) {
-                                                            val nameLocal = nicknames[m.author] ?: m.author
+                                                            val nameLocal = if (isAnonymousMe) ctx.getString(com.example.xinqiao.R.string.anonymous_user) else (nicknames[m.author] ?: m.author)
                                                             Text(
                                                                 text = nameLocal,
                                                                 style = MaterialTheme.typography.labelSmall,
@@ -1055,14 +1058,14 @@ fun GroupChatScreen(groupName: String) {
                                                 if (isSending) {
                                                     Icon(
                                                         imageVector = Icons.Default.Schedule,
-                                                        contentDescription = "发送中",
+                                                        contentDescription = ctx.getString(com.example.xinqiao.R.string.sending),
                                                         tint = Color.Gray,
                                                         modifier = Modifier.size(14.dp).padding(start = 4.dp)
                                                     )
                                                 } else {
                                                     Icon(
                                                         imageVector = Icons.Default.Check,
-                                                        contentDescription = "已发送",
+                                                        contentDescription = ctx.getString(com.example.xinqiao.R.string.sent),
                                                         tint = Color.Gray,
                                                         modifier = Modifier.size(14.dp).padding(start = 4.dp)
                                                     )
@@ -1071,7 +1074,7 @@ fun GroupChatScreen(groupName: String) {
                                         }
                                     }
                                     if (isMyMessage) {
-                                        val avatarRight = m.authorAvatar ?: avatars[m.author]
+                                        val avatarRight = if (isAnonymousMe) null else (m.authorAvatar ?: avatars[m.author])
                                         val painterRight = if (avatarRight != null) {
                                             rememberAsyncImagePainter(
                                                 model = coil.request.ImageRequest.Builder(ctx)
@@ -1087,11 +1090,13 @@ fun GroupChatScreen(groupName: String) {
                                             Surface(shape = RoundedCornerShape(avatarRadius), modifier = Modifier.size(avatarSize).padding(start = 8.dp)) {
                                                 Image(
                                                     painter = painterRight,
-                                                    contentDescription = "${m.author}的头像",
+                                                    contentDescription = ctx.getString(com.example.xinqiao.R.string.avatar_of_fmt, m.author),
                                                     modifier = Modifier.fillMaxSize().clickable {
-                                                        val intent = android.content.Intent(ctx, com.example.xinqiao.activity.UserInfoActivity::class.java)
-                                                        intent.putExtra("name", m.author)
-                                                        ctx.startActivity(intent)
+                                                        if (!isAnonymousMe) {
+                                                            val intent = android.content.Intent(ctx, com.example.xinqiao.activity.UserInfoActivity::class.java)
+                                                            intent.putExtra("name", m.author)
+                                                            ctx.startActivity(intent)
+                                                        }
                                                     },
                                                     contentScale = androidx.compose.ui.layout.ContentScale.Crop
                                                 )
@@ -1143,7 +1148,7 @@ fun GroupChatScreen(groupName: String) {
                                             .background(MaterialTheme.colorScheme.error, CircleShape)
                                     )
                                     Text(
-                                        text = "正在录音 ${recordTimerLeft}s",
+                                        text = ctx.getString(com.example.xinqiao.R.string.recording_in_progress_fmt, recordTimerLeft),
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
@@ -1174,7 +1179,7 @@ fun GroupChatScreen(groupName: String) {
                                         }
                                     }
                                 ) {
-                                    Text("完成")
+                                    Text(ctx.getString(com.example.xinqiao.R.string.confirm))
                                 }
                             }
                         }
@@ -1192,7 +1197,7 @@ fun GroupChatScreen(groupName: String) {
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Image,
-                                contentDescription = "选择图片",
+                                contentDescription = ctx.getString(com.example.xinqiao.R.string.select_image),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(20.dp)
                             )
@@ -1204,7 +1209,7 @@ fun GroupChatScreen(groupName: String) {
                                 onValueChange = { chatInput = it },
                                 modifier = Modifier.weight(1f),
                                 placeholder = { 
-                                    Text("输入消息...") 
+                                    Text(ctx.getString(com.example.xinqiao.R.string.input_placeholder)) 
                                 },
                                 shape = RoundedCornerShape(20.dp),
                                 colors = TextFieldDefaults.colors(
@@ -1317,7 +1322,7 @@ fun GroupChatScreen(groupName: String) {
                                                                     try { com.example.xinqiao.community.RealtimeChatClient.send(org.json.JSONObject(mapOf("id" to finalCreated.id, "group" to finalCreated.groupName, "author" to finalCreated.author, "content" to finalCreated.content, "ts" to finalCreated.timestamp)).toString()) } catch (_: Exception) { }
                                                                 } catch (_: Exception) { }
                                                             }
-                                                        } catch (_: Exception) { snackbarHostState.showSnackbar("发送失败") }
+                                                        } catch (_: Exception) { snackbarHostState.showSnackbar(ctx.getString(com.example.xinqiao.R.string.snackbar_send_failed)) }
                                                     }
                                                 }
                                             }
@@ -1325,7 +1330,7 @@ fun GroupChatScreen(groupName: String) {
                                     }
                             ) {
                                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                    Text("按住说话", style = MaterialTheme.typography.bodyMedium)
+                                    Text(ctx.getString(com.example.xinqiao.R.string.press_to_speak), style = MaterialTheme.typography.bodyMedium)
                                 }
                             }
                         }
@@ -1438,7 +1443,7 @@ fun GroupChatScreen(groupName: String) {
                                                 } catch (_: Exception) { }
                                             }
                                         } catch (_: Exception) {
-                                            snackbarHostState.showSnackbar("发送失败")
+                                            snackbarHostState.showSnackbar(ctx.getString(com.example.xinqiao.R.string.snackbar_send_failed))
                                         }
                                     }
                                 }
@@ -1453,7 +1458,7 @@ fun GroupChatScreen(groupName: String) {
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Send,
-                                    contentDescription = "发送",
+                                    contentDescription = ctx.getString(com.example.xinqiao.R.string.send),
                                     tint = MaterialTheme.colorScheme.onPrimary,
                                     modifier = Modifier.size(20.dp)
                                 )
@@ -1462,7 +1467,7 @@ fun GroupChatScreen(groupName: String) {
                         IconButton(onClick = { voiceMode = !voiceMode }) { 
                             Icon(
                                 imageVector = if (voiceMode) Icons.Default.Keyboard else Icons.Default.Mic,
-                                contentDescription = if (voiceMode) "切换文字模式" else "切换语音模式",
+                                contentDescription = if (voiceMode) ctx.getString(com.example.xinqiao.R.string.toggle_text_mode) else ctx.getString(com.example.xinqiao.R.string.toggle_voice_mode),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(20.dp)
                             )
@@ -1508,7 +1513,7 @@ fun GroupChatScreen(groupName: String) {
                                     .padding(16.dp),
                                 horizontalArrangement = Arrangement.End
                             ) {
-                                TextButton(onClick = { previewImageUrl = null }) { Text("关闭") }
+                                TextButton(onClick = { previewImageUrl = null }) { Text(ctx.getString(com.example.xinqiao.R.string.close)) }
                             }
                         }
                     }

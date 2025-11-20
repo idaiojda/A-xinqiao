@@ -47,7 +47,7 @@ public class CourseSearchActivity extends AppCompatActivity {
         ll_play_history_top = findViewById(R.id.ll_play_history_top);
 
         if (tv_main_title != null) {
-            tv_main_title.setText("课程搜索");
+            tv_main_title.setText(getString(R.string.course_search_title));
             tv_main_title.setVisibility(View.VISIBLE);
         }
         if (tv_back != null) {
@@ -108,7 +108,7 @@ public class CourseSearchActivity extends AppCompatActivity {
                     adapter.submitList(result);
                 }
                 if (result.isEmpty()) {
-                    Toast.makeText(CourseSearchActivity.this, "未找到相关课程", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(CourseSearchActivity.this, getString(R.string.course_search_no_result), Toast.LENGTH_SHORT).show();
                 }
             });
         }).start();

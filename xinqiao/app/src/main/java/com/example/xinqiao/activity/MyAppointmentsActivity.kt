@@ -20,6 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import android.view.View
+import kotlinx.coroutines.launch
 
 class MyAppointmentsActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -49,24 +50,111 @@ private fun MyAppointmentsScreen(onBack: () -> Unit) {
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, contentDescription = "返回") } })
         }
     }) { padding ->
-        val items = remember {
-            listOf(
-                AppointmentItem("A1001", "王心怡", "文字咨询", "2024-10-20 14:00", "待咨询"),
-                AppointmentItem("A1002", "李可", "语音咨询", "2024-09-08 19:30", "已完成"),
-                AppointmentItem("A1003", "周行", "视频咨询", "2024-08-11 10:00", "已取消")
-            )
+        val repo = remember { com.example.xinqiao.user.UserAppointmentRepository(ctx) }
+        var items by remember { mutableStateOf(listOf<AppointmentItem>()) }
+        LaunchedEffect(Unit) {
+            val res = repo.listMine()
+            res.onSuccess { list ->
+                items = list.map { AppointmentItem(it.counselor, it.counselor, "", it.startTime.replace('T', ' '), when (it.status) {
+                    "PENDING" -> "待咨询"
+                    "APPROVED" -> "待咨询"
+                    "REJECTED" -> "已驳回"
+                    "COMPLETED" -> "已完成"
+                    "CANCELLED" -> "已取消"
+                    else -> it.status
+                }, it.id) }
+            }
         }
         LazyColumn(modifier = Modifier
             .padding(padding)
             .fillMaxSize(), contentPadding = PaddingValues(16.dp)) {
             items(items) { it ->
+                var showReschedule by remember { mutableStateOf(false) }
+                var newDate by remember { mutableStateOf("") }
+                var newTime by remember { mutableStateOf("") }
+                val scope = rememberCoroutineScope()
                 AppointmentCard(it, onClick = {
-                    val intent = Intent(ctx, AppointmentDetailActivity::class.java)
-                    intent.putExtra("consultantId", it.consultantId)
-                    intent.putExtra("name", it.name)
-                    intent.putExtra("mode", it.mode)
-                    ctx.startActivity(intent)
+                    com.example.xinqiao.ui.Navigation.toAppointmentDetail(ctx, it.consultantId, it.name, it.mode)
+                }, onCancel = {
+                    if (it.id > 0) {
+                        scope.launch {
+                            val ok = com.example.xinqiao.user.UserAppointmentRepository(ctx).cancel(it.id).getOrDefault(false)
+                            if (ok) {
+                                val res = com.example.xinqiao.user.UserAppointmentRepository(ctx).listMine()
+                                res.onSuccess { list ->
+                                    items = list.map { a -> AppointmentItem(a.counselor, a.counselor, "", a.startTime.replace('T', ' '), when (a.status) {
+                                        "PENDING" -> "待咨询"
+                                        "APPROVED" -> "待咨询"
+                                        "REJECTED" -> "已驳回"
+                                        "COMPLETED" -> "已完成"
+                                        "CANCELLED" -> "已取消"
+                                        else -> a.status
+                                    }, a.id) }
+                                }
+                            }
+                        }
+                    }
+                }, onReschedule = {
+                    showReschedule = true
                 })
+                if (showReschedule) {
+                    androidx.compose.material3.AlertDialog(onDismissRequest = { showReschedule = false }, confirmButton = {
+                        Button(onClick = {
+                            if (it.id > 0 && newDate.isNotBlank() && newTime.isNotBlank()) {
+                                scope.launch {
+                                    val ok = com.example.xinqiao.user.UserAppointmentRepository(ctx).reschedule(it.id, newDate, newTime).getOrDefault(false)
+                                    android.widget.Toast.makeText(ctx, if (ok) "改期成功" else "改期失败", android.widget.Toast.LENGTH_SHORT).show()
+                                    if (ok) {
+                                        val res = com.example.xinqiao.user.UserAppointmentRepository(ctx).listMine()
+                                        res.onSuccess { list ->
+                                            items = list.map { a -> AppointmentItem(a.counselor, a.counselor, "", a.startTime.replace('T', ' '), when (a.status) {
+                                                "PENDING" -> "待咨询"
+                                                "APPROVED" -> "待咨询"
+                                                "REJECTED" -> "已驳回"
+                                                "COMPLETED" -> "已完成"
+                                                "CANCELLED" -> "已取消"
+                                                else -> a.status
+                                            }, a.id) }
+                                        }
+                                    }
+                                    showReschedule = false
+                                }
+                            } else {
+                                android.widget.Toast.makeText(ctx, "请先选择日期与时间", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        }) { Text("确认") }
+                    }, dismissButton = { Button(onClick = { showReschedule = false }) { Text("取消") } }, title = { Text("改期") }, text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text("当前选择：${if (newDate.isBlank()) "未选择" else newDate} ${if (newTime.isBlank()) "" else newTime}")
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(onClick = {
+                                    val now = java.time.LocalDate.now()
+                                    android.app.DatePickerDialog(
+                                        ctx,
+                                        { _, year, monthOfYear, dayOfMonth ->
+                                            newDate = "%04d-%02d-%02d".format(year, monthOfYear + 1, dayOfMonth)
+                                        },
+                                        now.year,
+                                        now.monthValue - 1,
+                                        now.dayOfMonth
+                                    ).show()
+                                }) { Text("选择日期") }
+                                Button(onClick = {
+                                    val nowT = java.time.LocalTime.now()
+                                    android.app.TimePickerDialog(
+                                        ctx,
+                                        { _, hourOfDay, minute ->
+                                            newTime = "%02d:%02d".format(hourOfDay, minute)
+                                        },
+                                        nowT.hour,
+                                        nowT.minute,
+                                        true
+                                    ).show()
+                                }) { Text("选择时间") }
+                            }
+                        }
+                    })
+                }
                 Spacer(modifier = Modifier.height(8.dp))
             }
         }
@@ -78,11 +166,12 @@ private data class AppointmentItem(
     val name: String,
     val mode: String,
     val time: String,
-    val status: String
+    val status: String,
+    val id: Long = -1
 )
 
 @Composable
-private fun AppointmentCard(it: AppointmentItem, onClick: () -> Unit) {
+private fun AppointmentCard(it: AppointmentItem, onClick: () -> Unit, onCancel: () -> Unit, onReschedule: () -> Unit) {
     Surface(shape = RoundedCornerShape(12.dp), tonalElevation = 1.dp) {
         Row(modifier = Modifier
             .fillMaxWidth()
@@ -93,7 +182,13 @@ private fun AppointmentCard(it: AppointmentItem, onClick: () -> Unit) {
                 Text("时间：${it.time}", color = Color(0xFF666666))
                 Text("形式：${it.mode}", color = Color(0xFF666666))
             }
-            StatusTag(it.status)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                StatusTag(it.status)
+                if (it.status == "待咨询") {
+                    Button(onClick = onCancel, content = { Text("取消") })
+                    Button(onClick = onReschedule, content = { Text("改期") })
+                }
+            }
         }
     }
 }

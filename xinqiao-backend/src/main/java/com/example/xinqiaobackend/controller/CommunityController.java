@@ -3,15 +3,24 @@ package com.example.xinqiaobackend.controller;
 import com.example.xinqiaobackend.model.*;
 import com.example.xinqiaobackend.service.CommunityService;
 import com.example.xinqiaobackend.service.InMemoryCommunityService;
+import com.example.xinqiaobackend.service.JpaCommunityService;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
 
 @RestController
 @RequestMapping(path = "/community", produces = MediaType.APPLICATION_JSON_VALUE)
 public class CommunityController {
-    private final CommunityService service = new InMemoryCommunityService();
+    private final CommunityService service;
+    private final JpaCommunityService jpaService;
+
+    @Autowired
+    public CommunityController(JpaCommunityService jpaService) {
+        this.jpaService = jpaService;
+        this.service = jpaService;
+    }
 
     @GetMapping("/groups")
     public List<String> groups() { return service.getGroups(); }
@@ -80,5 +89,37 @@ public class CommunityController {
             @RequestParam(name = "size", defaultValue = "10") int size
     ) {
         return service.getPosts(category, page, size);
+    }
+
+    // 新增：创建帖子（所有客户端可见）
+    @PostMapping("/posts")
+    public PostDto createPost(@RequestBody com.example.xinqiaobackend.model.CreatePostRequest req) {
+        String title = req.getTitle();
+        String content = req.getContent();
+        java.util.List<String> tags = req.getTags();
+        java.util.List<String> images = req.getImages();
+        boolean anonymous = req.isAnonymous();
+        String authorName = req.getAuthorName();
+        String authorAvatar = req.getAuthorAvatar();
+        return service.createPost(title, content, tags, images, anonymous, authorName, authorAvatar);
+    }
+
+    @GetMapping("/posts/{postId}/comments")
+    public java.util.List<CommentDto> postComments(@PathVariable("postId") Long postId) {
+        return jpaService.getPostComments(postId);
+    }
+
+    @PostMapping("/posts/{postId}/comments")
+    public CommentDto addPostComment(@PathVariable("postId") Long postId, @RequestBody NewCommentRequest req) {
+        String author = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication() != null ? org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName() : (req.getAuthor() != null ? req.getAuthor() : "我");
+        String text = req.getText() != null ? req.getText() : "";
+        return jpaService.addPostComment(postId, author, text, null);
+    }
+
+    @PostMapping("/posts/{postId}/like")
+    public com.example.xinqiaobackend.model.FollowResultDto like(@PathVariable("postId") Long postId, @RequestParam(name = "on", defaultValue = "true") boolean on) {
+        String username = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
+        boolean ok = jpaService.setPostLike(postId, on, username);
+        return new com.example.xinqiaobackend.model.FollowResultDto(ok);
     }
 }

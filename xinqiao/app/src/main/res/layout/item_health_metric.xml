@@ -10,7 +10,7 @@
         android:id="@+id/tv_metric_date"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="2025-01-01 12:00"
+        android:text="@string/metric_date_sample"
         android:textColor="#6B7280"
         android:textSize="12sp"/>
 
@@ -18,7 +18,7 @@
         android:id="@+id/tv_metric_type"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="类型：心率"
+        android:text="@string/metric_type_sample"
         android:textColor="#111827"
         android:textSize="15sp"
         android:layout_marginTop="4dp"/>
@@ -27,7 +27,7 @@
         android:id="@+id/tv_metric_value"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="数值：75 bpm"
+        android:text="@string/metric_value_sample"
         android:textColor="#374151"
         android:textSize="14sp"
         android:layout_marginTop="2dp"/>
@@ -36,7 +36,7 @@
         android:id="@+id/tv_metric_eval"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="评判：正常"
+        android:text="@string/metric_eval_sample"
         android:textColor="#10B981"
         android:textSize="13sp"
         android:layout_marginTop="2dp"/>

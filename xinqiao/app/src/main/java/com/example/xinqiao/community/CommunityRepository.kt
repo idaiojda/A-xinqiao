@@ -13,7 +13,7 @@ interface CommunityRepository {
     suspend fun health(): Health
     // 新增：主题交流区帖子流（支持分类与分页）
     suspend fun getPosts(category: String? = null, page: Int = 0, size: Int = 10, q: String? = null): List<ThemePost>
-    suspend fun createPost(title: String, content: String, tags: List<String>, images: List<String> = emptyList(), anonymous: Boolean = false): ThemePost
+    suspend fun createPost(title: String, content: String, tags: List<String>, images: List<String> = emptyList(), anonymous: Boolean = false, authorName: String? = null, authorAvatar: String? = null): ThemePost
 
     // 新增：帖子评论（与问答评论区分）
     suspend fun getPostComments(postId: String): List<Comment>
@@ -30,6 +30,9 @@ interface CommunityRepository {
     suspend fun markNotificationRead(id: String): Boolean
     suspend fun updatePost(id: String, title: String, content: String, tags: List<String>): ThemePost
     suspend fun deletePost(id: String): Boolean
+
+    suspend fun setPostLike(id: String, on: Boolean): Boolean
+    suspend fun setPostBookmark(id: String, on: Boolean): Boolean
 
     // 互助小组：群聊与打卡徽章
     suspend fun getGroupMessages(groupName: String): List<GroupMessage>
@@ -120,12 +123,12 @@ object FakeCommunityRepository : CommunityRepository {
         return source.subList(from, to)
     }
 
-    override suspend fun createPost(title: String, content: String, tags: List<String>, images: List<String>, anonymous: Boolean): ThemePost {
+    override suspend fun createPost(title: String, content: String, tags: List<String>, images: List<String>, anonymous: Boolean, authorName: String?, authorAvatar: String?): ThemePost {
         val id = "p" + System.currentTimeMillis()
         val p = ThemePost(
             id = id,
-            author = if (anonymous) "匿名用户" else "我",
-            authorAvatar = "",
+            author = if (anonymous) "匿名用户" else (authorName ?: "我"),
+            authorAvatar = authorAvatar ?: "",
             isAnonymous = anonymous,
             time = "刚刚",
             title = title.ifBlank { "未命名" },
@@ -241,6 +244,27 @@ object FakeCommunityRepository : CommunityRepository {
         return false
     }
 
+    override suspend fun setPostLike(id: String, on: Boolean): Boolean {
+        val idx = postStore.indexOfFirst { it.id == id }
+        if (idx >= 0) {
+            val cur = postStore[idx]
+            val count = if (on) cur.likeCount + 1 else (cur.likeCount - 1).coerceAtLeast(0)
+            postStore[idx] = cur.copy(liked = on, likeCount = count)
+            return true
+        }
+        return false
+    }
+
+    override suspend fun setPostBookmark(id: String, on: Boolean): Boolean {
+        val idx = postStore.indexOfFirst { it.id == id }
+        if (idx >= 0) {
+            val cur = postStore[idx]
+            postStore[idx] = cur.copy(bookmarked = on)
+            return true
+        }
+        return false
+    }
+
     // --- Group chat & badges ---
     private val groupMessagesMap: MutableMap<String, MutableList<GroupMessage>> = mutableMapOf()
     private val userBadgesMap: MutableMap<String, MutableList<Badge>> = mutableMapOf()
@@ -311,7 +335,7 @@ object EmptyCommunityRepository : CommunityRepository {
     override suspend fun getMyTimeline(): List<TimelineItem> = emptyList()
     override suspend fun health(): Health = Health(true, "")
     override suspend fun getPosts(category: String?, page: Int, size: Int, q: String?): List<ThemePost> = emptyList()
-    override suspend fun createPost(title: String, content: String, tags: List<String>, images: List<String>, anonymous: Boolean): ThemePost = ThemePost(id = "", author = "", isAnonymous = anonymous, time = "", title = title, content = content, tags = tags)
+    override suspend fun createPost(title: String, content: String, tags: List<String>, images: List<String>, anonymous: Boolean, authorName: String?, authorAvatar: String?): ThemePost = ThemePost(id = "", author = authorName ?: "", authorAvatar = authorAvatar ?: "", isAnonymous = anonymous, time = "", title = title, content = content, tags = tags)
     override suspend fun getPostComments(postId: String): List<Comment> = emptyList()
     override suspend fun postPostComment(postId: String, content: String, author: String): Comment = Comment("", author, content)
     override suspend fun getUserProfile(name: String): UserProfile = UserProfile(name, "", "", false, 0, 0, 0)
@@ -325,6 +349,8 @@ object EmptyCommunityRepository : CommunityRepository {
     override suspend fun markNotificationRead(id: String): Boolean = false
     override suspend fun updatePost(id: String, title: String, content: String, tags: List<String>): ThemePost = ThemePost(id = id, author = "", isAnonymous = false, time = "", title = title, content = content, tags = tags)
     override suspend fun deletePost(id: String): Boolean = false
+    override suspend fun setPostLike(id: String, on: Boolean): Boolean = false
+    override suspend fun setPostBookmark(id: String, on: Boolean): Boolean = false
     override suspend fun getGroupMessages(groupName: String): List<GroupMessage> = emptyList()
     override suspend fun postGroupMessage(groupName: String, content: String, author: String, images: List<String>, mentions: List<String>, voiceUrl: String?, voiceDurationSec: Int?): GroupMessage = GroupMessage(id = "", groupName = groupName, author = author, content = content, images = images, mentions = mentions, voiceUrl = voiceUrl, voiceDurationSec = voiceDurationSec, timestamp = System.currentTimeMillis())
     override suspend fun checkIn(groupName: String, userName: String): BadgeAwardResult = BadgeAwardResult(ok = false, message = "", badge = null)

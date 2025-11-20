@@ -25,6 +25,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import kotlinx.coroutines.launch
 import com.example.xinqiao.consultation.pro.AppointmentDetailViewModel
 import com.example.xinqiao.consultation.pro.SlotTime
 
@@ -63,6 +64,7 @@ private fun AppointmentDetailScreen(
     val ctx = LocalContext.current
     val vm: AppointmentDetailViewModel = viewModel()
     val ui by vm.ui.collectAsState()
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
         vm.init(consultantId, name, defaultMode, price, duration)
@@ -79,6 +81,7 @@ private fun AppointmentDetailScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
+    val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -90,7 +93,8 @@ private fun AppointmentDetailScreen(
                 title = { Text("预约详情", style = MaterialTheme.typography.titleMedium) },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, contentDescription = "返回") } }
             )
-        }
+        },
+        snackbarHost = { androidx.compose.material3.SnackbarHost(hostState = snackbarHostState) }
     ) { padding ->
         Column(
             modifier = Modifier
@@ -101,7 +105,23 @@ private fun AppointmentDetailScreen(
         ) {
             HeaderSection(name = ui.consultantName, mode = ui.defaultMode)
             ModeSelector(current = ui.selectedMode, onSelect = vm::selectMode)
-            DateSelector(dates = ui.dates, selected = ui.selectedDate, onSelect = vm::selectDate)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                DateSelector(dates = ui.dates, selected = ui.selectedDate, onSelect = vm::selectDate)
+                Button(onClick = {
+                    val now = java.time.LocalDate.now()
+                    android.app.DatePickerDialog(
+                        ctx,
+                        { _, year, monthOfYear, dayOfMonth ->
+                            val chosen = "%04d-%02d-%02d".format(year, monthOfYear + 1, dayOfMonth)
+                            vm.selectDate(chosen)
+                        },
+                        now.year,
+                        now.monthValue - 1,
+                        now.dayOfMonth
+                    ).show()
+                }) { Text("选择日期") }
+                Button(onClick = { vm.reloadSlots() }) { Text("刷新时段") }
+            }
             SlotsRow(slots = ui.slots, selected = ui.selectedTime, loading = ui.loadingSlots, onSelect = vm::selectTime)
             PriceSection(price = ui.price, coupon = ui.coupon)
             RemarkSection(text = ui.remark, onChange = vm::updateRemark)
@@ -125,10 +145,18 @@ private fun AppointmentDetailScreen(
                             ctx.startActivity(Intent(ctx, MyAppointmentsActivity::class.java))
                         } else {
                             Toast.makeText(ctx, msg ?: "预约失败", Toast.LENGTH_SHORT).show()
+                            if (!msg.isNullOrBlank()) {
+                                scope.launch { snackbarHostState.showSnackbar(msg) }
+                            }
                         }
                     }
                 }
             )
+        }
+        if (ui.error != null) {
+            androidx.compose.runtime.LaunchedEffect(ui.error) {
+                snackbarHostState.showSnackbar(ui.error ?: "加载失败")
+            }
         }
     }
 }

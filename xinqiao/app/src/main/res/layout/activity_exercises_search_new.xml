@@ -29,7 +29,7 @@
                 android:layout_width="40dp"
                 android:layout_height="40dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="返回"
+                android:contentDescription="@string/back"
                 android:src="@drawable/ic_back"
                 android:tint="@android:color/white"
                 android:visibility="gone"/>
@@ -57,7 +57,7 @@
                     android:layout_width="0dp"
                     android:layout_weight="1"
                     android:layout_height="match_parent"
-                    android:hint="搜索心理测评..."
+                    android:hint="@string/search_exercises_hint"
                     android:textSize="15sp"
                     android:textColor="#2C3E50"
                     android:textColorHint="#99B8FF"
@@ -82,7 +82,7 @@
                 android:id="@+id/tv_cancel"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="取消"
+                android:text="@string/cancel"
                 android:textColor="@android:color/white"
                 android:textSize="15sp"
                 android:textStyle="bold"
@@ -103,7 +103,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="发现更多心理测评"
+                android:text="@string/discover_more_exercises"
                 android:textColor="@android:color/white"
                 android:textSize="14sp"
                 android:alpha="0.8"/>
@@ -156,7 +156,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="热门搜索"
+                android:text="@string/hot_searches"
                 android:textColor="#2C3E50"
                 android:textSize="18sp"
                 android:textStyle="bold"
@@ -210,7 +210,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="搜索历史"
+                android:text="@string/recent_searches"
                 android:textColor="#2C3E50"
                 android:textSize="18sp"
                 android:textStyle="bold"
@@ -228,7 +228,7 @@
                 android:id="@+id/tv_clear_history"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="清空"
+                android:text="@string/clear"
                 android:textColor="#8B5CF6"
                 android:textSize="14sp"
                 android:textStyle="bold"
@@ -271,7 +271,7 @@
                 android:id="@+id/tv_hot_rank_title"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="热度排行榜"
+                android:text="@string/hot_rank"
                 android:textColor="#2C3E50"
                 android:textSize="18sp"
                 android:textStyle="bold"
@@ -345,7 +345,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="未找到相关测评"
+            android:text="@string/not_found_tests"
             android:textColor="#999999"
             android:textSize="18sp"
             android:textStyle="bold"
@@ -354,7 +354,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="试试其他关键词吧"
+            android:text="@string/try_other_keywords"
             android:textColor="#CCCCCC"
             android:textSize="14sp"/>
             

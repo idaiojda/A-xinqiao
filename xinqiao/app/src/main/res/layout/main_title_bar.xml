@@ -29,7 +29,7 @@
         android:layout_toLeftOf="@id/ll_play_history_top"
         android:layout_marginStart="8dp"
         android:layout_marginEnd="8dp"
-        android:hint="搜索课程"
+        android:hint="@string/search_course"
         android:singleLine="true"
         android:imeOptions="actionSearch"
         android:drawableLeft="@drawable/ic_search_blue"
@@ -63,7 +63,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginLeft="4dp"
-            android:text="播放历史"
+            android:text="@string/play_history"
             android:textColor="#99B8FF"
             android:textSize="14sp"/>
     </LinearLayout>
@@ -78,7 +78,7 @@
         android:gravity="center"
         android:textSize="16sp"
         android:textColor="@android:color/white"
-        android:text="保存"
+        android:text="@string/save"
         android:visibility="gone"
         />
 </RelativeLayout>

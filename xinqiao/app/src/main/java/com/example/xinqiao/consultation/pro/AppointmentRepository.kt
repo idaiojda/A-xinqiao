@@ -5,6 +5,7 @@ import android.util.Log
 import com.example.xinqiao.network.NetworkConfig
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
+import com.example.xinqiao.network.AuthInterceptor
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import kotlinx.coroutines.Dispatchers
@@ -29,7 +30,7 @@ data class AppointmentRequest(
 )
 
 class AppointmentRepository(private val context: Context) {
-    private val client = OkHttpClient()
+    private val client = OkHttpClient.Builder().addInterceptor(AuthInterceptor(context)).build()
     private val baseUrl: String by lazy { NetworkConfig.getBaseUrl(context) }
     private val jsonMedia = "application/json; charset=utf-8".toMediaType()
 

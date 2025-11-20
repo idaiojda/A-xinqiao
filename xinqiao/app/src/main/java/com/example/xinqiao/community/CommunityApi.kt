@@ -87,12 +87,18 @@ interface CommunityApi {
 
     @DELETE("community/posts/{id}")
     suspend fun deletePost(@Path("id") id: String): FollowResult
+
+    @POST("community/posts/{id}/like")
+    suspend fun setPostLike(@Path("id") id: String, @Query("on") on: Boolean): FollowResult
+
+    @POST("community/posts/{id}/bookmark")
+    suspend fun setPostBookmark(@Path("id") id: String, @Query("on") on: Boolean): FollowResult
 }
 
 data class NewCommentRequest(val author: String, val text: String)
 data class NewQuestionRequest(val title: String, val content: String)
 data class CreateGroupRequest(val name: String, val description: String, val schedule: String, val capacity: Int, val creator: String? = null)
-data class CreatePostRequest(val title: String, val content: String, val tags: List<String>, val images: List<String> = emptyList(), val anonymous: Boolean = false)
+data class CreatePostRequest(val title: String, val content: String, val tags: List<String>, val images: List<String> = emptyList(), val anonymous: Boolean = false, val authorName: String? = null, val authorAvatar: String? = null)
 data class UpdatePostRequest(val title: String, val content: String, val tags: List<String>)
 data class UpdateGroupRequest(val description: String?, val rulesJson: String?, val schedule: String?)
 data class UserProfileDto(val name: String, val avatar: String, val bio: String, val following: Boolean, val postsCount: Int, val followersCount: Int, val followingCount: Int)

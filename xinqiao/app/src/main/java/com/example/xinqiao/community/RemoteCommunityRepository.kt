@@ -70,14 +70,14 @@ class RemoteCommunityRepository(
 
     override suspend fun getPosts(category: String?, page: Int, size: Int, q: String?): List<ThemePost> {
         return try {
-            val list = kotlinx.coroutines.withTimeout(3000L) {
+            val remote = kotlinx.coroutines.withTimeout(3000L) {
                 api.getPosts(category = category, page = page, size = size, q = q).map { it.toThemePost() }
             }
-            val cleaned = list.filterNot { isSamplePost(it) }
-            try { CommunityLocalCache.database()?.postDao()?.upsertAll(cleaned.map { it.toEntity() }) } catch (_: Exception) { }
-            cleaned
+            if (remote.isNotEmpty()) remote else {
+                CommunityLocalCache.database()?.postDao()?.getAll()?.map { it.toThemePost() } ?: emptyList()
+            }
         } catch (_: Exception) {
-            emptyList()
+            CommunityLocalCache.database()?.postDao()?.getAll()?.map { it.toThemePost() } ?: emptyList()
         }
     }
 
@@ -90,33 +90,28 @@ class RemoteCommunityRepository(
     }
 
     override suspend fun postPostComment(postId: String, content: String, author: String): Comment =
-        api.postPostComment(postId, NewCommentRequest(author = author, text = content))
+        try {
+            val created = api.postPostComment(postId, NewCommentRequest(author = author, text = content))
+            try {
+                CommunityLocalCache.database()?.commentDao()?.upsertAll(listOf(CommentEntity(created.id, postId, created.author, created.text, System.currentTimeMillis())))
+                val dao = CommunityLocalCache.database()?.postDao()
+                val cur = dao?.getById(postId)
+                if (cur != null) {
+                    dao.upsertAll(listOf(cur.copy(commentCount = cur.commentCount + 1)))
+                }
+            } catch (_: Exception) { }
+            created
+        } catch (_: Exception) {
+            throw RuntimeException("comment failed")
+        }
 
-    override suspend fun createPost(title: String, content: String, tags: List<String>, images: List<String>, anonymous: Boolean): ThemePost {
+    override suspend fun createPost(title: String, content: String, tags: List<String>, images: List<String>, anonymous: Boolean, authorName: String?, authorAvatar: String?): ThemePost {
         return try {
-            val created = api.createPost(CreatePostRequest(title = title, content = content, tags = tags, images = images, anonymous = anonymous)).toThemePost()
+            val created = api.createPost(CreatePostRequest(title = title, content = content, tags = tags, images = images, anonymous = anonymous, authorName = authorName, authorAvatar = authorAvatar)).toThemePost()
             CommunityLocalCache.database()?.postDao()?.upsertAll(listOf(created.toEntity()))
             created
         } catch (e: Exception) {
-            val local = ThemePost(
-                id = "p" + System.currentTimeMillis(),
-                author = if (anonymous) "匿名用户" else "我",
-                authorAvatar = "",
-                isAnonymous = anonymous,
-                time = "刚刚",
-                title = if (title.isNotBlank()) title else "未命名",
-                content = content,
-                tags = tags,
-                images = images,
-                voiceDurationSec = null,
-                liked = false,
-                likeCount = 0,
-                commentCount = 0,
-                pendingSync = true,
-                bookmarked = false
-            )
-            CommunityLocalCache.database()?.postDao()?.upsertAll(listOf(local.toEntity()))
-            local
+            throw RuntimeException("create post failed", e)
         }
     }
 
@@ -174,6 +169,39 @@ class RemoteCommunityRepository(
     }
 
     override suspend fun deletePost(id: String): Boolean = try { api.deletePost(id).ok } catch (_: Exception) { false }
+
+    override suspend fun setPostLike(id: String, on: Boolean): Boolean {
+        return try {
+            val ok = api.setPostLike(id, on).ok
+            if (ok) {
+                try {
+                    val dao = CommunityLocalCache.database()?.postDao()
+                    val cur = dao?.getById(id)
+                    if (cur != null) {
+                        val newCount = if (on) cur.likeCount + 1 else (cur.likeCount - 1).coerceAtLeast(0)
+                        dao.upsertAll(listOf(cur.copy(liked = on, likeCount = newCount)))
+                    }
+                } catch (_: Exception) { }
+            }
+            ok
+        } catch (_: Exception) { false }
+    }
+
+    override suspend fun setPostBookmark(id: String, on: Boolean): Boolean {
+        return try {
+            val ok = api.setPostBookmark(id, on).ok
+            if (ok) {
+                try {
+                    val dao = CommunityLocalCache.database()?.postDao()
+                    val cur = dao?.getById(id)
+                    if (cur != null) {
+                        dao.upsertAll(listOf(cur.copy(bookmarked = on)))
+                    }
+                } catch (_: Exception) { }
+            }
+            ok
+        } catch (_: Exception) { false }
+    }
     override suspend fun updateGroupInfo(name: String, description: String?, rulesJson: String?, schedule: String?): Boolean {
         return try {
             api.updateGroup(name, UpdateGroupRequest(description, rulesJson, schedule)).ok
@@ -249,26 +277,16 @@ object CommunityServiceFactory {
 
 private fun PostDto.toThemePost(): ThemePost = ThemePost(
     id = id,
-    author = author,
+    author = (authorNickname ?: author),
+    authorAvatar = authorAvatar ?: "",
     isAnonymous = anonymous,
     time = time,
     title = title,
     content = content,
-    tags = tags,
-    images = emptyList(),
+    tags = tags ?: emptyList(),
+    images = images ?: emptyList(),
     voiceDurationSec = voiceDurationSec,
     pendingSync = false
 )
 
-private fun isSamplePost(p: ThemePost): Boolean {
-    val authors = setOf("小桥", "明月", "安然")
-    if (authors.contains(p.author)) return true
-    val patterns = listOf(
-        "夜深时的情绪波动",
-        "和室友相处的边界感",
-        "晚间散步的声音"
-    )
-    return patterns.any { pat ->
-        p.title.contains(pat, ignoreCase = true) || p.content.contains(pat, ignoreCase = true)
-    }
-}
+ 

@@ -22,14 +22,14 @@
             android:layout_height="20dp"
             android:src="@drawable/ic_search_blue"
             android:tint="#99B8FF"
-            android:contentDescription="搜索"/>
+            android:contentDescription="@string/search"/>
         <EditText
             android:id="@+id/et_search"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
             android:background="@android:color/transparent"
-            android:hint="搜索测评"
+            android:hint="@string/search_exercises_hint"
             android:textColor="#4E5969"
             android:textColorHint="#99B8FF"
             android:textSize="14sp"
@@ -72,11 +72,11 @@
                     android:layout_width="36dp"
                     android:layout_height="36dp"
                     android:src="@drawable/bt_love"
-                    android:contentDescription="情感"/>
+                    android:contentDescription="@string/category_emotion"/>
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="情感"
+                    android:text="@string/category_emotion"
                     android:textColor="#666666"
                     android:textSize="13sp"/>
             </LinearLayout>
@@ -90,11 +90,11 @@
                     android:layout_width="36dp"
                     android:layout_height="36dp"
                     android:src="@drawable/bt_person"
-                    android:contentDescription="人际"/>
+                    android:contentDescription="@string/category_relationships"/>
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="人际"
+                    android:text="@string/category_relationships"
                     android:textColor="#666666"
                     android:textSize="13sp"/>
             </LinearLayout>
@@ -108,11 +108,11 @@
                     android:layout_width="36dp"
                     android:layout_height="36dp"
                     android:src="@drawable/bt_character"
-                    android:contentDescription="性格"/>
+                    android:contentDescription="@string/category_personality"/>
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="性格"
+                    android:text="@string/category_personality"
                     android:textColor="#666666"
                     android:textSize="13sp"/>
             </LinearLayout>
@@ -126,11 +126,11 @@
                     android:layout_width="36dp"
                     android:layout_height="36dp"
                     android:src="@drawable/bt_health"
-                    android:contentDescription="健康"/>
+                    android:contentDescription="@string/category_health"/>
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="健康"
+                    android:text="@string/category_health"
                     android:textColor="#666666"
                     android:textSize="13sp"/>
             </LinearLayout>
@@ -144,11 +144,11 @@
                     android:layout_width="36dp"
                     android:layout_height="36dp"
                     android:src="@drawable/bt_family"
-                    android:contentDescription="亲子"/>
+                    android:contentDescription="@string/category_family"/>
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="亲子"
+                    android:text="@string/category_family"
                     android:textColor="#666666"
                     android:textSize="13sp"/>
             </LinearLayout>
@@ -162,11 +162,11 @@
                     android:layout_width="36dp"
                     android:layout_height="36dp"
                     android:src="@drawable/bt_ability"
-                    android:contentDescription="能力"/>
+                    android:contentDescription="@string/category_ability"/>
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="能力"
+                    android:text="@string/category_ability"
                     android:textColor="#666666"
                     android:textSize="13sp"/>
             </LinearLayout>
@@ -180,11 +180,11 @@
                     android:layout_width="36dp"
                     android:layout_height="36dp"
                     android:src="@drawable/bt_profession"
-                    android:contentDescription="职业"/>
+                    android:contentDescription="@string/category_profession"/>
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="职业"
+                    android:text="@string/category_profession"
                     android:textColor="#666666"
                     android:textSize="13sp"/>
             </LinearLayout>
@@ -195,7 +195,7 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="每日推荐"
+        android:text="@string/daily_recommendations"
         android:textColor="#222222"
         android:textSize="18sp"
         android:textStyle="bold"
@@ -221,7 +221,7 @@
         android:layout_width="match_parent"
         android:layout_height="40dp"
         android:gravity="center"
-        android:text="换一换"
+        android:text="@string/switch_another"
         android:textColor="#30B4FF"
         android:textSize="18sp"
         android:background="@android:color/transparent"/>

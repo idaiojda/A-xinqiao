@@ -10,7 +10,7 @@
         android:layout_height="wrap_content"
         android:layout_marginBottom="16dp"
         android:gravity="center"
-        android:text="选择头像"
+        android:text="@string/choose_avatar"
         android:textSize="18sp"
         android:textStyle="bold" />
 
@@ -27,6 +27,6 @@
         android:id="@+id/btn_gallery"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="从相册选择" />
+        android:text="@string/choose_from_album" />
 
 </LinearLayout>

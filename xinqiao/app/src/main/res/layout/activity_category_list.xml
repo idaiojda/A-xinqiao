@@ -17,7 +17,7 @@
             android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@drawable/ic_back"
             android:tint="#30B4FF"
-            android:contentDescription="返回"
+            android:contentDescription="@string/back"
             android:layout_alignParentStart="true"
             android:layout_marginStart="4dp"/>
         <TextView
@@ -25,7 +25,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_centerInParent="true"
-            android:text="分类"
+            android:text="@string/category_title"
             android:textColor="#222222"
             android:textSize="20sp"
             android:textStyle="bold"/>
@@ -45,7 +45,7 @@
         android:id="@+id/tv_empty"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="暂无该分类下的测评"
+        android:text="@string/category_empty_tests"
         android:textColor="#BBBBBB"
         android:textSize="16sp"
         android:gravity="center"

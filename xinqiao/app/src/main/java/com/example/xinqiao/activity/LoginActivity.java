@@ -23,6 +23,13 @@ import com.example.xinqiao.util.PhoneUtils;
 import com.google.android.material.textfield.TextInputEditText;
 import com.example.xinqiao.room.AppDatabase;
 import com.example.xinqiao.room.entity.UserInfo;
+import com.example.xinqiao.network.NetworkConfig;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.MediaType;
+import okhttp3.RequestBody;
+import okhttp3.Response;
+import org.json.JSONObject;
 import java.sql.SQLException;
 
 public class LoginActivity extends AppCompatActivity {
@@ -204,6 +211,23 @@ public class LoginActivity extends AppCompatActivity {
         AnalysisUtils.saveLoginInfo(this, phone, userId);
         try { com.example.xinqiao.community.GlobalRealtimeReceiver.INSTANCE.onForeground(getApplication()); } catch (Throwable ignored) {}
         Toast.makeText(this, "登录成功", Toast.LENGTH_SHORT).show();
+        new Thread(() -> {
+            try {
+                String baseUrl = NetworkConfig.getBaseUrl(LoginActivity.this);
+                String url = baseUrl + "/api/auth/login?username=" + java.net.URLEncoder.encode(phone, "UTF-8") + "&password=" + java.net.URLEncoder.encode(String.valueOf(etPassword.getText()), "UTF-8");
+                OkHttpClient c = new OkHttpClient();
+                MediaType mt = MediaType.parse("application/x-www-form-urlencoded");
+                RequestBody rb = RequestBody.create("".getBytes(), mt);
+                Response resp = c.newCall(new Request.Builder().url(url).post(rb).build()).execute();
+                String s = resp.body() != null ? resp.body().string() : "{}";
+                JSONObject obj = new JSONObject(s);
+                if (obj.optBoolean("ok") && obj.has("token")) {
+                    String token = obj.optString("token", "");
+                    SharedPreferences spLogin = getSharedPreferences("loginInfo", MODE_PRIVATE);
+                    spLogin.edit().putString("auth_token", token).apply();
+                }
+            } catch (Exception ignored) {}
+        }).start();
         // 若是从其它页面通过 startActivityForResult 进入登录页，返回结果给调用方
         Intent result = new Intent();
         result.putExtra("isLogin", true);

@@ -14,7 +14,7 @@
         android:scaleType="centerCrop"
         android:src="@drawable/bg_1"
         android:background="@drawable/bg_round_image"
-        android:contentDescription="封面"/>
+        android:contentDescription="@string/cover_desc"/>
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
@@ -30,7 +30,7 @@
                 android:id="@+id/tv_category_title_item"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="测评标题"
+                android:text="@string/test_title_label"
                 android:textColor="#222222"
                 android:textSize="17sp"
                 android:textStyle="bold"/>
@@ -38,7 +38,7 @@
                 android:id="@+id/tv_category_tag"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="免费"
+                android:text="@string/free_label"
                 android:textColor="#FFFFFF"
                 android:textSize="12sp"
                 android:background="@drawable/bg_tag_free"
@@ -53,7 +53,7 @@
             android:id="@+id/tv_category_desc"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="简介"
+            android:text="@string/brief_label"
             android:textColor="#888888"
             android:textSize="14sp"
             android:maxLines="2"

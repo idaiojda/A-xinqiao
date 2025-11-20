@@ -32,7 +32,7 @@
                 android:layout_height="match_parent"
                 android:scaleType="centerCrop"
                 android:src="@mipmap/chapter_1_icon"
-                android:contentDescription="课程封面"
+                android:contentDescription="@string/course_cover_desc"
                 android:background="@drawable/bg_rounded_image" />
 
             <!-- 渐变覆盖层 -->
@@ -48,7 +48,7 @@
                 android:layout_height="wrap_content"
                 android:layout_gravity="bottom|start"
                 android:layout_margin="6dp"
-                android:text="第1章"
+                android:text="@string/chapter_1_label"
                 android:textColor="#FFFFFF"
                 android:textSize="10sp"
                 android:fontFamily="sans-serif-medium"
@@ -80,7 +80,7 @@
                     android:id="@+id/tv_category_tag"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="心理健康"
+                    android:text="@string/category_psych_health"
                     android:textColor="#4A90E2"
                     android:textSize="11sp"
                     android:fontFamily="sans-serif-medium"
@@ -94,7 +94,7 @@
                     android:id="@+id/tv_difficulty_tag"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="入门"
+                    android:text="@string/level_beginner"
                     android:textColor="#10B981"
                     android:textSize="11sp"
                     android:fontFamily="sans-serif-medium"
@@ -117,7 +117,7 @@
                 android:maxLines="2"
                 android:ellipsize="end"
                 android:lineSpacingExtra="2dp"
-                android:text="心理健康入门：认识自我与他人" />
+                android:text="@string/course_title_sample" />
 
             <!-- 课程简介 -->
             <TextView
@@ -130,7 +130,7 @@
                 android:ellipsize="end"
                 android:lineSpacingExtra="2dp"
                 android:layout_marginTop="6dp"
-                android:text="了解心理健康的基本概念，学会识别和应对常见的心理问题" />
+                android:text="@string/course_desc_sample" />
 
             <!-- 底部信息栏 -->
             <LinearLayout
@@ -183,7 +183,7 @@
                         android:id="@+id/tv_duration"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="15分钟"
+                        android:text="@string/duration_15_min"
                         android:textColor="#A0AEC0"
                         android:textSize="12sp"
                         android:fontFamily="sans-serif" />

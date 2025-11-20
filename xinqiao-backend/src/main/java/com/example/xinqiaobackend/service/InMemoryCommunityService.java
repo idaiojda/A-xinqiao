@@ -3,9 +3,14 @@ package com.example.xinqiaobackend.service;
 import com.example.xinqiaobackend.model.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class InMemoryCommunityService implements CommunityService {
-    private final List<String> groups = new ArrayList<>(Arrays.asList("考研互助小组", "社恐成长圈", "恋爱关系修复"));
+    private final List<String> groups = new ArrayList<>(Arrays.asList("社恐成长圈", "恋爱关系修复"));
+    private final List<PostDto> allPosts = new ArrayList<>();
+    private final Map<String, CacheEntry> cacheByCategory = new ConcurrentHashMap<>();
+    private static final long CACHE_TTL_MILLIS = 5 * 60 * 1000L;
+    private final AtomicLong lastUpdated = new AtomicLong(System.currentTimeMillis());
     private final List<QuestionDto> questions = Arrays.asList(
             new QuestionDto("q1", "Q1. 如何面对考试焦虑？", "匿名用户：尝试建立规律作息，适度运动，分解任务，并进行深呼吸练习。"),
             new QuestionDto("q2", "Q2. 社交恐惧如何改善？", "匿名用户：从小场景练习开始，逐步暴露并记录积极体验。"),
@@ -19,6 +24,7 @@ public class InMemoryCommunityService implements CommunityService {
     private final Set<String> members = ConcurrentHashMap.newKeySet();
 
     public InMemoryCommunityService() {
+        // 不初始化示例帖子：仅返回实际创建的帖子数据
         commentsMap.put("q1", new ArrayList<>(Arrays.asList(
                 new CommentDto("c1", "匿名用户", "谢谢分享，很有帮助！"),
                 new CommentDto("c2", "心理咨询师", "建议尝试渐进式放松法，配合认知重构。")
@@ -113,72 +119,50 @@ public class InMemoryCommunityService implements CommunityService {
     // 新增：主题交流区帖子流
     @Override
     public List<PostDto> getPosts(String category, int page, int size) {
-        List<PostDto> all = new ArrayList<>();
-        all.add(new PostDto(
-                "p1",
-                "小桥",
-                true,
-                "刚刚",
-                "夜深时的情绪波动怎么办？",
-                "最近晚上总是心跳加快、脑子停不下来。尝试了呼吸练习有一点帮助，但还是会被突如其来的焦虑击中。大家有什么实用的办法吗？",
-                Arrays.asList("夜间情绪", "焦虑"),
-                3,
-                null
-        ));
-        all.add(new PostDto(
-                "p2",
-                "明月",
-                true,
-                "1 小时前",
-                "和室友相处的边界感",
-                "室友总是会进入我的私人空间，虽然不是恶意，但我会紧张。想学习如何更自然地表达界限又不伤害关系。",
-                Arrays.asList("社交与关系", "边界"),
-                0,
-                28
-        ));
-        all.add(new PostDto(
-                "p3",
-                "安然",
-                true,
-                "2 小时前",
-                "今天的呼吸练习让我慢下来",
-                "跟着 4-7-8 的节奏做了 5 轮，心态竟然平稳了不少。记录一下这份改变。",
-                Arrays.asList("呼吸练习", "自我关怀"),
-                1,
-                null
-        ));
-        all.add(new PostDto(
-                "p4",
-                "灯下客",
-                true,
-                "昨天",
-                "晚间散步的声音",
-                "录了一段路上的环境音和自己的心情，舒服。",
-                Arrays.asList("夜间情绪"),
-                0,
-                16
-        ));
-
-        // 按类别过滤（若传入）
-        List<PostDto> filtered;
-        if (category == null || category.trim().isEmpty()) {
-            filtered = all;
-        } else {
-            String cat = category.trim();
-            filtered = new ArrayList<>();
-            for (PostDto p : all) {
-                if (p.getTags() != null && p.getTags().stream().anyMatch(t -> t.contains(cat))) {
-                    filtered.add(p);
+        String key = (category == null || category.trim().isEmpty()) ? "__ALL__" : category.trim();
+        CacheEntry entry = cacheByCategory.get(key);
+        long now = System.currentTimeMillis();
+        boolean needRebuild = entry == null || (now - entry.builtAt) >= CACHE_TTL_MILLIS || entry.builtAt < lastUpdated.get();
+        if (needRebuild) {
+            List<PostDto> filtered;
+            if ("__ALL__".equals(key)) {
+                filtered = new ArrayList<>(allPosts);
+            } else {
+                filtered = new ArrayList<>();
+                for (PostDto p : allPosts) {
+                    if (p.getTags() != null && p.getTags().stream().anyMatch(t -> t.contains(key))) {
+                        filtered.add(p);
+                    }
                 }
+                if (filtered.isEmpty()) filtered = new ArrayList<>(allPosts);
             }
-            if (filtered.isEmpty()) filtered = all; // 若无匹配，回退全部
+            filtered.sort(Comparator.comparingLong(PostDto::getCreatedAtMillis).reversed());
+            CacheEntry newEntry = new CacheEntry(Collections.unmodifiableList(filtered), now);
+            cacheByCategory.put(key, newEntry);
+            entry = newEntry;
         }
-
-        // 简单分页
+        List<PostDto> source = entry.snapshot;
         int from = Math.max(0, page * Math.max(1, size));
-        int to = Math.min(filtered.size(), from + Math.max(1, size));
-        if (from >= filtered.size()) return Collections.emptyList();
-        return filtered.subList(from, to);
+        int to = Math.min(source.size(), from + Math.max(1, size));
+        if (from >= source.size()) return Collections.emptyList();
+        return source.subList(from, to);
+    }
+
+    @Override
+    public PostDto createPost(String title, String content, List<String> tags, List<String> images, boolean anonymous, String authorName, String authorAvatar) {
+        String id = "p" + System.currentTimeMillis();
+        String author = anonymous ? "匿名用户" : (authorName != null && !authorName.trim().isEmpty() ? authorName.trim() : "我");
+        PostDto p = new PostDto(id, author, authorName != null ? authorName : author, authorAvatar, anonymous, "刚刚", title != null && !title.trim().isEmpty() ? title : "未命名", content != null ? content : "", tags != null ? tags : Collections.emptyList(), images != null ? images : Collections.emptyList(), null, System.currentTimeMillis());
+        allPosts.add(0, p);
+        lastUpdated.set(System.currentTimeMillis());
+        cacheByCategory.clear();
+        return p;
+    }
+
+    private static final class CacheEntry {
+        final List<PostDto> snapshot;
+        final long builtAt;
+        CacheEntry(List<PostDto> snapshot, long builtAt) { this.snapshot = snapshot; this.builtAt = builtAt; }
     }
 
     // 新增：创建小组

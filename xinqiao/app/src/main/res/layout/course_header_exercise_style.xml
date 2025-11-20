@@ -25,7 +25,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="心理课程"
+                    android:text="@string/psych_courses"
                     android:textColor="#FFFFFF"
                     android:textSize="28sp"
                     android:textStyle="bold" />
@@ -38,7 +38,7 @@
                     android:padding="10dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:tint="#FFFFFF"
-                    android:contentDescription="播放历史"
+                    android:contentDescription="@string/play_history"
                     android:src="@drawable/ic_history_blue" />
         </LinearLayout>
 
@@ -66,7 +66,7 @@
                     android:layout_weight="1"
                     android:layout_marginStart="12dp"
                     android:background="@android:color/transparent"
-                    android:hint="搜索课程"
+                    android:hint="@string/search_course"
                     android:textColor="#9CA3AF"
                     android:textColorHint="#9CA3AF"
                     android:textSize="16sp"

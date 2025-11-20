@@ -15,7 +15,7 @@
             android:layout_height="wrap_content"
             android:textSize="18sp"
             android:textColor="#222222"
-            android:text="类型"/>
+            android:text="@string/label_type"/>
 
         <TextView
             android:id="@+id/tv_date"
@@ -24,7 +24,7 @@
             android:layout_marginTop="4dp"
             android:textSize="14sp"
             android:textColor="#666666"
-            android:text="日期"/>
+            android:text="@string/label_date"/>
 
         <TextView
             android:id="@+id/tv_score"
@@ -33,7 +33,7 @@
             android:layout_marginTop="8dp"
             android:textSize="16sp"
             android:textColor="#333333"
-            android:text="分数"/>
+            android:text="@string/label_score"/>
 
         <TextView
             android:id="@+id/tv_risk"
@@ -42,7 +42,7 @@
             android:layout_marginTop="4dp"
             android:textSize="16sp"
             android:textColor="#333333"
-            android:text="风险"/>
+            android:text="@string/label_risk"/>
 
         <TextView
             android:id="@+id/tv_details"
@@ -51,7 +51,7 @@
             android:layout_marginTop="12dp"
             android:textSize="15sp"
             android:textColor="#222222"
-            android:text="详情"/>
+            android:text="@string/label_details"/>
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -64,16 +64,15 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="分享"/>
+                android:text="@string/button_share"/>
 
             <Button
                 android:id="@+id/btn_close"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="关闭"/>
+                android:text="@string/button_close"/>
         </LinearLayout>
     </LinearLayout>
 
 </ScrollView>
-

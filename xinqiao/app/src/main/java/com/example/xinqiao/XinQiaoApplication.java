@@ -36,6 +36,10 @@ import com.example.xinqiao.community.CommunityRepositoryProvider;
 import com.example.xinqiao.community.CommunityServiceFactory;
 import com.example.xinqiao.community.RemoteCommunityRepository;
 import com.example.xinqiao.community.CommunityApi;
+import androidx.appcompat.app.AppCompatDelegate;
+import androidx.core.os.LocaleListCompat;
+import com.example.xinqiao.community.SettingsRepository;
+import com.example.xinqiao.util.AnalysisUtils;
 
 public class XinQiaoApplication extends Application {
     // 日志标签
@@ -50,15 +54,15 @@ public class XinQiaoApplication extends Application {
         super.onCreate();
         // 初始化启动优化器（必须最先初始化）
         initStartupOptimizer();
-        // 调试环境下：若为 Android 模拟器，覆盖后端地址为 10.0.2.2:8081（当前后端端口）
         try {
-            if (isDebugBuild() && isAndroidEmulator()) {
-                SharedPreferences sp = getSharedPreferences("network_config", MODE_PRIVATE);
-                String override = sp.getString("base_url_override", null);
-                if (override == null || !override.equals("http://10.0.2.2:8081")) {
-                    sp.edit().putString("base_url_override", "http://10.0.2.2:8081").apply();
-                    Log.d(TAG, "Network base URL overridden to http://10.0.2.2:8081 for emulator");
-                }
+            SharedPreferences sp = getSharedPreferences("network_config", MODE_PRIVATE);
+            String current = sp.getString("base_url_override", null);
+            String desired = (com.example.xinqiao.BuildConfig.BACKEND_URL != null && com.example.xinqiao.BuildConfig.BACKEND_URL.trim().length() > 0)
+                    ? com.example.xinqiao.BuildConfig.BACKEND_URL.trim()
+                    : "http://10.0.2.2:8082";
+            if (current == null || !current.equals(desired)) {
+                sp.edit().putString("base_url_override", desired).apply();
+                Log.d(TAG, "Network base URL overridden to " + desired);
             }
         } catch (Throwable t) {
             Log.w(TAG, "setup base_url_override failed", t);
@@ -66,6 +70,15 @@ public class XinQiaoApplication extends Application {
         
         configureSSL();      // 配置全局SSL信任管理器
         com.example.xinqiao.community.CommunityLocalCache.INSTANCE.init(this);
+        try {
+            SettingsRepository.INSTANCE.init(getApplicationContext());
+            String userName = AnalysisUtils.readLoginUserName(this);
+            SettingsRepository.INSTANCE.get(userName, s -> {
+                String lang = (s != null && s.getAppLanguage() != null) ? s.getAppLanguage() : "zh";
+                try { AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(lang)); } catch (Throwable ignored) {}
+                return kotlin.Unit.INSTANCE;
+            });
+        } catch (Throwable ignored) {}
         
         // 初始化性能优化相关工具
         initPerformanceMonitor();
@@ -80,13 +93,8 @@ public class XinQiaoApplication extends Application {
             CommunityRepositoryProvider.INSTANCE.setCurrent(new RemoteCommunityRepository(api));
             Log.d(TAG, "CommunityRepository initialized with remote backend: " + baseUrl);
             try {
-                SharedPreferences sp = getSharedPreferences("community_migration", MODE_PRIVATE);
-                boolean purged = sp.getBoolean("samplesPurgedV1", false);
-                if (!purged) {
-                    com.example.xinqiao.community.CommunityLocalCache.INSTANCE.purgeSamples();
-                    sp.edit().putBoolean("samplesPurgedV1", true).apply();
-                    Log.d(TAG, "Purged sample posts from local DB");
-                }
+                com.example.xinqiao.community.CommunityLocalCache.INSTANCE.purgeSamples();
+                Log.d(TAG, "Purged sample posts from local DB");
             } catch (Throwable t2) { Log.w(TAG, "Purge samples failed", t2); }
         } catch (Throwable t) {
             Log.w(TAG, "Init remote CommunityRepository failed, fallback to empty repository", t);

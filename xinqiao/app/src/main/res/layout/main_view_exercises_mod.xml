@@ -25,7 +25,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="心理测评"
+                android:text="@string/ex_detail_title"
                 android:textColor="#FFFFFF"
                 android:textSize="28sp"
                 android:textStyle="bold" />
@@ -37,7 +37,7 @@
                 android:padding="8dp"
                 android:src="@drawable/bt_heart"
                 android:tint="#FFFFFF"
-                android:contentDescription="我的测评" />
+                android:contentDescription="@string/my_exercises" />
         </LinearLayout>
 
         <LinearLayout
@@ -63,7 +63,7 @@
                 android:layout_weight="1"
                 android:layout_marginStart="12dp"
                 android:background="@android:color/transparent"
-                android:hint="搜索测评"
+                android:hint="@string/search_exercises_hint"
                 android:textColor="#9CA3AF"
                 android:textColorHint="#9CA3AF"
                 android:textSize="16sp"

@@ -39,7 +39,7 @@
                 android:layout_marginBottom="3dp"
                 android:gravity="center"
                 android:singleLine="true"
-                android:text="课程"
+                android:text="@string/tab_courses"
                 android:textColor="#666666"
                 android:textSize="14sp" />
             <ImageView
@@ -66,7 +66,7 @@
                 android:layout_marginBottom="3dp"
                 android:gravity="center"
                 android:singleLine="true"
-                android:text="习题"
+                android:text="@string/tab_exercises"
                 android:textColor="#666666"
                 android:textSize="14sp" />
             <ImageView
@@ -93,7 +93,7 @@
                     android:layout_marginBottom="3dp"
                     android:gravity="center"
                     android:singleLine="true"
-                    android:text="社区"
+                    android:text="@string/tab_community"
                     android:textColor="#666666"
                     android:textSize="14sp" />
             <ImageView
@@ -120,7 +120,7 @@
                 android:layout_marginBottom="3dp"
                 android:gravity="center"
                 android:singleLine="true"
-                android:text="文章"
+                android:text="@string/tab_articles"
                 android:textColor="#666666"
                 android:textSize="14sp" />
             <ImageView
@@ -147,7 +147,7 @@
                 android:layout_marginBottom="3dp"
                 android:gravity="center"
                 android:singleLine="true"
-                android:text="咨询"
+                android:text="@string/tab_consult"
                 android:textColor="#666666"
                 android:textSize="14sp" />
             <ImageView
@@ -174,7 +174,7 @@
                 android:layout_marginBottom="3dp"
                 android:gravity="center"
                 android:singleLine="true"
-                android:text="我"
+                android:text="@string/tab_my"
                 android:textColor="#666666"
                 android:textSize="14sp" />
             <ImageView

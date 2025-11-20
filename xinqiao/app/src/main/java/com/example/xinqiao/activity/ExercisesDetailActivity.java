@@ -67,7 +67,7 @@ public class ExercisesDetailActivity extends AppCompatActivity {
 
         // 按钮
         nextButton = findViewById(R.id.nextButton);
-        nextButton.setText("下一题");
+        nextButton.setText(getString(R.string.ex_next_question));
         nextButton.setTextSize(16);
         nextButton.setTextColor(0xFFFFFFFF);
         nextButton.setPadding(0, 18, 0, 18);
@@ -77,7 +77,7 @@ public class ExercisesDetailActivity extends AppCompatActivity {
         // 通过id获取题目列表
         questions = getQuestionsById(id);
         if (questions == null || questions.size() == 0) {
-            questionTextView.setText("暂无题目");
+            questionTextView.setText(getString(R.string.ex_no_questions));
             nextButton.setEnabled(false);
             return;
         }
@@ -104,7 +104,7 @@ public class ExercisesDetailActivity extends AppCompatActivity {
         nextButton.setOnClickListener(v -> {
             int checkedId = optionsGroup.getCheckedRadioButtonId();
             if (checkedId == -1) {
-                gradeHintTextView.setText("请选择一个选项");
+                gradeHintTextView.setText(getString(R.string.ex_please_select_option));
                 gradeHintTextView.setVisibility(View.VISIBLE);
                 return;
             }
@@ -163,8 +163,8 @@ public class ExercisesDetailActivity extends AppCompatActivity {
 
     private void showQuestion(int index) {
         QuestionBean q = questions.get(index);
-        progressText.setText("第 " + (index + 1) + "/" + questions.size() + " 题");
-        progressText.setText("第 " + (index + 1) + "/" + questions.size() + " 题");
+        progressText.setText(getString(R.string.ex_question_progress_fmt, (index + 1), questions.size()));
+        progressText.setText(getString(R.string.ex_question_progress_fmt, (index + 1), questions.size()));
         
         // 更新进度条
         int progress = (int) (((index + 1) * 100.0) / questions.size());
@@ -195,9 +195,9 @@ public class ExercisesDetailActivity extends AppCompatActivity {
         gradeHintTextView.setVisibility(View.GONE);
         gradeTextView.setText("");
         if (index == questions.size() - 1) {
-            nextButton.setText("提交");
+            nextButton.setText(getString(R.string.ex_submit));
         } else {
-            nextButton.setText("下一题");
+            nextButton.setText(getString(R.string.ex_next_question));
         }
     }
 
@@ -236,8 +236,8 @@ public class ExercisesDetailActivity extends AppCompatActivity {
 
         ScoringEngine.Result sr = ScoringEngine.evaluate(f, System.currentTimeMillis(), System.currentTimeMillis());
 
-        String riskLevel = (score >= 80) ? "高风险" : (score >= 60 ? "中风险" : "低风险");
-        gradeTextView.setText("风险等级：" + riskLevel + "\n" + getAdvice(score));
+        String riskLevel = (score >= 80) ? getString(R.string.ex_risk_high) : (score >= 60 ? getString(R.string.ex_risk_medium) : getString(R.string.ex_risk_low));
+        gradeTextView.setText(getString(R.string.ex_risk_level_label) + riskLevel + "\n" + getAdvice(score));
         gradeTextView.setTextSize(22);
         gradeTextView.setPadding(36, 36, 36, 36);
         gradeTextView.setGravity(android.view.Gravity.CENTER);
@@ -259,7 +259,7 @@ public class ExercisesDetailActivity extends AppCompatActivity {
         // 动态分析
         if (currentExercisesBean != null) {
             int total = questions != null ? questions.size() * 20 : 100;
-            String base = localAnalysis + "\n\n" + "正在联网分析，请稍候...";
+            String base = localAnalysis + "\n\n" + getString(R.string.ex_network_analyzing);
             analysisTextView.setText(base);
             StringBuilder sb = new StringBuilder();
             sb.append("测评名称：").append(currentExercisesBean.title).append("\n");
@@ -311,14 +311,14 @@ public class ExercisesDetailActivity extends AppCompatActivity {
                             esb.append(e.getKey()).append(": ").append(e.getValue()).append("\n");
                         }
                         analysisTextView.setText(esb.toString());
-                        Toast.makeText(ExercisesDetailActivity.this, "联网分析失败，已回退本地分析", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(ExercisesDetailActivity.this, getString(R.string.ex_network_fallback), Toast.LENGTH_SHORT).show();
                         Animation fadeIn = AnimationUtils.loadAnimation(ExercisesDetailActivity.this, R.anim.fade_in);
                         analysisTextView.startAnimation(fadeIn);
                     });
                 }
             });
         } else {
-            analysisTextView.setText("暂无分析");
+            analysisTextView.setText(getString(R.string.ex_no_analysis));
         }
         // === 自动补全：测评完成写入数据库 ===
         String userName = AnalysisUtils.readLoginUserName(this);
@@ -375,7 +375,7 @@ public class ExercisesDetailActivity extends AppCompatActivity {
             // 如果是待支付状态，提示用户
             if (needPayment) {
                 mainHandler.post(() -> {
-                    Toast.makeText(ExercisesDetailActivity.this, "测评完成，查看完整报告需要支付", Toast.LENGTH_LONG).show();
+                    Toast.makeText(ExercisesDetailActivity.this, getString(R.string.ex_payment_required), Toast.LENGTH_LONG).show();
                     // 可以选择直接跳转到支付页面
                     Intent intent = new Intent(ExercisesDetailActivity.this, TestReportActivity.class);
                     intent.putExtra("reportId", record.reportId);
@@ -394,7 +394,7 @@ public class ExercisesDetailActivity extends AppCompatActivity {
         } else if (score >= 0 && score < 60) {
             return "C";
         } else {
-            return "无效分数";
+            return getString(R.string.ex_invalid_score);
         }
     }
 

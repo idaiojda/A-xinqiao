@@ -11,6 +11,10 @@ import java.io.InputStreamReader;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.ResultSet;
+import java.sql.PreparedStatement;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import com.example.xinqiao.mysql.MySQLHelper;
 
@@ -91,8 +95,12 @@ public class DBUpdater {
                 sql = sql.trim();
                 if (!sql.isEmpty()) {
                     try {
-                        stmt.execute(sql);
-                        Log.d(TAG, "Executed SQL: " + sql);
+                        if (shouldSkip(conn, sql)) {
+                            Log.d(TAG, "Skipped SQL (already applied): " + sql);
+                        } else {
+                            stmt.execute(sql);
+                            Log.d(TAG, "Executed SQL: " + sql);
+                        }
                     } catch (SQLException e) {
                         Log.e(TAG, "Error executing SQL: " + sql, e);
                         // 继续执行其他语句
@@ -110,6 +118,57 @@ public class DBUpdater {
                 MySQLHelper.getInstance().releaseConnection(conn);
             }
         }
+    }
+
+    private boolean shouldSkip(Connection conn, String sql) {
+        String s = sql.toLowerCase();
+        if (s.startsWith("alter table") && s.contains("add column")) {
+            String[] parts = sql.replaceAll("\\s+", " ").split(" ");
+            // naive parse: ALTER TABLE <table> ADD COLUMN <column> ...
+            try {
+                int idxTable = 2; // ALTER TABLE <table>
+                String table = parts[idxTable].replace("`", "");
+                int idxAddCol = 5; // ADD COLUMN <column>
+                String column = parts[idxAddCol].replace("`", "");
+                return columnExists(conn, table, column);
+            } catch (Exception ignored) { return false; }
+        }
+        if (s.startsWith("create index") && s.contains(" on ")) {
+            // CREATE INDEX <index> ON <table>(...)
+            try {
+                String norm = sql.replaceAll("\\s+", " ");
+                Matcher m = Pattern.compile("(?i)create index\\s+`?([a-zA-Z0-9_]+)`?\\s+on\\s+`?([a-zA-Z0-9_]+)`?").matcher(norm);
+                if (m.find()) {
+                    String index = m.group(1);
+                    String table = m.group(2);
+                    return indexExists(conn, table, index);
+                }
+            } catch (Exception ignored) { }
+        }
+        return false;
+    }
+
+    private boolean columnExists(Connection conn, String table, String column) {
+        String sql = "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, table);
+            ps.setString(2, column);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getInt(1) > 0;
+            }
+        } catch (SQLException ignored) {}
+        return false;
+    }
+
+    private boolean indexExists(Connection conn, String table, String index) {
+        String sql = "SHOW INDEX FROM `" + table + "` WHERE Key_name = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, index);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next();
+            }
+        } catch (SQLException ignored) {}
+        return false;
     }
 
     /**

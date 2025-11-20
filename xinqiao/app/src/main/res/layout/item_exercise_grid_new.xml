@@ -44,7 +44,7 @@
                 android:gravity="center"
                 android:paddingHorizontal="10dp"
                 android:paddingVertical="4dp"
-                android:text="免费"
+                android:text="@string/free_label"
                 android:textColor="#FF8C4B"
                 android:textSize="11sp"
                 android:textStyle="bold" />
@@ -62,7 +62,7 @@
                 android:id="@+id/tv_title"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="测测你的恋爱心理成熟度"
+                android:text="@string/exercise_title_sample_1"
                 android:textColor="#1F2937"
                 android:textSize="15sp"
                 android:textStyle="bold"
@@ -97,7 +97,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="4dp"
-                        android:text="2.6万人测过"
+                        android:text="@string/people_count_sample"
                         android:textColor="#9CA3AF"
                         android:textSize="11sp" />
                 </LinearLayout>
