@@ -8,6 +8,9 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature
+            android:name="android.hardware.camera"
+            android:required="false" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
@@ -163,6 +166,10 @@
             android:name=".activity.CounselorScheduleActivity"
             android:exported="false"
             android:label="排班管理" />
+        <activity
+            android:name=".activity.CounselorApplicationActivity"
+            android:exported="false"
+            android:label="申请成为咨询师" />
     </application>
 
 </manifest>

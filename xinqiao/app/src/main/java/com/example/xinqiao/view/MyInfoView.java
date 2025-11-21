@@ -7,7 +7,7 @@ import android.content.SharedPreferences;
 import android.util.AttributeSet;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.widget.ImageView;
+
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
@@ -68,6 +68,7 @@ public class MyInfoView extends LinearLayout implements com.example.xinqiao.mysq
         rl_setting = findViewById(R.id.rl_setting);
         rl_balance = findViewById(R.id.rl_balance);
         rl_medical_record = findViewById(R.id.rl_medical_record);
+        View rlApplyCounselor = findViewById(R.id.rl_apply_counselor);
         paymentUtils = new PaymentUtils(mContext);
         mCurrentView = this;
         setLoginParams(readLoginStatus());
@@ -124,6 +125,22 @@ public class MyInfoView extends LinearLayout implements com.example.xinqiao.mysq
                 public void onClick(View v) {
                     if (readLoginStatus()) {
                         Intent intent = new Intent(mContext, MedicalRecordActivity.class);
+                        mContext.startActivity(intent);
+                    } else {
+                        Toast.makeText(mContext, "您还未登录，请先登录", Toast.LENGTH_SHORT).show();
+                    }
+                }
+            });
+        }
+        if (rlApplyCounselor != null) {
+            rlApplyCounselor.setClickable(true);
+            rlApplyCounselor.setFocusable(true);
+            rlApplyCounselor.setOnClickListener(new OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    if (readLoginStatus()) {
+                        Toast.makeText(mContext, "正在打开申请页面", Toast.LENGTH_SHORT).show();
+                        Intent intent = new Intent(mContext, com.example.xinqiao.activity.CounselorApplicationActivity.class);
                         mContext.startActivity(intent);
                     } else {
                         Toast.makeText(mContext, "您还未登录，请先登录", Toast.LENGTH_SHORT).show();

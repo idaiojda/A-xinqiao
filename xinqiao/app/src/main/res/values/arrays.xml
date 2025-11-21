@@ -16,5 +16,20 @@
         <item>其他</item>
     </string-array>
 
-    
-</resources> 
+    <string-array name="qualification_types">
+        <item>国家二级心理咨询师</item>
+        <item>国家三级心理咨询师</item>
+        <item>心理学博士</item>
+        <item>心理学硕士</item>
+        <item>其他</item>
+    </string-array>
+
+    <string-array name="expertise_options">
+        <item>情绪管理</item>
+        <item>婚恋关系</item>
+        <item>亲子教育</item>
+        <item>职场压力</item>
+        <item>人际关系</item>
+        <item>个人成长</item>
+    </string-array>
+</resources>
