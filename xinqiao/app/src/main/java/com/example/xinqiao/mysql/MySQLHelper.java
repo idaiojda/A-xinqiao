@@ -134,7 +134,7 @@ public class MySQLHelper {
         try {
             // 加载数据库驱动
             android.util.Log.d("MySQLHelper", "正在加载MySQL驱动...");
-            Class.forName("com.mysql.jdbc.Driver");
+            loadMySqlDriver();
             android.util.Log.i("MySQLHelper", "MySQL驱动加载成功");
             
             // 测试数据库服务器是否可达
@@ -343,7 +343,7 @@ public class MySQLHelper {
                     throw new SQLException("网络未连接");
                 }
 
-                Class.forName("com.mysql.jdbc.Driver");
+                loadMySqlDriver();
                 android.util.Log.d("MySQLHelper", "尝试连接数据库: " + this.url);
                 
                 // 设置连接属性
@@ -371,6 +371,15 @@ public class MySQLHelper {
             }
         }
         throw new SQLException("无法创建数据库连接，已重试 " + MAX_RETRY_COUNT + " 次");
+    }
+
+    private void loadMySqlDriver() throws ClassNotFoundException {
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+        } catch (ClassNotFoundException e1) {
+            android.util.Log.w("MySQLHelper", "com.mysql.cj.jdbc.Driver 不可用，尝试旧版驱动 com.mysql.jdbc.Driver");
+            Class.forName("com.mysql.jdbc.Driver");
+        }
     }
 
     public void releaseConnection(Connection connection) {

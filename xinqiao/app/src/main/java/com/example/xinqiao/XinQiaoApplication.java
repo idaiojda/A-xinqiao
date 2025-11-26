@@ -86,6 +86,8 @@ public class XinQiaoApplication extends Application {
         initNetworkOptimizer();
         initMemoryOptimizer();
 
+        initDatabase();
+
         // 社区模块：接入远端仓库（Retrofit）
         try {
             String baseUrl = NetworkConfig.getBaseUrl(this);

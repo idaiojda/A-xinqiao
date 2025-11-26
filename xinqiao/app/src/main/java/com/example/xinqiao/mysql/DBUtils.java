@@ -440,6 +440,12 @@ public class DBUtils {
 
     // 获取用户头像路径（现在是获取二进制数据）
     public void getUserAvatarPath(String userName, final AvatarPathCallback callback) {
+        if (helper == null) {
+            android.util.Log.e("DBUtils", "数据库连接未初始化");
+            android.os.Handler mainHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+            mainHandler.post(() -> { if (callback != null) callback.onSuccess(null); });
+            return;
+        }
         new Thread(() -> {
             helper.getConnection(new MySQLHelper.ConnectionResultCallback() {
                 @Override
@@ -520,6 +526,12 @@ public class DBUtils {
 
     // 更新用户头像（现在是更新二进制数据）
     public void updateUserAvatar(String userName, byte[] avatarData, final UpdateAvatarCallback callback) {
+        if (helper == null) {
+            android.util.Log.e("DBUtils", "数据库连接未初始化");
+            android.os.Handler mainHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+            mainHandler.post(() -> { if (callback != null) callback.onResult(false); });
+            return;
+        }
         new Thread(() -> {
             helper.getConnection(new MySQLHelper.ConnectionResultCallback() {
                 @Override

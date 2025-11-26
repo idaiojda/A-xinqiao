@@ -170,6 +170,14 @@
             android:name=".activity.CounselorApplicationActivity"
             android:exported="false"
             android:label="申请成为咨询师" />
+        <activity
+            android:name=".activity.CounselorMainActivity"
+            android:exported="false"
+            android:label="咨询师工作台" />
+        <activity
+            android:name=".activity.CounselorInfoEditActivity"
+            android:exported="false"
+            android:label="个人信息管理" />
     </application>
 
 </manifest>

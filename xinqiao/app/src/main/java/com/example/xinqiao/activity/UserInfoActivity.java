@@ -264,15 +264,20 @@ public class UserInfoActivity extends AppCompatActivity {
                                 
                                 // 显示手机号（username）
                                 if (username != null && !username.isEmpty()) {
-                                    // 格式化手机号显示，如：138****8888
                                     if (username.length() == 11) {
                                         String formattedPhone = username.substring(0, 3) + "****" + username.substring(7);
                                         tvPhone.setText(formattedPhone);
+                                        getSharedPreferences("counselor_profile", MODE_PRIVATE)
+                                                .edit().putString("phone_masked", formattedPhone).apply();
                                     } else {
                                         tvPhone.setText(username);
+                                        getSharedPreferences("counselor_profile", MODE_PRIVATE)
+                                                .edit().putString("phone_masked", username).apply();
                                     }
                                 } else {
                                     tvPhone.setText("未设置");
+                                    getSharedPreferences("counselor_profile", MODE_PRIVATE)
+                                            .edit().remove("phone_masked").apply();
                                 }
 
                                 if ("男".equals(gender)) {

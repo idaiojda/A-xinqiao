@@ -85,8 +85,7 @@ public class AnalysisUtils {
             android.util.Log.w("AnalysisUtils", "readLoginUserName: 未找到登录用户名或用户名为空");
             return "";
         } else {
-            android.util.Log.d("AnalysisUtils", "readLoginUserName: 读取到登录用户名=" + userName);
-            return userName.trim(); // 确保返回的用户名没有前后空格
+            return userName.trim();
         }
     }
 
@@ -106,8 +105,6 @@ public class AnalysisUtils {
 
         if (userId == -1) {
             android.util.Log.w("AnalysisUtils", "readUserId: 未找到登录用户ID或ID无效");
-        } else {
-            android.util.Log.d("AnalysisUtils", "readUserId: 读取到登录用户ID=" + userId);
         }
         return userId;
     }

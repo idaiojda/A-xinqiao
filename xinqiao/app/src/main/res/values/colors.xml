@@ -57,6 +57,7 @@
     <color name="settings_accent">#667eea</color>
     <color name="settings_accent_light">#E0E7FF</color>
     <color name="settings_divider">#F3F4F6</color>
+    <color name="chip_background">#F5F5F5</color>
     
     <!-- Privacy page modern palette -->
     <color name="privacy_bg">#F8F5FF</color>

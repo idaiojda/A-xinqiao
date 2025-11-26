@@ -20,7 +20,17 @@ public class ChatHistoryDao {
 
     public ChatHistoryDao(Context context) {
         this.context = context;
-        helper = MySQLHelper.getInstance();
+        try {
+            helper = MySQLHelper.getInstance();
+        } catch (IllegalStateException e) {
+            helper = null;
+            try {
+                MySQLHelper.getInstance(context, new MySQLHelper.InitCallback() {
+                    @Override public void onSuccess() { try { ChatHistoryDao.this.helper = MySQLHelper.getInstance(); } catch (IllegalStateException ignored) {} }
+                    @Override public void onError(SQLException ex) {}
+                });
+            } catch (Throwable ignored) {}
+        }
     }
 
     /**
@@ -28,6 +38,7 @@ public class ChatHistoryDao {
      */
     public boolean saveChatHistory(ChatHistory chatHistory) {
         boolean flag = false;
+        if (!ensureHelper()) return false;
         Connection conn = null;
         try {
             conn = helper.getConnection();
@@ -65,6 +76,7 @@ public class ChatHistoryDao {
      */
     public List<ChatHistory> getChatHistory(String userName, int sessionId) {
         List<ChatHistory> chatHistoryList = new ArrayList<>();
+        if (!ensureHelper()) return chatHistoryList;
         String sql;
         if (sessionId > 0) {
             sql = "SELECT * FROM chat_history WHERE userName=? AND sessionId=? ORDER BY timestamp ASC";
@@ -100,6 +112,7 @@ public class ChatHistoryDao {
      */
     public boolean deleteChatHistory(String userName) {
         boolean flag = false;
+        if (!ensureHelper()) return false;
         String sql = "DELETE FROM chat_history WHERE userName=?";
         try (Connection conn = helper.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -119,6 +132,7 @@ public class ChatHistoryDao {
      */
     public boolean deleteMessageById(int id) {
         boolean flag = false;
+        if (!ensureHelper()) return false;
         String sql = "DELETE FROM chat_history WHERE _id=?";
         try (Connection conn = helper.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -131,6 +145,13 @@ public class ChatHistoryDao {
             e.printStackTrace();
         }
         return flag;
+    }
+
+    private boolean ensureHelper() {
+        if (helper == null) {
+            try { helper = MySQLHelper.getInstance(); } catch (IllegalStateException e) { return false; }
+        }
+        return true;
     }
 
     /**

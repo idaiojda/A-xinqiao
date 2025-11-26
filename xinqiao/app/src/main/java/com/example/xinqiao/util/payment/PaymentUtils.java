@@ -32,8 +32,18 @@ public class PaymentUtils {
 
     public PaymentUtils(Context context) {
         this.context = context;
-        this.helper = MySQLHelper.getInstance();
         this.mainHandler = new Handler(Looper.getMainLooper());
+        try {
+            this.helper = MySQLHelper.getInstance();
+        } catch (IllegalStateException e) {
+            this.helper = null;
+            try {
+                MySQLHelper.getInstance(context, new MySQLHelper.InitCallback() {
+                    @Override public void onSuccess() { try { PaymentUtils.this.helper = MySQLHelper.getInstance(); } catch (IllegalStateException ignored) {} }
+                    @Override public void onError(SQLException ex) { }
+                });
+            } catch (Throwable ignored) {}
+        }
     }
 
 
@@ -43,6 +53,7 @@ public class PaymentUtils {
      * 用户充值
      */
     public void recharge(String username, double amount, PaymentCallback callback) {
+        if (!ensureHelper(callback)) return;
         new Thread(() -> {
             Connection conn = null;
             try {
@@ -72,6 +83,7 @@ public class PaymentUtils {
      * 获取用户余额
      */
     public void getBalance(String username, PaymentCallback callback) {
+        if (!ensureHelper(callback)) return;
         new Thread(() -> {
             Connection conn = null;
             try {
@@ -103,6 +115,7 @@ public class PaymentUtils {
      * 购买课程
      */
     public void purchaseCourse(String username, int courseId, PaymentCallback callback) {
+        if (!ensureHelper(callback)) return;
         new Thread(() -> {
             Connection conn = null;
             try {
@@ -185,6 +198,7 @@ public class PaymentUtils {
      * 检查用户是否已购买课程
      */
     public void checkCoursePurchased(String username, int courseId, PaymentCallback callback) {
+        if (!ensureHelper(callback)) return;
         new Thread(() -> {
             Connection conn = null;
             try {
@@ -226,6 +240,7 @@ public class PaymentUtils {
      * @param callback 回调接口
      */
     public void deductBalance(String username, double amount, PaymentCallback callback) {
+        if (!ensureHelper(callback)) return;
         new Thread(() -> {
             Connection conn = null;
             try {
@@ -296,6 +311,7 @@ public class PaymentUtils {
      * 购买习题
      */
     public void purchaseExercise(String username, int exerciseId, double price, PaymentCallback callback) {
+        if (!ensureHelper(callback)) return;
         new Thread(() -> {
             Connection conn = null;
             try {
@@ -366,6 +382,7 @@ public class PaymentUtils {
      * 检查用户是否已购买习题
      */
     public void checkExercisePurchased(String username, int exerciseId, PaymentCallback callback) {
+        if (!ensureHelper(callback)) return;
         new Thread(() -> {
             Connection conn = null;
             try {
@@ -391,5 +408,13 @@ public class PaymentUtils {
                 }
             }
         }).start();
+    }
+
+    private boolean ensureHelper(PaymentCallback callback) {
+        if (helper == null) {
+            try { helper = MySQLHelper.getInstance(); }
+            catch (IllegalStateException e) { if (callback != null) { mainHandler.post(() -> callback.onError("数据库未初始化")); } return false; }
+        }
+        return true;
     }
 }

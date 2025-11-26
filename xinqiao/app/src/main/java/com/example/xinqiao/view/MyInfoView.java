@@ -24,6 +24,7 @@ import android.util.Base64;
 import android.graphics.BitmapFactory;
 import android.graphics.Bitmap;
 import android.graphics.Matrix;
+import java.net.URLEncoder;
 
 import com.example.xinqiao.util.payment.PaymentUtils;
 import de.hdodenhof.circleimageview.CircleImageView;
@@ -35,6 +36,7 @@ public class MyInfoView extends LinearLayout implements com.example.xinqiao.mysq
     private LinearLayout ll_head;
     private RelativeLayout rl_course_history;
     private View rl_setting, rl_balance, rl_medical_record;
+    private TextView tvApplyLabel;
     private Activity mContext;
     private LayoutInflater mInflater;
     private View mCurrentView;
@@ -69,6 +71,7 @@ public class MyInfoView extends LinearLayout implements com.example.xinqiao.mysq
         rl_balance = findViewById(R.id.rl_balance);
         rl_medical_record = findViewById(R.id.rl_medical_record);
         View rlApplyCounselor = findViewById(R.id.rl_apply_counselor);
+        tvApplyLabel = findViewById(R.id.tv_apply_label);
         paymentUtils = new PaymentUtils(mContext);
         mCurrentView = this;
         setLoginParams(readLoginStatus());
@@ -135,22 +138,138 @@ public class MyInfoView extends LinearLayout implements com.example.xinqiao.mysq
         if (rlApplyCounselor != null) {
             rlApplyCounselor.setClickable(true);
             rlApplyCounselor.setFocusable(true);
-            rlApplyCounselor.setOnClickListener(new OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    if (readLoginStatus()) {
-                        Toast.makeText(mContext, "正在打开申请页面", Toast.LENGTH_SHORT).show();
-                        Intent intent = new Intent(mContext, com.example.xinqiao.activity.CounselorApplicationActivity.class);
-                        mContext.startActivity(intent);
-                    } else {
-                        Toast.makeText(mContext, "您还未登录，请先登录", Toast.LENGTH_SHORT).show();
-                    }
-                }
-            });
         }
+        updateCounselorEntry();
         
         // 更新余额显示
         updateBalance();
+    }
+
+    private void updateCounselorEntry() {
+        View rlApplyCounselor = findViewById(R.id.rl_apply_counselor);
+        if (rlApplyCounselor == null) return;
+        if (!readLoginStatus()) {
+            if (tvApplyLabel != null) tvApplyLabel.setText("申请成为咨询师");
+            rlApplyCounselor.setOnClickListener(new OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    Toast.makeText(mContext, "您还未登录，请先登录", Toast.LENGTH_SHORT).show();
+                }
+            });
+            return;
+        }
+        SharedPreferences sp = mContext.getSharedPreferences("loginInfo", Context.MODE_PRIVATE);
+        boolean isCounselor = sp.getBoolean("isCounselor", false);
+        String status = sp.getString("counselor_application_status", "none");
+        if (isCounselor || "approved".equals(status)) {
+            if (tvApplyLabel != null) tvApplyLabel.setText("进入咨询师端");
+            rlApplyCounselor.setOnClickListener(new OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    Intent intent = new Intent(mContext, com.example.xinqiao.activity.CounselorMainActivity.class);
+                    mContext.startActivity(intent);
+                }
+            });
+        } else if ("rejected".equals(status)) {
+            if (tvApplyLabel != null) tvApplyLabel.setText("未通过审核");
+            rlApplyCounselor.setOnClickListener(new OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    Toast.makeText(mContext, "未通过审核，请完善资料后重新提交", Toast.LENGTH_SHORT).show();
+                    Intent intent = new Intent(mContext, com.example.xinqiao.activity.CounselorApplicationActivity.class);
+                    mContext.startActivity(intent);
+                }
+            });
+        } else if ("submitted".equals(status)) {
+            if (tvApplyLabel != null) tvApplyLabel.setText("已提交，等待审核");
+            rlApplyCounselor.setOnClickListener(new OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    Intent intent = new Intent(mContext, com.example.xinqiao.activity.CounselorApplicationActivity.class);
+                    mContext.startActivity(intent);
+                }
+            });
+        } else {
+            if (tvApplyLabel != null) tvApplyLabel.setText("申请成为咨询师");
+            rlApplyCounselor.setOnClickListener(new OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    Intent intent = new Intent(mContext, com.example.xinqiao.activity.CounselorApplicationActivity.class);
+                    mContext.startActivity(intent);
+                }
+            });
+        }
+        probeCounselorStatus();
+    }
+
+    private void probeCounselorStatus() {
+        new Thread(() -> {
+            try {
+                SharedPreferences sp = mContext.getSharedPreferences("loginInfo", Context.MODE_PRIVATE);
+                String token = sp.getString("auth_token", null);
+                String userName = AnalysisUtils.readLoginUserName(mContext);
+                String base = com.example.xinqiao.network.NetworkConfig.getBaseUrl(mContext);
+                okhttp3.OkHttpClient client = new okhttp3.OkHttpClient();
+                String[] urls = new String[]{
+                        base + "/api/me",
+                        base + "/api/applications/me?user=" + URLEncoder.encode(userName == null ? "" : userName, "UTF-8"),
+                        base + "/api/counselor/schedule?user=" + URLEncoder.encode(userName == null ? "" : userName, "UTF-8")
+                };
+                boolean counselor = false;
+                String appStatus = null;
+                if (token != null && !token.isEmpty()) {
+                    okhttp3.Request.Builder b1 = new okhttp3.Request.Builder().url(urls[0]);
+                    b1.addHeader("Authorization", "Bearer " + token);
+                    try (okhttp3.Response r = client.newCall(b1.build()).execute()) {
+                        if (r.isSuccessful()) {
+                            String s = r.body() != null ? r.body().string() : "{}";
+                            org.json.JSONObject o = new org.json.JSONObject(s);
+                            String role = o.optString("role", "");
+                            if ("counselor".equalsIgnoreCase(role)) counselor = true;
+                        }
+                    } catch (Exception ignored) {}
+                }
+                if (!counselor) {
+                    okhttp3.Request.Builder b2 = new okhttp3.Request.Builder().url(urls[1]);
+                    if (token != null && !token.isEmpty()) b2.addHeader("Authorization", "Bearer " + token);
+                    try (okhttp3.Response r2 = client.newCall(b2.build()).execute()) {
+                        if (r2.isSuccessful()) {
+                            String s2 = r2.body() != null ? r2.body().string() : "{}";
+                            org.json.JSONObject o2 = new org.json.JSONObject(s2);
+                            appStatus = o2.optString("status", null);
+                            if ("approved".equalsIgnoreCase(appStatus)) counselor = true;
+                        }
+                    } catch (Exception ignored) {}
+                }
+                if (!counselor) {
+                    okhttp3.Request.Builder b3 = new okhttp3.Request.Builder().url(urls[2]);
+                    if (token != null && !token.isEmpty()) b3.addHeader("Authorization", "Bearer " + token);
+                    try (okhttp3.Response r3 = client.newCall(b3.build()).execute()) {
+                        if (r3.isSuccessful()) counselor = true;
+                    } catch (Exception ignored) {}
+                }
+                SharedPreferences.Editor ed = sp.edit();
+                if (counselor) {
+                    ed.putBoolean("isCounselor", true);
+                    ed.putString("counselor_application_status", "approved");
+                } else if (appStatus != null) {
+                    String st = appStatus.toLowerCase();
+                    if ("rejected".equals(st)) ed.putString("counselor_application_status", "rejected");
+                    else if ("submitted".equals(st) || "pending".equals(st)) ed.putString("counselor_application_status", "submitted");
+                }
+                ed.apply();
+                final boolean approved = counselor;
+                mContext.runOnUiThread(() -> {
+                    updateCounselorEntry();
+                    if (approved) {
+                        try {
+                            Intent intent = new Intent(mContext, com.example.xinqiao.activity.CounselorMainActivity.class);
+                            mContext.startActivity(intent);
+                        } catch (Exception ignored) {}
+                    }
+                });
+            } catch (Exception ignored) {}
+        }).start();
     }
 
     public void setUserInfo(String nickname) {
@@ -215,6 +334,7 @@ public class MyInfoView extends LinearLayout implements com.example.xinqiao.mysq
             });
             
             updateBalance();
+            updateCounselorEntry();
             // 登录后自动刷新头像
             String userName = AnalysisUtils.readLoginUserName(mContext);
             DBUtils dbUtils = null;

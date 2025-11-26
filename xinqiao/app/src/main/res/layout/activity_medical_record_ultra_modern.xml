@@ -133,7 +133,7 @@
         app:tabTextAppearance="@style/TabTextAppearance.Modern"
         app:tabSelectedTextColor="@color/white"
         app:tabTextColor="#CCFFFFFF"
-        app:tabRippleColor="@color/white_20_transparent" />
+        app:tabRippleColor="@color/white_10_transparent" />
 
     <!-- ViewPager2 with Enhanced Background -->
     <androidx.viewpager2.widget.ViewPager2
