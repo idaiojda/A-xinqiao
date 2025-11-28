@@ -925,14 +925,18 @@ public class DBUtils {
         Connection conn = null;
         try {
             conn = MySQLHelper.getInstance().getConnection();
-            conn.createStatement().execute("CREATE TABLE IF NOT EXISTS community_group_voice_read (group_name VARCHAR(255), user_name VARCHAR(255), message_id VARCHAR(255), ts BIGINT, PRIMARY KEY (group_name, user_name, message_id))");
-            String sql = "INSERT INTO community_group_voice_read (group_name, user_name, message_id, ts) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE ts = ?";
+            conn.createStatement().execute(
+                "CREATE TABLE IF NOT EXISTS community_group_message_reads (" +
+                "message_id VARCHAR(64) NOT NULL, " +
+                "user_name VARCHAR(50) NOT NULL, " +
+                "read_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
+                "PRIMARY KEY (message_id, user_name)" +
+                ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+            );
+            String sql = "INSERT INTO community_group_message_reads (message_id, user_name, read_at) VALUES (?, ?, CURRENT_TIMESTAMP) ON DUPLICATE KEY UPDATE read_at = CURRENT_TIMESTAMP";
             PreparedStatement stmt = conn.prepareStatement(sql);
-            stmt.setString(1, groupName);
+            stmt.setString(1, messageId);
             stmt.setString(2, userName);
-            stmt.setString(3, messageId);
-            stmt.setLong(4, System.currentTimeMillis());
-            stmt.setLong(5, System.currentTimeMillis());
             stmt.executeUpdate();
             stmt.close();
         } catch (Exception e) {
@@ -947,8 +951,17 @@ public class DBUtils {
         Connection conn = null;
         try {
             conn = MySQLHelper.getInstance().getConnection();
-            conn.createStatement().execute("CREATE TABLE IF NOT EXISTS community_group_voice_read (group_name VARCHAR(255), user_name VARCHAR(255), message_id VARCHAR(255), ts BIGINT, PRIMARY KEY (group_name, user_name, message_id))");
-            String sql = "SELECT message_id FROM community_group_voice_read WHERE group_name=? AND user_name=?";
+            conn.createStatement().execute(
+                "CREATE TABLE IF NOT EXISTS community_group_message_reads (" +
+                "message_id VARCHAR(64) NOT NULL, " +
+                "user_name VARCHAR(50) NOT NULL, " +
+                "read_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
+                "PRIMARY KEY (message_id, user_name)" +
+                ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+            );
+            String sql = "SELECT r.message_id FROM community_group_message_reads r " +
+                         "JOIN community_group_messages m ON r.message_id = m.id " +
+                         "WHERE m.group_name = ? AND r.user_name = ?";
             PreparedStatement stmt = conn.prepareStatement(sql);
             stmt.setString(1, groupName);
             stmt.setString(2, userName);
@@ -1087,8 +1100,17 @@ public class DBUtils {
         Connection conn = null;
         try {
             conn = MySQLHelper.getInstance().getConnection();
-            conn.createStatement().execute("CREATE TABLE IF NOT EXISTS community_group_voice_read (group_name VARCHAR(255), user_name VARCHAR(255), message_id VARCHAR(255), ts BIGINT, PRIMARY KEY (group_name, user_name, message_id))");
-            String sql = "DELETE FROM community_group_voice_read WHERE group_name=? AND user_name=?";
+            conn.createStatement().execute(
+                "CREATE TABLE IF NOT EXISTS community_group_message_reads (" +
+                "message_id VARCHAR(64) NOT NULL, " +
+                "user_name VARCHAR(50) NOT NULL, " +
+                "read_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
+                "PRIMARY KEY (message_id, user_name)" +
+                ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+            );
+            String sql = "DELETE r FROM community_group_message_reads r " +
+                         "JOIN community_group_messages m ON r.message_id = m.id " +
+                         "WHERE m.group_name = ? AND r.user_name = ?";
             PreparedStatement stmt = conn.prepareStatement(sql);
             stmt.setString(1, groupName);
             stmt.setString(2, userName);

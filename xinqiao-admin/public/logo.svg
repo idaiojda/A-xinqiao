@@ -1,0 +1,23 @@
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- 外圆 -->
+  <circle cx="100" cy="100" r="90" fill="url(#gradient)" opacity="0.1"/>
+  
+  <!-- 内圆 -->
+  <circle cx="100" cy="100" r="70" fill="url(#gradient)"/>
+  
+  <!-- 心形图标 -->
+  <path d="M100 120 C85 105,70 90,70 75 C70 60,80 50,95 50 C100 50,100 55,100 55 C100 55,100 50,105 50 C120 50,130 60,130 75 C130 90,115 105,100 120 Z" fill="white"/>
+  
+  <!-- 波纹效果 -->
+  <circle cx="100" cy="100" r="85" fill="none" stroke="url(#gradient)" stroke-width="2" opacity="0.3">
+    <animate attributeName="r" from="70" to="90" dur="2s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" from="0.5" to="0" dur="2s" repeatCount="indefinite"/>
+  </circle>
+</svg>

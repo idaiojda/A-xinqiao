@@ -9,4 +9,5 @@ public interface ScheduleSlotRepository extends JpaRepository<ScheduleSlot, Long
     List<ScheduleSlot> findByCounselorUsernameOrderByStartTimeAsc(String counselorUsername);
     List<ScheduleSlot> findByCounselorUsernameAndStartTimeBetween(String counselorUsername, LocalDateTime from, LocalDateTime to);
     List<ScheduleSlot> findByCounselorUsernameAndStartTimeLessThanEqualAndEndTimeGreaterThanEqualAndAvailableTrue(String counselorUsername, LocalDateTime start, LocalDateTime end);
+    List<ScheduleSlot> findByCounselorUsernameAndStartTimeLessThanAndEndTimeGreaterThan(String counselorUsername, LocalDateTime end, LocalDateTime start);
 }

@@ -523,7 +523,7 @@ public class MySQLHelper {
             // 首先创建用户信息表
             conn.createStatement().execute(
                 "CREATE TABLE IF NOT EXISTS user_info (" +
-                "user_id INT AUTO_INCREMENT PRIMARY KEY, " +
+                "user_id BIGINT PRIMARY KEY, " +
                 "username VARCHAR(50) NOT NULL UNIQUE, " +
                 "password VARCHAR(50) NOT NULL, " +
                 "nickname VARCHAR(50), " +
@@ -535,7 +535,8 @@ public class MySQLHelper {
                 "avatar LONGBLOB, " +
                 "balance DECIMAL(10,2) DEFAULT 0.00, " +
                 "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
-                "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP" +
+                "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, " +
+                "FOREIGN KEY (user_id) REFERENCES users(id)" +
                 ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
             
             // 确保balance列存在
@@ -656,12 +657,12 @@ public class MySQLHelper {
                 "readProgress INT" +
                 ") ENGINE=InnoDB DEFAULT CHARSET=utf8;");
 
-            // 创建课程购买记录表
             conn.createStatement().execute(
-                "CREATE TABLE IF NOT EXISTS course_purchase (" +
-                "purchase_id INT AUTO_INCREMENT PRIMARY KEY, " +
+                "CREATE TABLE IF NOT EXISTS purchases (" +
+                "id INT AUTO_INCREMENT PRIMARY KEY, " +
                 "user_id INT NOT NULL, " +
-                "course_id INT NOT NULL, " +
+                "item_type ENUM('course','exercise') NOT NULL, " +
+                "item_id INT NOT NULL, " +
                 "price DECIMAL(10,2) NOT NULL, " +
                 "purchase_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
                 "FOREIGN KEY (user_id) REFERENCES user_info(user_id)" +
@@ -687,16 +688,7 @@ public class MySQLHelper {
                 "FOREIGN KEY (user_id) REFERENCES user_info(user_id)" +
                 ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
-            // 创建习题购买记录表
-            conn.createStatement().execute(
-                "CREATE TABLE IF NOT EXISTS exercise_purchase (" +
-                "purchase_id INT AUTO_INCREMENT PRIMARY KEY, " +
-                "user_id INT NOT NULL, " +
-                "exercise_id INT NOT NULL, " +
-                "price DECIMAL(10,2) NOT NULL, " +
-                "purchase_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
-                "FOREIGN KEY (user_id) REFERENCES user_info(user_id)" +
-                ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+            
 
             // 初始化课程价格数据
             String checkSql = "SELECT COUNT(*) as count FROM course_price";
@@ -774,6 +766,17 @@ public class MySQLHelper {
                 "recalled TINYINT(1) DEFAULT 0, " +
                 "INDEX idx_group_ts (group_name, timestamp), " +
                 "FOREIGN KEY (group_name) REFERENCES community_groups(name) ON DELETE CASCADE" +
+                ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+            );
+
+            // 小组消息已读表（统一结构）
+            conn.createStatement().execute(
+                "CREATE TABLE IF NOT EXISTS community_group_message_reads (" +
+                "message_id VARCHAR(64) NOT NULL, " +
+                "user_name VARCHAR(50) NOT NULL, " +
+                "read_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
+                "PRIMARY KEY (message_id, user_name), " +
+                "FOREIGN KEY (message_id) REFERENCES community_group_messages(id) ON DELETE CASCADE" +
                 ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
             );
             

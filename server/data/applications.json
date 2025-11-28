@@ -1,0 +1,22 @@
+{
+  "applications": [
+    {
+      "id": "2820bce5-db39-4c15-9a01-e5e726c93cb5",
+      "user": "13015982122",
+      "payload": {
+        "user": "13015982122",
+        "realName": "Monika",
+        "phone": "123456789",
+        "intro": "",
+        "qualificationType": "国家二级心理咨询师",
+        "years": 3,
+        "expertise": [
+          "情绪管理"
+        ]
+      },
+      "status": "approved",
+      "createdAt": "2025-11-26T10:39:57.832Z",
+      "updatedAt": "2025-11-26T10:40:16.259Z"
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 package com.example.xinqiaobackend.security;
 
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.SignatureAlgorithm;  
 import io.jsonwebtoken.security.Keys;
 import io.jsonwebtoken.Claims;
 import javax.crypto.SecretKey;

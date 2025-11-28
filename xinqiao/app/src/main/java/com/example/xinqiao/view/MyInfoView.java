@@ -162,14 +162,9 @@ public class MyInfoView extends LinearLayout implements com.example.xinqiao.mysq
         boolean isCounselor = sp.getBoolean("isCounselor", false);
         String status = sp.getString("counselor_application_status", "none");
         if (isCounselor || "approved".equals(status)) {
-            if (tvApplyLabel != null) tvApplyLabel.setText("进入咨询师端");
-            rlApplyCounselor.setOnClickListener(new OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    Intent intent = new Intent(mContext, com.example.xinqiao.activity.CounselorMainActivity.class);
-                    mContext.startActivity(intent);
-                }
-            });
+            rlApplyCounselor.setVisibility(View.GONE);
+            if (tvApplyLabel != null) tvApplyLabel.setText("");
+            rlApplyCounselor.setOnClickListener(null);
         } else if ("rejected".equals(status)) {
             if (tvApplyLabel != null) tvApplyLabel.setText("未通过审核");
             rlApplyCounselor.setOnClickListener(new OnClickListener() {
@@ -206,46 +201,38 @@ public class MyInfoView extends LinearLayout implements com.example.xinqiao.mysq
         new Thread(() -> {
             try {
                 SharedPreferences sp = mContext.getSharedPreferences("loginInfo", Context.MODE_PRIVATE);
-                String token = sp.getString("auth_token", null);
-                String userName = AnalysisUtils.readLoginUserName(mContext);
-                String base = com.example.xinqiao.network.NetworkConfig.getBaseUrl(mContext);
-                okhttp3.OkHttpClient client = new okhttp3.OkHttpClient();
-                String[] urls = new String[]{
-                        base + "/api/me",
-                        base + "/api/applications/me?user=" + URLEncoder.encode(userName == null ? "" : userName, "UTF-8"),
-                        base + "/api/counselor/schedule?user=" + URLEncoder.encode(userName == null ? "" : userName, "UTF-8")
-                };
                 boolean counselor = false;
                 String appStatus = null;
-                if (token != null && !token.isEmpty()) {
-                    okhttp3.Request.Builder b1 = new okhttp3.Request.Builder().url(urls[0]);
-                    b1.addHeader("Authorization", "Bearer " + token);
-                    try (okhttp3.Response r = client.newCall(b1.build()).execute()) {
-                        if (r.isSuccessful()) {
-                            String s = r.body() != null ? r.body().string() : "{}";
-                            org.json.JSONObject o = new org.json.JSONObject(s);
-                            String role = o.optString("role", "");
-                            if ("counselor".equalsIgnoreCase(role)) counselor = true;
-                        }
-                    } catch (Exception ignored) {}
+                com.example.xinqiao.network.MeResp me = com.example.xinqiao.network.ApiJava.me();
+                if (me != null && me.getRoles() != null) {
+                    for (String rr : me.getRoles()) {
+                        if (rr != null && rr.equalsIgnoreCase("COUNSELOR")) { counselor = true; break; }
+                    }
                 }
                 if (!counselor) {
-                    okhttp3.Request.Builder b2 = new okhttp3.Request.Builder().url(urls[1]);
-                    if (token != null && !token.isEmpty()) b2.addHeader("Authorization", "Bearer " + token);
-                    try (okhttp3.Response r2 = client.newCall(b2.build()).execute()) {
-                        if (r2.isSuccessful()) {
-                            String s2 = r2.body() != null ? r2.body().string() : "{}";
-                            org.json.JSONObject o2 = new org.json.JSONObject(s2);
-                            appStatus = o2.optString("status", null);
+                    try {
+                        retrofit2.Response<okhttp3.ResponseBody> r2 = com.example.xinqiao.network.ApiJava.myApplicationsRaw();
+                        if (r2 != null && r2.isSuccessful()) {
+                            String s2 = r2.body() != null ? r2.body().string() : "[]";
+                            String trimmed = s2.trim();
+                            if (trimmed.startsWith("[")) {
+                                org.json.JSONArray arr = new org.json.JSONArray(trimmed);
+                                if (arr.length() > 0) {
+                                    org.json.JSONObject last = arr.getJSONObject(0);
+                                    appStatus = last.optString("status", null);
+                                }
+                            } else {
+                                org.json.JSONObject o2 = new org.json.JSONObject(trimmed);
+                                appStatus = o2.optString("status", null);
+                            }
                             if ("approved".equalsIgnoreCase(appStatus)) counselor = true;
                         }
                     } catch (Exception ignored) {}
                 }
                 if (!counselor) {
-                    okhttp3.Request.Builder b3 = new okhttp3.Request.Builder().url(urls[2]);
-                    if (token != null && !token.isEmpty()) b3.addHeader("Authorization", "Bearer " + token);
-                    try (okhttp3.Response r3 = client.newCall(b3.build()).execute()) {
-                        if (r3.isSuccessful()) counselor = true;
+                    try {
+                        retrofit2.Response<okhttp3.ResponseBody> r3 = com.example.xinqiao.network.ApiJava.counselorSchedule(null, null);
+                        if (r3 != null && r3.isSuccessful()) counselor = true;
                     } catch (Exception ignored) {}
                 }
                 SharedPreferences.Editor ed = sp.edit();

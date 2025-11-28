@@ -12,14 +12,14 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
+import android.content.Intent
 
 class CounselorApplicationActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_counselor_application)
 
-        // 覆盖后端端口为8082，便于本机联调（本地Express服务）
-        try { getSharedPreferences("network_config", MODE_PRIVATE).edit().putString("base_url_override", "http://10.0.2.2:8082").apply() } catch (_: Throwable) {}
+        
 
         val etRealName = findViewById<EditText>(R.id.et_real_name)
         val etPhone = findViewById<EditText>(R.id.et_phone)
@@ -48,6 +48,66 @@ class CounselorApplicationActivity : AppCompatActivity() {
             chipGroup.addView(chip)
         }
 
+        try {
+            val spLogin = getSharedPreferences("loginInfo", MODE_PRIVATE)
+            val tokenExists = !spLogin.getString("auth_token", null).isNullOrEmpty()
+            if (!tokenExists) {
+                val spRemember = getSharedPreferences("login_info", MODE_PRIVATE)
+                val remembered = spRemember.getBoolean("remember_password", false)
+                val phone = spRemember.getString("username", null)
+                val pwd = spRemember.getString("password", null)
+                var obtained = false
+                if (remembered && !phone.isNullOrBlank() && !pwd.isNullOrBlank()) {
+                    try {
+                        val lr = com.example.xinqiao.network.ApiJava.login(phone!!, pwd!!)
+                        if (lr != null && lr.ok && lr.token != null) {
+                            spLogin.edit().putString("auth_token", lr.token).apply()
+                            obtained = true
+                        } else {
+                            val regOk = com.example.xinqiao.network.ApiJava.register(phone!!, pwd!!)
+                            if (regOk) {
+                                val lr2 = com.example.xinqiao.network.ApiJava.login(phone!!, pwd!!)
+                                if (lr2 != null && lr2.ok && lr2.token != null) {
+                                    spLogin.edit().putString("auth_token", lr2.token).apply()
+                                    obtained = true
+                                }
+                            }
+                        }
+                    } catch (_: Exception) {}
+                }
+                if (!obtained) {
+                    Toast.makeText(this, "请先登录后再申请", Toast.LENGTH_SHORT).show()
+                    startActivity(Intent(this, LoginActivity::class.java))
+                    finish()
+                    return
+                }
+            }
+        } catch (_: Throwable) {}
+
+        lifecycleScope.launch {
+            try {
+                val raw = com.example.xinqiao.network.Http.api().myApplicationsRaw()
+                if (raw.isSuccessful) {
+                    val s = raw.body()?.string()
+                    if (s != null) {
+                        val jo = org.json.JSONObject(s)
+                        val arr = jo.optJSONArray("data")
+                        if (arr != null) {
+                            var hasPending = false
+                            for (i in 0 until arr.length()) {
+                                val it = arr.optJSONObject(i)
+                                if (it != null && it.optString("status", "").equals("pending", true)) { hasPending = true; break }
+                            }
+                            if (hasPending) {
+                                tvStatus.text = "已有待审核申请"
+                                btnSubmit.isEnabled = false
+                            }
+                        }
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+
         btnSubmit.setOnClickListener {
             val realName = etRealName.text.toString().trim()
             val phone = etPhone.text.toString().trim()
@@ -64,10 +124,23 @@ class CounselorApplicationActivity : AppCompatActivity() {
                 chip?.text?.toString()?.let { expertise.add(it) }
             }
             lifecycleScope.launch {
+                btnSubmit.isEnabled = false
                 tvStatus.text = "提交中..."
-                val ok = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                val isLoggedIn = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    try { com.example.xinqiao.network.Http.api().me().ok } catch (_: Exception) { false }
+                }
+                if (!isLoggedIn) {
+                    tvStatus.text = "未登录"
+                    Toast.makeText(this@CounselorApplicationActivity, "登录状态已失效，请重新登录", Toast.LENGTH_SHORT).show()
+                    startActivity(Intent(this@CounselorApplicationActivity, LoginActivity::class.java))
+                    finish()
+                    return@launch
+                }
+                val resp = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                     submit(realName, phone, intro, qualification, years, expertise)
                 }
+                val ok = resp?.ok == true || (resp?.code ?: 0) == 200
+                val msg = resp?.message
                 tvStatus.text = if (ok) "已提交，等待审核" else "提交失败"
                 if (ok) {
                     val sp = getSharedPreferences("loginInfo", MODE_PRIVATE)
@@ -75,40 +148,30 @@ class CounselorApplicationActivity : AppCompatActivity() {
                     Toast.makeText(this@CounselorApplicationActivity, "提交成功", Toast.LENGTH_SHORT).show()
                     finish()
                 } else {
-                    Toast.makeText(this@CounselorApplicationActivity, "提交失败，请稍后重试", Toast.LENGTH_SHORT).show()
+                    val tip = if (msg.isNullOrBlank()) "提交失败，请稍后重试" else msg
+                    Toast.makeText(this@CounselorApplicationActivity, tip, Toast.LENGTH_SHORT).show()
+                    if ((resp?.code ?: 0) == 401 || (msg != null && msg.contains("未登录"))) {
+                        startActivity(Intent(this@CounselorApplicationActivity, LoginActivity::class.java))
+                        finish()
+                    }
                 }
+                btnSubmit.isEnabled = true
             }
         }
     }
 
-    private suspend fun submit(realName: String, phone: String, intro: String, qualification: String, years: Int, expertise: List<String>): Boolean {
-        val base = NetworkConfig.getBaseUrl(this)
-        val url = "$base/api/applications"
-        val user = try { getSharedPreferences("loginInfo", MODE_PRIVATE).getString("loginUserName", null) } catch (_: Throwable) { null }
-        val json = JSONObject()
-            .put("user", user ?: JSONObject.NULL)
-            .put("realName", realName)
-            .put("phone", phone)
-            .put("intro", intro)
-            .put("qualificationType", qualification)
-            .put("years", years)
-            .put("expertise", org.json.JSONArray(expertise))
-            .toString()
-        val mt = "application/json; charset=utf-8".toMediaType()
-        val body = json.toRequestBody(mt)
-        val reqBuilder = Request.Builder().url(url).post(body)
-        try {
-            val token = getSharedPreferences("loginInfo", MODE_PRIVATE).getString("auth_token", null)
-            if (!token.isNullOrEmpty()) reqBuilder.addHeader("Authorization", "Bearer $token")
-        } catch (_: Throwable) {}
-        return try {
-            OkHttpClient().newCall(reqBuilder.build()).execute().use { resp ->
-                if (!resp.isSuccessful) return false
-                val s = resp.body?.string() ?: "{}"
-                val obj = JSONObject(s)
-                val code = obj.optInt("code", 0)
-                code == 200
-            }
-        } catch (_: Exception) { false }
+    private suspend fun submit(realName: String, phone: String, intro: String, qualification: String, years: Int, expertise: List<String>): com.example.xinqiao.network.ApiResp<Any>? {
+        val payload = com.example.xinqiao.network.ApplicationPayload(
+            realName = realName,
+            idCard = null,
+            phone = phone,
+            qualificationType = qualification,
+            certificateNo = null,
+            years = years,
+            expertise = expertise,
+            materials = emptyList(),
+            intro = intro
+        )
+        return try { com.example.xinqiao.network.Http.api().submitApplication(payload) } catch (_: Exception) { null }
     }
 }

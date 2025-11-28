@@ -28,6 +28,19 @@ public class CounselorAccessGuard implements HandlerInterceptor {
                 return false;
             }
         }
+        if (uri.startsWith("/api/appointments") && !uri.startsWith("/api/counselor/")) {
+            org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.isAuthenticated()) {
+                boolean isCounselor = false;
+                for (org.springframework.security.core.GrantedAuthority a : auth.getAuthorities()) {
+                    if ("ROLE_COUNSELOR".equalsIgnoreCase(a.getAuthority())) { isCounselor = true; break; }
+                }
+                if (isCounselor) {
+                    response.setStatus(403);
+                    return false;
+                }
+            }
+        }
         return true;
     }
 }

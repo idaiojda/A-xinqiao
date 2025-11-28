@@ -30,38 +30,21 @@ data class AppointmentRequest(
 )
 
 class AppointmentRepository(private val context: Context) {
-    private val client = OkHttpClient.Builder().addInterceptor(AuthInterceptor(context)).build()
-    private val baseUrl: String by lazy { NetworkConfig.getBaseUrl(context) }
     private val jsonMedia = "application/json; charset=utf-8".toMediaType()
 
     suspend fun fetchSlots(consultantId: String, date: String, token: String?): Result<List<SlotTime>> {
         return withContext(Dispatchers.IO) {
-            val url = "$baseUrl/api/consult/pro/slots?consultantId=$consultantId&date=$date"
-            val reqBuilder = Request.Builder().url(url)
-            if (!token.isNullOrEmpty()) reqBuilder.addHeader("Authorization", "Bearer $token")
-
             try {
-                client.newCall(reqBuilder.build()).execute().use { resp ->
-                    if (!resp.isSuccessful) {
-                        // fall back to mock slots when backend not ready
-                        Result.success(mockSlots(date))
-                    } else {
-                        val bodyStr = resp.body?.string() ?: "[]"
-                        val out = mutableListOf<SlotTime>()
-                        val arr = if (bodyStr.trim().startsWith("[")) JSONArray(bodyStr) else JSONObject(bodyStr).optJSONArray("data") ?: JSONArray()
-                        for (i in 0 until arr.length()) {
-                            val o = arr.optJSONObject(i) ?: JSONObject()
-                            out.add(
-                                SlotTime(
-                                    start = o.optString("start"),
-                                    end = o.optString("end"),
-                                    available = o.optBoolean("available", true)
-                                )
-                            )
-                        }
-                        Result.success(out)
-                    }
+                val resp = com.example.xinqiao.network.Http.api().consultSlots(consultantId, date)
+                if (!resp.isSuccessful) return@withContext Result.success(mockSlots(date))
+                val bodyStr = resp.body()?.string() ?: "[]"
+                val out = mutableListOf<SlotTime>()
+                val arr = if (bodyStr.trim().startsWith("[")) JSONArray(bodyStr) else JSONObject(bodyStr).optJSONArray("data") ?: JSONArray()
+                for (i in 0 until arr.length()) {
+                    val o = arr.optJSONObject(i) ?: JSONObject()
+                    out.add(SlotTime(start = o.optString("start"), end = o.optString("end"), available = o.optBoolean("available", true)))
                 }
+                Result.success(out)
             } catch (e: Exception) {
                 Log.e("AppointmentRepository", "fetchSlots error", e)
                 Result.success(mockSlots(date))
@@ -71,34 +54,20 @@ class AppointmentRepository(private val context: Context) {
 
     suspend fun submitAppointment(req: AppointmentRequest, token: String?): Result<String> {
         return withContext(Dispatchers.IO) {
-            val url = "$baseUrl/api/consult/pro/appointments"
-            val root = JSONObject()
-                .put("consultantId", req.consultantId)
-                .put("mode", req.mode)
-                .put("date", req.date)
-                .put("time", req.time)
-                .put("remark", req.remark ?: JSONObject.NULL)
-            val body = root.toString().toRequestBody(jsonMedia)
-
-            val builder = Request.Builder().url(url).post(body)
-            if (!token.isNullOrEmpty()) builder.addHeader("Authorization", "Bearer $token")
-
             try {
-                client.newCall(builder.build()).execute().use { resp ->
-                    if (!resp.isSuccessful) {
-                        // mock success id when backend not ready
-                        Result.success("mock-${System.currentTimeMillis()}")
-                    } else {
-                        val s = resp.body?.string() ?: "{}"
-                        val obj = JSONObject(s)
-                        val id = if (obj.has("id")) {
-                            obj.optString("id")
-                        } else {
-                            obj.optJSONObject("data")?.optString("id") ?: ""
-                        }
-                        Result.success(if (id.isNotBlank()) id else "ok")
-                    }
-                }
+                val body = mapOf(
+                    "consultantId" to req.consultantId,
+                    "mode" to req.mode,
+                    "date" to req.date,
+                    "time" to req.time,
+                    "remark" to req.remark
+                )
+                val resp = com.example.xinqiao.network.Http.api().consultSubmit(body)
+                if (!resp.isSuccessful) return@withContext Result.success("mock-${System.currentTimeMillis()}")
+                val s = resp.body()?.string() ?: "{}"
+                val obj = JSONObject(s)
+                val id = if (obj.has("id")) obj.optString("id") else obj.optJSONObject("data")?.optString("id") ?: ""
+                Result.success(if (id.isNotBlank()) id else "ok")
             } catch (e: Exception) {
                 Log.e("AppointmentRepository", "submitAppointment error", e)
                 Result.success("mock-${System.currentTimeMillis()}")

@@ -60,6 +60,7 @@ public class SecurityConfig {
             @Override
             public void addInterceptors(org.springframework.web.servlet.config.annotation.InterceptorRegistry registry) {
                 registry.addInterceptor(guard).addPathPatterns("/api/counselor/**");
+                registry.addInterceptor(guard).addPathPatterns("/api/appointments/**");
             }
         };
     }

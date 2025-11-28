@@ -64,3 +64,9 @@ Desktop.ini
 .env
 *.ini
 *.properties.local
+ 
+# ============== Node 前端依赖与重复项目 ==============
+# 通用 Node 依赖目录
+**/node_modules/
+# 归档并忽略旧的管理端项目
+admin-web/

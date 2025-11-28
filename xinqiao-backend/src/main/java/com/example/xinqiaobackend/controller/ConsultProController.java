@@ -48,11 +48,25 @@ public class ConsultProController {
     @PostMapping("/appointments")
     @PreAuthorize("hasRole('USER')")
     public ResponseEntity<?> request(Authentication auth,
-                                     @RequestParam String consultantId,
-                                     @RequestParam String date,
-                                     @RequestParam String time,
+                                     @RequestParam(required = false) String consultantId,
+                                     @RequestParam(required = false) String date,
+                                     @RequestParam(required = false) String time,
                                      @RequestParam(required = false) String mode,
-                                     @RequestParam(required = false) String remark) {
+                                     @RequestParam(required = false) String remark,
+                                     @RequestBody(required = false) java.util.Map<String, Object> payload) {
+        if (payload != null) {
+            if (consultantId == null) consultantId = String.valueOf(payload.getOrDefault("consultantId", ""));
+            if (date == null) date = String.valueOf(payload.getOrDefault("date", ""));
+            if (time == null) time = String.valueOf(payload.getOrDefault("time", ""));
+            if (mode == null) mode = String.valueOf(payload.getOrDefault("mode", ""));
+            if (remark == null) remark = String.valueOf(payload.getOrDefault("remark", ""));
+        }
+        if (consultantId == null || consultantId.trim().isEmpty() || date == null || time == null) {
+            java.util.Map<String, Object> res = new java.util.HashMap<>();
+            res.put("ok", false);
+            res.put("error", "missing params");
+            return ResponseEntity.badRequest().body(res);
+        }
         LocalDate d = LocalDate.parse(date);
         LocalTime t = LocalTime.parse(time);
         LocalDateTime start = LocalDateTime.of(d, t);
@@ -63,17 +77,30 @@ public class ConsultProController {
         }
         LocalDateTime end = matched != null ? matched.getEndTime() : start.plusMinutes(60);
         if (matched == null || !matched.isAvailable()) {
-            return ResponseEntity.badRequest().body(java.util.Map.of("ok", false, "error", "no slot"));
+            java.util.Map<String, Object> res = new java.util.HashMap<>();
+            res.put("ok", false);
+            res.put("error", "no slot");
+            return ResponseEntity.badRequest().body(res);
         }
         boolean hasConflict = !apptRepo.findByCounselorUsernameAndStartTimeLessThanAndEndTimeGreaterThan(consultantId, end, start).isEmpty();
-        if (hasConflict) return ResponseEntity.status(409).body(java.util.Map.of("ok", false, "error", "conflict"));
+        if (hasConflict) {
+            java.util.Map<String, Object> res = new java.util.HashMap<>();
+            res.put("ok", false);
+            res.put("error", "conflict");
+            return ResponseEntity.status(409).body(res);
+        }
         Appointment a = new Appointment();
         a.setUserUsername(auth.getName());
         a.setCounselorUsername(consultantId);
         a.setStartTime(start);
         a.setEndTime(end);
         a.setStatus(AppointmentStatus.PENDING);
+        a.setMode(mode == null ? null : mode);
+        a.setRemark(remark == null ? null : remark);
         Appointment saved = apptRepo.save(a);
-        return ResponseEntity.ok(java.util.Map.of("ok", true, "id", String.valueOf(saved.getId())));
+        java.util.Map<String, Object> res = new java.util.HashMap<>();
+        res.put("ok", true);
+        res.put("id", String.valueOf(saved.getId()));
+        return ResponseEntity.ok(res);
     }
 }

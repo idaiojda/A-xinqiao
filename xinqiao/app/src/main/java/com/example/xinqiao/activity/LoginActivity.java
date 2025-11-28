@@ -212,34 +212,53 @@ public class LoginActivity extends AppCompatActivity {
         try { com.example.xinqiao.community.GlobalRealtimeReceiver.INSTANCE.onForeground(getApplication()); } catch (Throwable ignored) {}
         Toast.makeText(this, "登录成功", Toast.LENGTH_SHORT).show();
         new Thread(() -> {
+            String token = null;
+            boolean isCounselor = false;
             try {
-                String baseUrl = NetworkConfig.getBaseUrl(LoginActivity.this);
-                String url = baseUrl + "/api/auth/login?username=" + java.net.URLEncoder.encode(phone, "UTF-8") + "&password=" + java.net.URLEncoder.encode(String.valueOf(etPassword.getText()), "UTF-8");
-                OkHttpClient c = new OkHttpClient();
-                MediaType mt = MediaType.parse("application/x-www-form-urlencoded");
-                RequestBody rb = RequestBody.create("".getBytes(), mt);
-                Response resp = c.newCall(new Request.Builder().url(url).post(rb).build()).execute();
-                String s = resp.body() != null ? resp.body().string() : "{}";
-                JSONObject obj = new JSONObject(s);
-                if (obj.optBoolean("ok") && obj.has("token")) {
-                    String token = obj.optString("token", "");
+                com.example.xinqiao.network.LoginResp lr = com.example.xinqiao.network.ApiJava.login(phone, String.valueOf(etPassword.getText()));
+                if (lr != null && lr.getOk() && lr.getToken() != null) {
+                    token = lr.getToken();
                     SharedPreferences spLogin = getSharedPreferences("loginInfo", MODE_PRIVATE);
                     spLogin.edit().putString("auth_token", token).apply();
+                } else {
+                    boolean regOk = com.example.xinqiao.network.ApiJava.register(phone, String.valueOf(etPassword.getText()));
+                    if (regOk) {
+                        com.example.xinqiao.network.LoginResp lr2 = com.example.xinqiao.network.ApiJava.login(phone, String.valueOf(etPassword.getText()));
+                        if (lr2 != null && lr2.getOk() && lr2.getToken() != null) {
+                            token = lr2.getToken();
+                            SharedPreferences spLogin2 = getSharedPreferences("loginInfo", MODE_PRIVATE);
+                            spLogin2.edit().putString("auth_token", token).apply();
+                        }
+                    }
+                }
+                com.example.xinqiao.network.MeResp me = com.example.xinqiao.network.ApiJava.me();
+                if (me != null) {
+                    java.util.List<String> rolesList = me.getRoles() != null ? me.getRoles() : new java.util.ArrayList<>();
+                    for (String rr : rolesList) {
+                        if (rr != null && rr.equalsIgnoreCase("COUNSELOR")) { isCounselor = true; break; }
+                    }
                 }
             } catch (Exception ignored) {}
+            final boolean finalIsCounselor = isCounselor;
+            runOnUiThread(() -> {
+                try {
+                    SharedPreferences spLogin = getSharedPreferences("loginInfo", MODE_PRIVATE);
+                    SharedPreferences.Editor ed = spLogin.edit();
+                    ed.putBoolean("isCounselor", finalIsCounselor);
+                    ed.apply();
+                } catch (Exception ignored3) {}
+                // 返回结果给调用方（若使用startActivityForResult）
+                Intent result = new Intent();
+                result.putExtra("isLogin", true);
+                setResult(RESULT_OK, result);
+                // 进入端分流首页
+                Intent intent = new Intent(LoginActivity.this, finalIsCounselor ? CounselorMainActivity.class : MainActivity.class);
+                intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(intent);
+                finish();
+            });
         }).start();
         // 若是从其它页面通过 startActivityForResult 进入登录页，返回结果给调用方
-        Intent result = new Intent();
-        result.putExtra("isLogin", true);
-        setResult(RESULT_OK, result);
-
-        // 如果当前任务栈以登录页为根（例如从设置页退出后进入登录），则进入主界面
-        if (isTaskRoot()) {
-            Intent intent = new Intent(this, MainActivity.class);
-            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
-            startActivity(intent);
-        }
-        // 关闭登录页，避免停留在此页面
-        finish();
+        // 分流跳转逻辑改为在网络请求完成后统一处理
     }
 }

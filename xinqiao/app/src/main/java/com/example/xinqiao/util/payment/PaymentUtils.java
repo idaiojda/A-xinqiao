@@ -58,7 +58,7 @@ public class PaymentUtils {
             Connection conn = null;
             try {
                 conn = helper.getConnection();
-                String sql = "UPDATE user_info SET balance = balance + ? WHERE username = ?";
+                String sql = "UPDATE user_info ui JOIN users u ON ui.user_id = u.id SET ui.balance = COALESCE(ui.balance, 0.00) + ? WHERE u.username = ?";
                 PreparedStatement stmt = conn.prepareStatement(sql);
                 stmt.setDouble(1, amount);
                 stmt.setString(2, username);
@@ -88,7 +88,7 @@ public class PaymentUtils {
             Connection conn = null;
             try {
                 conn = helper.getConnection();
-                String sql = "SELECT COALESCE(balance, 0.00) as balance FROM user_info WHERE username = ?";
+                String sql = "SELECT COALESCE(ui.balance, 0.00) AS balance FROM users u LEFT JOIN user_info ui ON ui.user_id = u.id WHERE u.username = ?";
                 PreparedStatement stmt = conn.prepareStatement(sql);
                 stmt.setString(1, username);
                 ResultSet rs = stmt.executeQuery();
@@ -136,7 +136,7 @@ public class PaymentUtils {
                 double coursePrice = priceRs.getDouble("price");
 
                 // 获取用户ID和余额
-                String userSql = "SELECT user_id, balance FROM user_info WHERE username = ?";
+                String userSql = "SELECT u.id AS user_id, COALESCE(ui.balance, 0.00) AS balance FROM users u LEFT JOIN user_info ui ON ui.user_id = u.id WHERE u.username = ?";
                 PreparedStatement userStmt = conn.prepareStatement(userSql);
                 userStmt.setString(1, username);
                 ResultSet userRs = userStmt.executeQuery();
@@ -161,8 +161,7 @@ public class PaymentUtils {
                 updateBalanceStmt.setInt(2, userId);
                 updateBalanceStmt.executeUpdate();
 
-                // 记录购买记录
-                String purchaseSql = "INSERT INTO course_purchase (user_id, course_id, price) VALUES (?, ?, ?)";
+                String purchaseSql = "INSERT INTO purchases (user_id, item_type, item_id, price) VALUES (?, 'course', ?, ?)";
                 PreparedStatement purchaseStmt = conn.prepareStatement(purchaseSql);
                 purchaseStmt.setInt(1, userId);
                 purchaseStmt.setInt(2, courseId);
@@ -203,9 +202,9 @@ public class PaymentUtils {
             Connection conn = null;
             try {
                 conn = helper.getConnection();
-                String sql = "SELECT cp.purchase_id FROM course_purchase cp " +
-                        "JOIN user_info ui ON cp.user_id = ui.user_id " +
-                        "WHERE ui.username = ? AND cp.course_id = ?";
+                String sql = "SELECT p.id FROM purchases p " +
+                        "JOIN user_info ui ON p.user_id = ui.user_id " +
+                        "WHERE ui.username = ? AND p.item_type = 'course' AND p.item_id = ?";
                 PreparedStatement stmt = conn.prepareStatement(sql);
                 stmt.setString(1, username);
                 stmt.setInt(2, courseId);
@@ -248,7 +247,7 @@ public class PaymentUtils {
                 conn.setAutoCommit(false);
 
                 // 获取用户ID和余额
-                String userSql = "SELECT user_id, balance FROM user_info WHERE username = ?";
+                String userSql = "SELECT u.id AS user_id, COALESCE(ui.balance, 0.00) AS balance FROM users u LEFT JOIN user_info ui ON ui.user_id = u.id WHERE u.username = ?";
                 PreparedStatement userStmt = conn.prepareStatement(userSql);
                 userStmt.setString(1, username);
                 ResultSet userRs = userStmt.executeQuery();
@@ -344,8 +343,7 @@ public class PaymentUtils {
                 updateBalanceStmt.setInt(2, userId);
                 updateBalanceStmt.executeUpdate();
 
-                // 记录购买记录
-                String purchaseSql = "INSERT INTO exercise_purchase (user_id, exercise_id, price) VALUES (?, ?, ?)";
+                String purchaseSql = "INSERT INTO purchases (user_id, item_type, item_id, price) VALUES (?, 'exercise', ?, ?)";
                 PreparedStatement purchaseStmt = conn.prepareStatement(purchaseSql);
                 purchaseStmt.setInt(1, userId);
                 purchaseStmt.setInt(2, exerciseId);
@@ -387,9 +385,9 @@ public class PaymentUtils {
             Connection conn = null;
             try {
                 conn = helper.getConnection();
-                String sql = "SELECT ep.purchase_id FROM exercise_purchase ep " +
-                        "JOIN user_info ui ON ep.user_id = ui.user_id " +
-                        "WHERE ui.username = ? AND ep.exercise_id = ?";
+                String sql = "SELECT p.id FROM purchases p " +
+                        "JOIN user_info ui ON p.user_id = ui.user_id " +
+                        "WHERE ui.username = ? AND p.item_type = 'exercise' AND p.item_id = ?";
                 PreparedStatement stmt = conn.prepareStatement(sql);
                 stmt.setString(1, username);
                 stmt.setInt(2, exerciseId);

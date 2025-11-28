@@ -59,7 +59,7 @@ public class XinQiaoApplication extends Application {
             String current = sp.getString("base_url_override", null);
             String desired = (com.example.xinqiao.BuildConfig.BACKEND_URL != null && com.example.xinqiao.BuildConfig.BACKEND_URL.trim().length() > 0)
                     ? com.example.xinqiao.BuildConfig.BACKEND_URL.trim()
-                    : "http://10.0.2.2:8082";
+                    : "http://10.0.2.2:8081";
             if (current == null || !current.equals(desired)) {
                 sp.edit().putString("base_url_override", desired).apply();
                 Log.d(TAG, "Network base URL overridden to " + desired);
@@ -104,6 +104,11 @@ public class XinQiaoApplication extends Application {
                 CommunityRepositoryProvider.INSTANCE.setCurrent(com.example.xinqiao.community.EmptyCommunityRepository.INSTANCE);
             } catch (Throwable ignored) {}
         }
+
+        try {
+            com.example.xinqiao.network.Http.init(this);
+            Log.d(TAG, "Http initialized for core network");
+        } catch (Throwable t) { Log.w(TAG, "Http init failed", t); }
         
         // 注册应用生命周期回调
         registerLifecycleCallbacks();

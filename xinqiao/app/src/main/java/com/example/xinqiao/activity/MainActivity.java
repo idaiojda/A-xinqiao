@@ -844,6 +844,16 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     @Override
     protected void onResume() {
         super.onResume();
+        SharedPreferences spRole = getSharedPreferences("loginInfo", Context.MODE_PRIVATE);
+        boolean isCounselorRole = spRole.getBoolean("isCounselor", false);
+        if (isCounselorRole) {
+            try {
+                Intent intent = new Intent(MainActivity.this, com.example.xinqiao.activity.CounselorMainActivity.class);
+                startActivity(intent);
+                MainActivity.this.finishAffinity();
+            } catch (Exception ignored) {}
+            return;
+        }
         // 检查是否有视图可见，如果没有则恢复到上一次显示的视图
         boolean hasVisibleView = false;
         
