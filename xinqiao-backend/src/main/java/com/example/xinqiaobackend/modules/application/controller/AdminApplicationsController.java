@@ -75,6 +75,7 @@ public class AdminApplicationsController {
         n.setType("application");
         n.setTitle("审核通过");
         n.setContent("恭喜，您的咨询师申请已通过。");
+        n.setCreatedAt(java.time.LocalDateTime.now());
         notificationRepository.save(n);
         return ApiResponse.successMessage("已通过");
     }
@@ -103,6 +104,7 @@ public class AdminApplicationsController {
         n.setType("application");
         n.setTitle("审核未通过");
         n.setContent(a.getRejectedReason() == null ? "请完善资料后重新申请" : a.getRejectedReason());
+        n.setCreatedAt(java.time.LocalDateTime.now());
         notificationRepository.save(n);
         return ApiResponse.successMessage("已驳回");
     }
@@ -132,6 +134,7 @@ public class AdminApplicationsController {
             n.setType("application");
             n.setTitle("审核通过");
             n.setContent("恭喜，您的咨询师申请已通过。");
+            n.setCreatedAt(java.time.LocalDateTime.now());
             notificationRepository.save(n);
         }
         return ApiResponse.successMessage("批量通过完成");
@@ -159,6 +162,7 @@ public class AdminApplicationsController {
             n.setType("application");
             n.setTitle("审核未通过");
             n.setContent(req.reason == null ? "请完善资料后重新申请" : req.reason);
+            n.setCreatedAt(java.time.LocalDateTime.now());
             notificationRepository.save(n);
         }
         return ApiResponse.successMessage("批量驳回完成");

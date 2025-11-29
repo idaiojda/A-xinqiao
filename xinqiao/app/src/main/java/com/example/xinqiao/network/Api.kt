@@ -23,7 +23,7 @@ interface Api {
     suspend fun me(): MeResp
 
     @POST("/api/applications")
-    suspend fun submitApplication(@Body payload: ApplicationPayload): ApiResp<Any>
+    suspend fun submitApplication(@Body payload: ApplicationPayload): retrofit2.Response<ApiResp<Any>>
 
     @POST("/api/auth/register")
     suspend fun register(

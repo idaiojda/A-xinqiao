@@ -70,6 +70,7 @@ public class ApplicationController {
         n.setType("application");
         n.setTitle("申请提交成功");
         n.setContent("已收到您的咨询师申请，正在审核。");
+        n.setCreatedAt(java.time.LocalDateTime.now());
         notificationRepository.save(n);
 
         u.setReviewStatus("PENDING");

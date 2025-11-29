@@ -30,6 +30,7 @@ public class SecurityConfig {
         http.authorizeRequests()
                 .antMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .antMatchers("/api/auth/**").permitAll()
+                .antMatchers("/api/health/**").permitAll()
                 .antMatchers(HttpMethod.GET, "/community/**", "/api/articles/**", "/api/consult/**", "/api/counselor/profile/**", "/ws/**").permitAll()
                 .antMatchers("/api/admin/**").hasRole("ADMIN")
                 .antMatchers("/api/counselor/**").hasRole("COUNSELOR")

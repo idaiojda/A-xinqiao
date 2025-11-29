@@ -376,10 +376,17 @@ public class MySQLHelper {
     private void loadMySqlDriver() throws ClassNotFoundException {
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");
-        } catch (ClassNotFoundException e1) {
-            android.util.Log.w("MySQLHelper", "com.mysql.cj.jdbc.Driver 不可用，尝试旧版驱动 com.mysql.jdbc.Driver");
+            android.util.Log.i("MySQLHelper", "使用驱动: com.mysql.cj.jdbc.Driver");
+            return;
+        } catch (ClassNotFoundException ignored) { }
+
+        try {
             Class.forName("com.mysql.jdbc.Driver");
-        }
+            android.util.Log.i("MySQLHelper", "使用驱动: com.mysql.jdbc.Driver");
+            return;
+        } catch (ClassNotFoundException ignored) { }
+
+        throw new ClassNotFoundException("未找到可用的 MySQL JDBC 驱动类");
     }
 
     public void releaseConnection(Connection connection) {

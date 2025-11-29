@@ -16,6 +16,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Object>> handleAny(Exception ex) {
+        try { org.slf4j.LoggerFactory.getLogger(GlobalExceptionHandler.class).error("Unhandled exception", ex); } catch (Throwable ignored) {}
         return ResponseEntity.status(500).body(ApiResponse.error(ErrorCode.SERVER_ERROR, "服务器错误"));
     }
 }

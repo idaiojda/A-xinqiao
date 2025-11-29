@@ -213,7 +213,7 @@ public class MyInfoView extends LinearLayout implements com.example.xinqiao.mysq
                     try {
                         retrofit2.Response<okhttp3.ResponseBody> r2 = com.example.xinqiao.network.ApiJava.myApplicationsRaw();
                         if (r2 != null && r2.isSuccessful()) {
-                            String s2 = r2.body() != null ? r2.body().string() : "[]";
+                            String s2 = r2.body() != null ? r2.body().string() : "{}";
                             String trimmed = s2.trim();
                             if (trimmed.startsWith("[")) {
                                 org.json.JSONArray arr = new org.json.JSONArray(trimmed);
@@ -223,7 +223,11 @@ public class MyInfoView extends LinearLayout implements com.example.xinqiao.mysq
                                 }
                             } else {
                                 org.json.JSONObject o2 = new org.json.JSONObject(trimmed);
-                                appStatus = o2.optString("status", null);
+                                org.json.JSONArray arr = o2.optJSONArray("data");
+                                if (arr != null && arr.length() > 0) {
+                                    org.json.JSONObject last = arr.getJSONObject(0);
+                                    appStatus = last.optString("status", null);
+                                }
                             }
                             if ("approved".equalsIgnoreCase(appStatus)) counselor = true;
                         }

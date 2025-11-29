@@ -24,6 +24,8 @@ object NetworkConfig {
             val hostAndPath = rest.split("/", limit = 2)
             val hostRaw = hostAndPath[0]
             val host = hostRaw.substringBefore(":")
+            val portStr = hostRaw.substringAfter(":", "")
+            val port = portStr.ifEmpty { "8081" }
             val path = if (hostAndPath.size > 1) "/" + hostAndPath[1] else ""
             val lower = host.lowercase()
             val mappedHost = when {
@@ -34,7 +36,7 @@ object NetworkConfig {
                 }
                 else -> host
             }
-            return "$scheme://$mappedHost:8081$path"
+            return "$scheme://$mappedHost:$port$path"
         }
         val forced = com.example.xinqiao.BuildConfig.BACKEND_URL.trim().removeSuffix("/")
         if (forced.isNotEmpty()) {
@@ -44,8 +46,10 @@ object NetworkConfig {
             val hostAndPath = rest.split("/", limit = 2)
             val hostRaw = hostAndPath[0]
             val host = hostRaw.substringBefore(":")
+            val portStr = hostRaw.substringAfter(":", "")
+            val port = portStr.ifEmpty { "8081" }
             val path = if (hostAndPath.size > 1) "/" + hostAndPath[1] else ""
-            return "$scheme://$host:8081$path"
+            return "$scheme://$host:$port$path"
         }
 
         return when {
