@@ -123,7 +123,7 @@ private fun AppointmentDetailScreen(
                 Button(onClick = { vm.reloadSlots() }) { Text("刷新时段") }
             }
             SlotsRow(slots = ui.slots, selected = ui.selectedTime, loading = ui.loadingSlots, onSelect = vm::selectTime)
-            PriceSection(price = ui.price, coupon = ui.coupon)
+            PriceSection(price = ui.price)
             RemarkSection(text = ui.remark, onChange = vm::updateRemark)
             ProfileSection(
                 nickname = ui.nickname,
@@ -242,12 +242,9 @@ private fun SlotsRow(slots: List<SlotTime>, selected: SlotTime?, loading: Boolea
 }
 
 @Composable
-private fun PriceSection(price: Int, coupon: Int) {
-    val total = (price - coupon).coerceAtLeast(0)
+private fun PriceSection(price: Int) {
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
         Text("价格：¥$price", fontWeight = FontWeight.SemiBold)
-        Text("优惠：¥$coupon", color = Color(0xFF52C41A))
-        Text("合计：¥$total", color = Color(0xFF2F54EB), fontWeight = FontWeight.Bold)
     }
 }
 

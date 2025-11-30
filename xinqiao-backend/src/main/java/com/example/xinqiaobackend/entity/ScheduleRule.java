@@ -32,10 +32,8 @@ public class ScheduleRule {
     @Column(nullable = false)
     private LocalTime endTime;
 
-    @ElementCollection(fetch = FetchType.EAGER)
-    @CollectionTable(name = "schedule_rule_weekdays", joinColumns = @JoinColumn(name = "rule_id"))
-    @Column(name = "weekday")
-    private List<Integer> weekdays = new ArrayList<>();
+    @Column(columnDefinition = "TEXT")
+    private String config; // JSON，包含 weekdays(int[]) 与 exceptions(String[] ISO_DATE)
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -51,6 +49,6 @@ public class ScheduleRule {
     public void setStartTime(LocalTime startTime) { this.startTime = startTime; }
     public LocalTime getEndTime() { return endTime; }
     public void setEndTime(LocalTime endTime) { this.endTime = endTime; }
-    public List<Integer> getWeekdays() { return weekdays; }
-    public void setWeekdays(List<Integer> weekdays) { this.weekdays = weekdays; }
+    public String getConfig() { return config; }
+    public void setConfig(String config) { this.config = config; }
 }

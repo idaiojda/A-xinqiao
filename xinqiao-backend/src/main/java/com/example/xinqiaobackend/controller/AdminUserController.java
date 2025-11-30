@@ -43,38 +43,18 @@ public class AdminUserController {
             @RequestParam(required = false) String role,
             @RequestParam(required = false) String status
     ) {
-        List<User> allUsers = userRepository.findAll(Sort.by(Sort.Direction.ASC, "id"));
         List<UserDto> items = new ArrayList<>();
-        for (User u : allUsers) {
-            if (username != null && username.trim().length() > 0 && (u.getUsername() == null || !u.getUsername().toLowerCase().contains(username.trim().toLowerCase()))) {
-                continue;
-            }
-            if (role != null && role.trim().length() > 0) {
-                boolean hasRole = u.getRoles() != null && u.getRoles().stream().anyMatch(r -> r.equalsIgnoreCase(role.trim()));
-                if (!hasRole) continue;
-            }
-            if (status != null && status.trim().length() > 0) {
-                String s = mapStatus(u.getReviewStatus());
-                if (!status.equalsIgnoreCase(s)) continue;
-            }
-            items.add(toDto(u));
+        List<User> allUsers;
+        String roleFilter = (role != null && role.trim().length() > 0) ? role.trim().toUpperCase() : null;
+        String statusFilter = (status != null && status.trim().length() > 0) ? mapStatusReverse(status) : null;
+        String nameQuery = (username != null && username.trim().length() > 0) ? username.trim() : null;
+        if (roleFilter != null || statusFilter != null || nameQuery != null) {
+            allUsers = userRepository.findByRoleAndStatus(roleFilter, statusFilter, nameQuery);
+        } else {
+            allUsers = userRepository.findAll(Sort.by(Sort.Direction.ASC, "id"));
         }
-        List<UserInfo> infos = userInfoRepository.search(username);
-        for (UserInfo info : infos) {
-            UserDto d = new UserDto();
-            d.setId(info.getUserId() != null ? info.getUserId().longValue() : null);
-            d.setUsername(info.getUsername());
-            d.setRole("user");
-            String s = "inactive";
-            d.setStatus(s);
-            d.setCreatedAt(info.getCreatedAt() != null ? info.getCreatedAt().toString() : "");
-            d.setUpdatedAt(info.getUpdatedAt() != null ? info.getUpdatedAt().toString() : "");
-            boolean exists = items.stream().anyMatch(x -> x.getUsername() != null && x.getUsername().equalsIgnoreCase(d.getUsername()));
-            if (!exists) {
-                if (role != null && role.trim().length() > 0 && !"user".equalsIgnoreCase(role.trim())) continue;
-                if (status != null && status.trim().length() > 0 && !status.equalsIgnoreCase(d.getStatus())) continue;
-                items.add(d);
-            }
+        for (User u : allUsers) {
+            items.add(toDto(u));
         }
         int total = items.size();
         int start = Math.max((page - 1) * size, 0);
@@ -243,7 +223,7 @@ public class AdminUserController {
         if (!opt.isPresent()) return ApiResponse.error(404, "用户不存在");
         User u = opt.get();
         String newPwd = java.util.UUID.randomUUID().toString().substring(0, 8);
-        u.setPassword(passwordEncoder.encode(newPwd));
+        u.setPassword(newPwd);
         userRepository.save(u);
         java.util.Map<String, Object> res = new java.util.HashMap<>();
         res.put("newPassword", newPwd);

@@ -58,7 +58,7 @@ public class PaymentUtils {
             Connection conn = null;
             try {
                 conn = helper.getConnection();
-                String sql = "UPDATE user_info ui JOIN users u ON ui.user_id = u.id SET ui.balance = COALESCE(ui.balance, 0.00) + ? WHERE u.username = ?";
+                String sql = "UPDATE user_info SET balance = COALESCE(balance, 0.00) + ? WHERE username = ?";
                 PreparedStatement stmt = conn.prepareStatement(sql);
                 stmt.setDouble(1, amount);
                 stmt.setString(2, username);
@@ -88,7 +88,7 @@ public class PaymentUtils {
             Connection conn = null;
             try {
                 conn = helper.getConnection();
-                String sql = "SELECT COALESCE(ui.balance, 0.00) AS balance FROM users u LEFT JOIN user_info ui ON ui.user_id = u.id WHERE u.username = ?";
+                String sql = "SELECT COALESCE(balance, 0.00) AS balance FROM user_info WHERE username = ?";
                 PreparedStatement stmt = conn.prepareStatement(sql);
                 stmt.setString(1, username);
                 ResultSet rs = stmt.executeQuery();
@@ -136,7 +136,7 @@ public class PaymentUtils {
                 double coursePrice = priceRs.getDouble("price");
 
                 // 获取用户ID和余额
-                String userSql = "SELECT u.id AS user_id, COALESCE(ui.balance, 0.00) AS balance FROM users u LEFT JOIN user_info ui ON ui.user_id = u.id WHERE u.username = ?";
+                String userSql = "SELECT user_id, COALESCE(balance, 0.00) AS balance FROM user_info WHERE username = ?";
                 PreparedStatement userStmt = conn.prepareStatement(userSql);
                 userStmt.setString(1, username);
                 ResultSet userRs = userStmt.executeQuery();
@@ -247,7 +247,7 @@ public class PaymentUtils {
                 conn.setAutoCommit(false);
 
                 // 获取用户ID和余额
-                String userSql = "SELECT u.id AS user_id, COALESCE(ui.balance, 0.00) AS balance FROM users u LEFT JOIN user_info ui ON ui.user_id = u.id WHERE u.username = ?";
+                String userSql = "SELECT user_id, COALESCE(balance, 0.00) AS balance FROM user_info WHERE username = ?";
                 PreparedStatement userStmt = conn.prepareStatement(userSql);
                 userStmt.setString(1, username);
                 ResultSet userRs = userStmt.executeQuery();

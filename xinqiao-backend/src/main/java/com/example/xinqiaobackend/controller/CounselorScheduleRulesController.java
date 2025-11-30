@@ -2,8 +2,7 @@ package com.example.xinqiaobackend.controller;
 
 import com.example.xinqiaobackend.entity.ScheduleFrequency;
 import com.example.xinqiaobackend.entity.ScheduleRule;
-import com.example.xinqiaobackend.entity.ScheduleRuleException;
-import com.example.xinqiaobackend.repository.ScheduleRuleExceptionRepository;
+import com.example.xinqiaobackend.entity.ScheduleRuleConfig;
 import com.example.xinqiaobackend.repository.ScheduleRuleRepository;
 import com.example.xinqiaobackend.service.ScheduleGenerationService;
 import org.springframework.http.ResponseEntity;
@@ -22,14 +21,11 @@ import java.util.stream.Collectors;
 @PreAuthorize("hasRole('COUNSELOR')")
 public class CounselorScheduleRulesController {
     private final ScheduleRuleRepository ruleRepo;
-    private final ScheduleRuleExceptionRepository exRepo;
     private final ScheduleGenerationService genService;
 
     public CounselorScheduleRulesController(ScheduleRuleRepository ruleRepo,
-                                            ScheduleRuleExceptionRepository exRepo,
                                             ScheduleGenerationService genService) {
         this.ruleRepo = ruleRepo;
-        this.exRepo = exRepo;
         this.genService = genService;
     }
 
@@ -45,7 +41,8 @@ public class CounselorScheduleRulesController {
                                                @RequestParam String endDate,
                                                @RequestParam String startTime,
                                                @RequestParam String endTime,
-                                               @RequestParam(required = false) String weekdays) {
+                                               @RequestParam(required = false) String weekdays,
+                                               @RequestParam(required = false) String exceptions) {
         ScheduleRule r = new ScheduleRule();
         r.setCounselorUsername(auth.getName());
         r.setFrequency(ScheduleFrequency.valueOf(frequency));
@@ -53,10 +50,19 @@ public class CounselorScheduleRulesController {
         r.setEndDate(LocalDate.parse(endDate));
         r.setStartTime(LocalTime.parse(startTime));
         r.setEndTime(LocalTime.parse(endTime));
+        ScheduleRuleConfig cfg = new ScheduleRuleConfig();
         if (weekdays != null && !weekdays.isEmpty()) {
             List<Integer> wd = Arrays.stream(weekdays.split(",")).map(String::trim).filter(s -> !s.isEmpty()).map(Integer::valueOf).collect(Collectors.toList());
-            r.setWeekdays(wd);
+            cfg.setWeekdays(wd);
         }
+        if (exceptions != null && !exceptions.isEmpty()) {
+            List<String> ex = Arrays.stream(exceptions.split(",")).map(String::trim).filter(s -> !s.isEmpty()).collect(Collectors.toList());
+            cfg.setExceptions(ex);
+        }
+        try {
+            com.fasterxml.jackson.databind.ObjectMapper om = new com.fasterxml.jackson.databind.ObjectMapper();
+            r.setConfig(om.writeValueAsString(cfg));
+        } catch (Exception ignored) {}
         return ResponseEntity.ok(ruleRepo.save(r));
     }
 
@@ -70,31 +76,53 @@ public class CounselorScheduleRulesController {
     }
 
     @PostMapping("/{id}/exceptions")
-    public ResponseEntity<ScheduleRuleException> addException(Authentication auth, @PathVariable Long id, @RequestParam String date) {
+    public ResponseEntity<?> addException(Authentication auth, @PathVariable Long id, @RequestParam String date) {
         ScheduleRule r = ruleRepo.findById(id).orElse(null);
         if (r == null) return ResponseEntity.notFound().build();
         if (!r.getCounselorUsername().equals(auth.getName())) return ResponseEntity.status(403).build();
-        ScheduleRuleException ex = new ScheduleRuleException();
-        ex.setRule(r);
-        ex.setDate(LocalDate.parse(date));
-        return ResponseEntity.ok(exRepo.save(ex));
+        com.fasterxml.jackson.databind.ObjectMapper om = new com.fasterxml.jackson.databind.ObjectMapper();
+        try {
+            ScheduleRuleConfig cfg = r.getConfig() != null && !r.getConfig().isEmpty() ? om.readValue(r.getConfig(), ScheduleRuleConfig.class) : new ScheduleRuleConfig();
+            java.util.List<String> ex = cfg.getExceptions();
+            if (ex == null) ex = new java.util.ArrayList<>();
+            ex.add(date);
+            cfg.setExceptions(ex);
+            r.setConfig(om.writeValueAsString(cfg));
+            ruleRepo.save(r);
+        } catch (Exception ignored) {}
+        return ResponseEntity.ok().build();
     }
 
     @GetMapping("/{id}/exceptions")
-    public ResponseEntity<List<ScheduleRuleException>> listExceptions(Authentication auth, @PathVariable Long id) {
+    public ResponseEntity<List<String>> listExceptions(Authentication auth, @PathVariable Long id) {
         ScheduleRule r = ruleRepo.findById(id).orElse(null);
         if (r == null) return ResponseEntity.notFound().build();
         if (!r.getCounselorUsername().equals(auth.getName())) return ResponseEntity.status(403).build();
-        return ResponseEntity.ok(exRepo.findByRule(r));
+        com.fasterxml.jackson.databind.ObjectMapper om = new com.fasterxml.jackson.databind.ObjectMapper();
+        try {
+            ScheduleRuleConfig cfg = r.getConfig() != null && !r.getConfig().isEmpty() ? om.readValue(r.getConfig(), ScheduleRuleConfig.class) : new ScheduleRuleConfig();
+            return ResponseEntity.ok(cfg.getExceptions());
+        } catch (Exception ignored) {
+            return ResponseEntity.ok(java.util.Collections.emptyList());
+        }
     }
 
-    @DeleteMapping("/exceptions/{exId}")
-    public ResponseEntity<?> deleteException(Authentication auth, @PathVariable Long exId) {
-        ScheduleRuleException ex = exRepo.findById(exId).orElse(null);
-        if (ex == null) return ResponseEntity.notFound().build();
-        ScheduleRule r = ex.getRule();
-        if (r == null || !r.getCounselorUsername().equals(auth.getName())) return ResponseEntity.status(403).build();
-        exRepo.delete(ex);
+    @DeleteMapping("/exceptions/{id}")
+    public ResponseEntity<?> deleteException(Authentication auth, @PathVariable Long id) {
+        ScheduleRule r = ruleRepo.findById(id).orElse(null);
+        if (r == null) return ResponseEntity.notFound().build();
+        if (!r.getCounselorUsername().equals(auth.getName())) return ResponseEntity.status(403).build();
+        com.fasterxml.jackson.databind.ObjectMapper om = new com.fasterxml.jackson.databind.ObjectMapper();
+        try {
+            ScheduleRuleConfig cfg = r.getConfig() != null && !r.getConfig().isEmpty() ? om.readValue(r.getConfig(), ScheduleRuleConfig.class) : new ScheduleRuleConfig();
+            java.util.List<String> ex = cfg.getExceptions();
+            if (ex != null && !ex.isEmpty()) {
+                ex.remove(ex.size() - 1);
+            }
+            cfg.setExceptions(ex);
+            r.setConfig(om.writeValueAsString(cfg));
+            ruleRepo.save(r);
+        } catch (Exception ignored) {}
         return ResponseEntity.ok().build();
     }
 

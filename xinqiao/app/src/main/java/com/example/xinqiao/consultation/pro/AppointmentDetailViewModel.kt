@@ -30,7 +30,6 @@ data class AppointmentUiState(
     val basePrice: Int = 299,
     val price: Int = 299,
     val durationMinutes: Int = 60,
-    val coupon: Int = 0,
     val remark: String = "",
     val maskedPhone: String = "",
     val nickname: String = "",
@@ -99,9 +98,7 @@ class AppointmentDetailViewModel(app: Application) : AndroidViewModel(app) {
         _ui.value = _ui.value.copy(remark = text)
     }
 
-    fun applyCoupon(amount: Int) {
-        _ui.value = _ui.value.copy(coupon = amount)
-    }
+    
 
     fun refreshLoginStatus() {
         checkLoginAndProfile()

@@ -33,7 +33,7 @@ public class AuthController {
         }
         User u = new User();
         u.setUsername(username);
-        u.setPassword(passwordEncoder.encode(password));
+        u.setPassword(password);
         if (role != null && role.trim().length() > 0) {
             u.setRoles(Arrays.asList(role.trim()));
         } else {
@@ -56,7 +56,7 @@ public class AuthController {
         }
         User u = new User();
         u.setUsername(username);
-        u.setPassword(passwordEncoder.encode(password));
+        u.setPassword(password);
         if (role != null && role.trim().length() > 0) {
             u.setRoles(Arrays.asList(role.trim()));
         } else {
@@ -70,7 +70,19 @@ public class AuthController {
     public Map<String, Object> login(@RequestParam String username, @RequestParam String password) {
         User u = userRepository.findByUsername(username).orElse(null);
         Map<String, Object> res = new HashMap<>();
-        if (u == null || !passwordEncoder.matches(password, u.getPassword())) {
+        if (u == null) {
+            res.put("ok", false);
+            res.put("error", "用户名或密码错误");
+            return res;
+        }
+        String stored = u.getPassword();
+        boolean okPass;
+        if (stored != null && (stored.startsWith("$2a$") || stored.startsWith("$2b$") || stored.startsWith("$2y$"))) {
+            okPass = passwordEncoder.matches(password, stored);
+        } else {
+            okPass = stored != null && stored.equals(password);
+        }
+        if (!okPass) {
             res.put("ok", false);
             res.put("error", "用户名或密码错误");
             return res;
@@ -92,7 +104,19 @@ public class AuthController {
             return res;
         }
         User u = userRepository.findByUsername(username).orElse(null);
-        if (u == null || !passwordEncoder.matches(password, u.getPassword())) {
+        if (u == null) {
+            res.put("ok", false);
+            res.put("error", "用户名或密码错误");
+            return res;
+        }
+        String stored = u.getPassword();
+        boolean okPass;
+        if (stored != null && (stored.startsWith("$2a$") || stored.startsWith("$2b$") || stored.startsWith("$2y$"))) {
+            okPass = passwordEncoder.matches(password, stored);
+        } else {
+            okPass = stored != null && stored.equals(password);
+        }
+        if (!okPass) {
             res.put("ok", false);
             res.put("error", "用户名或密码错误");
             return res;

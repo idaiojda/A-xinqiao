@@ -11,7 +11,6 @@ import java.util.List;
 public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByUsername(String username);
     boolean existsByUsername(String username);
-    @Query("select u from User u join u.roles r where r = :role and (:status is null or u.reviewStatus = :status) and (:q is null or u.username like concat('%', :q, '%'))")
+    @Query("select u from User u where (:role is null or locate(:role, u.rolesCsv) > 0) and (:status is null or u.reviewStatus = :status) and (:q is null or u.username like concat('%', :q, '%'))")
     List<User> findByRoleAndStatus(@Param("role") String role, @Param("status") String status, @Param("q") String query);
 }
-

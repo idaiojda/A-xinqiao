@@ -1,6 +1,5 @@
 import express from 'express'
 import cors from 'cors'
-import morgan from 'morgan'
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
@@ -13,7 +12,6 @@ const PORT = process.env.PORT ? Number(process.env.PORT) : 8081
 
 app.use(cors())
 app.use(express.json())
-app.use(morgan('dev'))
 
 const dataDir = path.join(__dirname, 'data')
 const applicationsFile = path.join(dataDir, 'applications.json')

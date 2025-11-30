@@ -168,6 +168,35 @@ public class LoginActivity extends AppCompatActivity {
         @Override
         protected Integer doInBackground(Void... params) {
             try {
+                // 优先走后端登录（密码加密校验）
+                com.example.xinqiao.network.LoginResp lr = null;
+                try { lr = com.example.xinqiao.network.ApiJava.login(phone, password); } catch (Exception ignored) {}
+                if (lr != null && lr.getOk() && lr.getToken() != null) {
+                    SharedPreferences spLogin = getSharedPreferences("loginInfo", MODE_PRIVATE);
+                    spLogin.edit().putString("auth_token", lr.getToken()).apply();
+                    // 取 user_id（从统一的 user_info 表）
+                    if (dbUtils != null && dbUtils.isDatabaseAvailable()) {
+                        int uid = dbUtils.getUserIdByUsername(phone);
+                        if (uid != -1) return uid;
+                    }
+                } else {
+                    // 如果后端登录失败，尝试注册再登录
+                    try {
+                        boolean regOk = com.example.xinqiao.network.ApiJava.register(phone, password);
+                        if (regOk) {
+                            com.example.xinqiao.network.LoginResp lr2 = com.example.xinqiao.network.ApiJava.login(phone, password);
+                            if (lr2 != null && lr2.getOk() && lr2.getToken() != null) {
+                                SharedPreferences spLogin2 = getSharedPreferences("loginInfo", MODE_PRIVATE);
+                                spLogin2.edit().putString("auth_token", lr2.getToken()).apply();
+                                if (dbUtils != null && dbUtils.isDatabaseAvailable()) {
+                                    int uid2 = dbUtils.getUserIdByUsername(phone);
+                                    if (uid2 != -1) return uid2;
+                                }
+                            }
+                        }
+                    } catch (Exception ignoredReg) {}
+                }
+                // 后端不可用或无法获取user_id时，最后兜底：本地校验
                 if (!useLocalLoginFallback && dbUtils != null && dbUtils.isDatabaseAvailable()) {
                     return dbUtils.validateUser(phone, password);
                 } else {

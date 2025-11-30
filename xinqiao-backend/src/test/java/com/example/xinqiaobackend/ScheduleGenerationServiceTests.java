@@ -23,8 +23,6 @@ public class ScheduleGenerationServiceTests {
     @Autowired
     private ScheduleRuleRepository ruleRepo;
     @Autowired
-    private ScheduleRuleExceptionRepository exRepo;
-    @Autowired
     private ScheduleSlotRepository slotRepo;
     @Autowired
     private AppointmentRepository apptRepo;
@@ -41,13 +39,16 @@ public class ScheduleGenerationServiceTests {
         r.setEndDate(LocalDate.of(2025, 11, 30));
         r.setStartTime(LocalTime.of(9, 0));
         r.setEndTime(LocalTime.of(10, 0));
-        r.getWeekdays().add(1); // Monday
+        com.fasterxml.jackson.databind.ObjectMapper om = new com.fasterxml.jackson.databind.ObjectMapper();
+        ScheduleRuleConfig cfg = new ScheduleRuleConfig();
+        java.util.List<Integer> wd = new java.util.ArrayList<>();
+        wd.add(1); // Monday
+        cfg.setWeekdays(wd);
+        java.util.List<String> exs = new java.util.ArrayList<>();
+        exs.add("2025-11-10");
+        cfg.setExceptions(exs);
+        try { r.setConfig(om.writeValueAsString(cfg)); } catch (Exception ignored) {}
         r = ruleRepo.save(r);
-
-        ScheduleRuleException ex = new ScheduleRuleException();
-        ex.setRule(r);
-        ex.setDate(LocalDate.of(2025, 11, 10)); // Monday
-        exRepo.save(ex);
 
         Appointment a = new Appointment();
         a.setCounselorUsername(counselor);

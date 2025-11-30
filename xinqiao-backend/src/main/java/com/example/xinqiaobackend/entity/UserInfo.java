@@ -7,9 +7,12 @@ import java.time.LocalDateTime;
 @Table(name = "user_info")
 public class UserInfo {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "user_id")
-    private Integer userId;
+    private Long userId;
+
+    @OneToOne(optional = false)
+    @JoinColumn(name = "user_id", referencedColumnName = "id", insertable = false, updatable = false)
+    private User user;
 
     @Column(name = "username", length = 64)
     private String username;
@@ -20,8 +23,11 @@ public class UserInfo {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    public Integer getUserId() { return userId; }
-    public void setUserId(Integer userId) { this.userId = userId; }
+    public Long getUserId() { return userId; }
+    public void setUserId(Long userId) { this.userId = userId; }
+    public User getUser() { return user; }
+    public void setUser(User user) { this.user = user; }
+}
     public String getUsername() { return username; }
     public void setUsername(String username) { this.username = username; }
     public LocalDateTime getCreatedAt() { return createdAt; }

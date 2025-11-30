@@ -161,6 +161,34 @@ public class DBUtils {
             }
         }
     }
+
+    public int getUserIdByUsername(String userName) {
+        Connection conn = null;
+        try {
+            conn = helper.getConnection();
+            String sql = "SELECT user_id FROM user_info WHERE username=?";
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            stmt.setString(1, userName);
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                int userId = rs.getInt("user_id");
+                rs.close();
+                stmt.close();
+                return userId;
+            } else {
+                rs.close();
+                stmt.close();
+                return -1;
+            }
+        } catch (SQLException e) {
+            android.util.Log.e("DBUtils", "查询用户ID失败: " + e.getMessage());
+            return -1;
+        } finally {
+            if (conn != null) {
+                helper.releaseConnection(conn);
+            }
+        }
+    }
     
     // 保存播放记录
     public interface SavePlayListCallback {

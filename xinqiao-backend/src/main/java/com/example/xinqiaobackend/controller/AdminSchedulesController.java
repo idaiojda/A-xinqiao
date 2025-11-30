@@ -92,15 +92,24 @@ public class AdminSchedulesController {
 
     @PostMapping("/generate")
     public java.util.Map<String, Object> generate(@RequestBody java.util.Map<String, String> payload) {
+        java.util.Map<String, Object> res = new java.util.HashMap<>();
         String counselor = payload.getOrDefault("counselor", "");
         String from = payload.getOrDefault("from", "");
         String to = payload.getOrDefault("to", "");
         int count = 0;
-        if (!counselor.isEmpty() && !from.isEmpty() && !to.isEmpty()) {
-            count = genService.generate(counselor, java.time.LocalDate.parse(from.substring(0, 10)), java.time.LocalDate.parse(to.substring(0, 10)));
+        try {
+            if (!counselor.isEmpty() && !from.isEmpty() && !to.isEmpty()) {
+                java.time.LocalDate f = java.time.LocalDate.parse(from.substring(0, Math.min(10, from.length())));
+                java.time.LocalDate t = java.time.LocalDate.parse(to.substring(0, Math.min(10, to.length())));
+                count = genService.generate(counselor, f, t);
+            }
+            res.put("created", count);
+            res.put("ok", true);
+        } catch (Exception e) {
+            res.put("ok", false);
+            res.put("error", e.getMessage());
+            res.put("created", 0);
         }
-        java.util.Map<String, Object> res = new java.util.HashMap<>();
-        res.put("created", count);
         return res;
     }
 
