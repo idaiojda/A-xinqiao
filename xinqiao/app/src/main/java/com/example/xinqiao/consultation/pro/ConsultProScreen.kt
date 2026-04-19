@@ -9,6 +9,7 @@ import android.widget.ImageView
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -28,6 +29,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.activity.ComponentActivity
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Search
@@ -96,7 +98,8 @@ fun ConsultProScreen(vm: ConsultProViewModel = viewModel()) {
     val locationError by vm.locationError.collectAsState()
     val recentCities by vm.recentCities.collectAsState()
 
-    val themeColor = androidx.compose.ui.graphics.Color(0xFF2F54EB)
+    // ✨ 修改：统一紫色主题色，与课程页和个人中心页一致
+    val themeColor = androidx.compose.ui.graphics.Color(0xFF7B68EE)
     val scrollState = rememberScrollState()
     val listState = rememberLazyListState()
 
@@ -118,6 +121,7 @@ fun ConsultProScreen(vm: ConsultProViewModel = viewModel()) {
         // 鍚姩鏃朵粎鍔犺浇鏁版嵁锛屼笉鐢宠瀹氫綅鏉冮檺銆佷笉瑙﹀彂瀹氫綅
         vm.refresh(token)
         vm.loadCityDict(token)
+        vm.loadExpertiseTags(token)
     }
     
 
@@ -125,7 +129,8 @@ fun ConsultProScreen(vm: ConsultProViewModel = viewModel()) {
 
     var query by remember { mutableStateOf("") }
     // 顶部筛选栏状态
-    var selectedConcern by remember { mutableStateOf(vm.field ?: "全部") }
+    val expertiseTags by vm.expertiseTags.collectAsState()
+    var selectedExpertise by remember { mutableStateOf(vm.field ?: "全部") }
     var selectedCity by remember { mutableStateOf(vm.city ?: "全部") }
     var selectedPriceRange by remember { mutableStateOf("不限") }
     var showFilterSheet by remember { mutableStateOf(false) }
@@ -137,9 +142,10 @@ fun ConsultProScreen(vm: ConsultProViewModel = viewModel()) {
 
     Scaffold(
         topBar = {
+            // ✨ 修改：顶部使用紫色渐变背景，与课程页和个人中心页统一
             TopAppBar(
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = androidx.compose.ui.graphics.Color.White,
+                    containerColor = androidx.compose.ui.graphics.Color(0xFF7B68EE),
                     titleContentColor = androidx.compose.ui.graphics.Color.White,
                     actionIconContentColor = androidx.compose.ui.graphics.Color.White,
                     navigationIconContentColor = androidx.compose.ui.graphics.Color.White,
@@ -150,21 +156,17 @@ fun ConsultProScreen(vm: ConsultProViewModel = viewModel()) {
                             .fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // 复刻文章页搜索框样式：白底、蓝色边框、蓝色放大镜图标、蓝色提示文字
-                        val borderColor = androidx.compose.ui.graphics.Color(0xFF99B8FF)
-                        val hintColor = androidx.compose.ui.graphics.Color(0xFF99B8FF)
-                        val textColor = androidx.compose.ui.graphics.Color(0xFF4E5969)
+                        // ✨ 修改：搜索框样式统一为白底、紫色图标，与课程页一致
+                        val borderColor = androidx.compose.ui.graphics.Color.Transparent
+                        val hintColor = androidx.compose.ui.graphics.Color(0xFFB0B0B0)
+                        val textColor = androidx.compose.ui.graphics.Color(0xFF333333)
+                        val iconColor = androidx.compose.ui.graphics.Color(0xFF7B68EE)
                         androidx.compose.foundation.layout.Box(
                             modifier = Modifier
                                 .weight(1f)
                                 .height(40.dp)
                                 .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
                                 .background(androidx.compose.ui.graphics.Color.White)
-                                .border(
-                                    width = 1.dp,
-                                    color = borderColor,
-                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
-                                )
                                 .padding(horizontal = 12.dp)
                         ) {
                             androidx.compose.foundation.text.BasicTextField(
@@ -186,9 +188,9 @@ fun ConsultProScreen(vm: ConsultProViewModel = viewModel()) {
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Icon(
-                                            painter = androidx.compose.ui.res.painterResource(id = com.example.xinqiao.R.drawable.ic_search_blue),
+                                            imageVector = Icons.Default.Search,
                                             contentDescription = "搜索",
-                                            tint = borderColor,
+                                            tint = iconColor,
                                             modifier = Modifier.size(20.dp)
                                         )
                                         Spacer(modifier = Modifier.width(8.dp))
@@ -198,7 +200,7 @@ fun ConsultProScreen(vm: ConsultProViewModel = viewModel()) {
                                         ) {
                                             if (query.isEmpty()) {
                                                 Text(
-                                                    text = "搜索咨询师、城市或标签",
+                                                    text = "搜索咨询师、擅长领域...",
                                                     color = hintColor,
                                                     fontSize = 14.sp
                                                 )
@@ -212,6 +214,7 @@ fun ConsultProScreen(vm: ConsultProViewModel = viewModel()) {
                     }
                 },
                 actions = {
+                    // ✨ 修改：图标颜色改为白色，与紫色背景搭配
                     IconButton(
                         onClick = {
                             if (ctx is Activity) {
@@ -227,15 +230,17 @@ fun ConsultProScreen(vm: ConsultProViewModel = viewModel()) {
                         Icon(
                             painter = androidx.compose.ui.res.painterResource(id = com.example.xinqiao.R.drawable.ic_history),
                             contentDescription = "我的预约",
-                            tint = androidx.compose.ui.graphics.Color(0xFF99B8FF)
+                            tint = androidx.compose.ui.graphics.Color.White
                         )
                     }
                 }
             )
         }
     ) { padding ->
+        // ✨ 修改：内容区背景色改为浅紫灰，与课程页一致
         Column(modifier = Modifier
             .fillMaxSize()
+            .background(androidx.compose.ui.graphics.Color(0xFFF8F7FC))
             .padding(padding)) {
             // 顶部标题栏已包含搜索框，此处移除原搜索区块
 
@@ -269,8 +274,10 @@ fun ConsultProScreen(vm: ConsultProViewModel = viewModel()) {
                     }
                 }
             }
-            // 顶部分类筛选栏：困扰 / 城市 / 价格 + 排序
-            Column(modifier = Modifier.fillMaxWidth()) {
+            // ✨ 修改：筛选栏背景改为白色，文字颜色改为深灰/紫色
+            Column(modifier = Modifier
+                .fillMaxWidth()
+                .background(androidx.compose.ui.graphics.Color.White)) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -279,32 +286,33 @@ fun ConsultProScreen(vm: ConsultProViewModel = viewModel()) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     DropdownTab(
-                        label = "困扰",
-                        options = listOf("全部", "焦虑缓解", "抑郁纾解", "职场压力", "亲子关系", "子女教育"),
-                        onSelect = { selectedConcern = it; vm.setFilters(it, vm.mode, vm.sort); delayedReload { vm.refresh(token) } }
+                        label = "擅长领域",
+                        options = expertiseTags,
+                        onSelect = { selectedExpertise = it; vm.setFilters(it, vm.mode, vm.sort); delayedReload { vm.refresh(token) } }
                     )
-                    // 城市：仅作为弹层入口（定位按钮移动到弹层顶部）
+                    // ✨ 修改：城市按钮文字颜色改为紫色
                     Row(
                         modifier = Modifier.clickable { showCitySheet = true },
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("城市", color = androidx.compose.ui.graphics.Color(0xFF111111), fontSize = 16.sp)
-                        Icon(Icons.Filled.ArrowDropDown, contentDescription = null, tint = androidx.compose.ui.graphics.Color(0xFF111111))
+                        Text("城市", color = androidx.compose.ui.graphics.Color(0xFF7B68EE), fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                        Icon(Icons.Filled.ArrowDropDown, contentDescription = null, tint = androidx.compose.ui.graphics.Color(0xFF7B68EE))
                     }
                     DropdownTab(
                         label = "价格",
                         options = listOf("不限", "<199", "200-299", "300-499", "500+"),
                         onSelect = { selectedPriceRange = it }
                     )
+                    // ✨ 修改：筛选和排序图标颜色改为紫色
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = { showFilterSheet = true }) {
-                            Icon(Icons.Outlined.FilterList, contentDescription = "筛选")
+                            Icon(Icons.Outlined.FilterList, contentDescription = "筛选", tint = androidx.compose.ui.graphics.Color(0xFF7B68EE))
                         }
                         Spacer(modifier = Modifier.width(8.dp))
                         // 排序下拉菜单
                         Box {
                             IconButton(onClick = { showSortMenu = true }) {
-                                Icon(Icons.Outlined.SwapVert, contentDescription = "排序")
+                                Icon(Icons.Outlined.SwapVert, contentDescription = "排序", tint = androidx.compose.ui.graphics.Color(0xFF7B68EE))
                             }
                             val sortOptions = listOf("综合评分", "价格从低到高", "价格从高到低", "评分从高到低", "咨询量从高到低")
                             androidx.compose.material3.DropdownMenu(
@@ -327,7 +335,8 @@ fun ConsultProScreen(vm: ConsultProViewModel = viewModel()) {
                         }
                     }
                 }
-                Divider(color = androidx.compose.ui.graphics.Color(0xFFF5F5F5), thickness = 1.dp)
+                // ✨ 修改：分割线颜色改为浅灰
+                Divider(color = androidx.compose.ui.graphics.Color(0xFFE8E8E8), thickness = 1.dp)
             }
 
             Box(modifier = Modifier
@@ -335,7 +344,7 @@ fun ConsultProScreen(vm: ConsultProViewModel = viewModel()) {
                 .pullRefresh(pullRefreshState)) {
                 val displayList by produceState(
                     initialValue = emptyList<Consultant>(),
-                    consultants, query, selectedConcern, selectedCity, selectedPriceRange, selectedSort
+                    consultants, query, selectedExpertise, selectedCity, selectedPriceRange, selectedSort
                 ) {
                     value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
                         val q = query.trim().lowercase()
@@ -354,12 +363,9 @@ fun ConsultProScreen(vm: ConsultProViewModel = viewModel()) {
                             "子女教育" -> listOf("亲子教育")
                             else -> listOf(label)
                         }
-                        val byConcern = if (selectedConcern == "全部") baseSearch else {
-                            val keys = concernKeywords(selectedConcern)
+                        val byExpertise = if (selectedExpertise == "全部") baseSearch else {
                             baseSearch.filter { c ->
-                                keys.any { k ->
-                                    c.skills.any { it.contains(k) } || c.title.contains(k)
-                                }
+                                c.skills.contains(selectedExpertise)
                             }
                         }
                         // 城市规范化以消除“上海/上海市”等字面差异
@@ -373,7 +379,7 @@ fun ConsultProScreen(vm: ConsultProViewModel = viewModel()) {
                             return s
                         }
                         // 本地城市筛选（与后端参数 city 互补，保证前端也能生效）
-                        val byCity = if (selectedCity == "全部") byConcern else byConcern.filter {
+                        val byCity = if (selectedCity == "全部") byExpertise else byExpertise.filter {
                             normalizeCity(it.city) == normalizeCity(selectedCity)
                         }
                         // 本地价格区间过滤
@@ -420,6 +426,9 @@ fun ConsultProScreen(vm: ConsultProViewModel = viewModel()) {
                                         it.putExtra("name", c.name)
                                         it.putExtra("mode", c.defaultMode)
                                         it.putExtra("price", c.price)
+                                        it.putExtra("priceText", c.priceText)
+                                        it.putExtra("priceVoice", c.priceVoice)
+                                        it.putExtra("priceVideo", c.priceVideo)
                                         it.putExtra("duration", c.durationMinutes)
                                         ctx.startActivity(it)
                                     } else {
@@ -594,6 +603,7 @@ fun FilterRadioGroup(
     }
 }
 
+// ✨ 修改：咨询师卡片样式完全重构，统一为紫色系圆角卡片
 @Composable
 fun ConsultantCard(
     c: Consultant,
@@ -601,198 +611,165 @@ fun ConsultantCard(
     onClick: () -> Unit,
     onBook: () -> Unit
 ) {
-    val gradient = Brush.horizontalGradient(listOf(ComposeColor(0xFF6B8AFD), ComposeColor(0xFF4F46E5)))
+    // ✨ 修改：渐变色改为紫色系，与课程页按钮风格一致
+    val gradient = Brush.horizontalGradient(listOf(ComposeColor(0xFF7B68EE), ComposeColor(0xFF9D8FFF)))
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
-    val elevate by animateDpAsState(if (pressed) 6.dp else 4.dp, label = "cardElev")
-    val ty by animateDpAsState(if (pressed) (-3).dp else 0.dp, label = "cardTy")
-    val bg by animateColorAsState(if (pressed) ComposeColor(0xFFF9FAFB) else MaterialTheme.colorScheme.surface, label = "cardBg")
+    val elevate by animateDpAsState(if (pressed) 8.dp else 4.dp, label = "cardElev")
+    val ty by animateDpAsState(if (pressed) (-2).dp else 0.dp, label = "cardTy")
+    val bg by animateColorAsState(if (pressed) ComposeColor(0xFFFAFAFA) else ComposeColor.White, label = "cardBg")
 
+    // ✨ 修改：卡片圆角改为20dp，阴影颜色改为紫色半透明
     Card(
         elevation = CardDefaults.cardElevation(defaultElevation = elevate),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = bg),
         modifier = Modifier
             .fillMaxWidth()
-            .height(180.dp)
-            .padding(horizontal = 16.dp)
+            .padding(horizontal = 12.dp, vertical = 6.dp)
             .offset(y = ty)
             .clickable(interactionSource = interactionSource, indication = null) { onClick() }
     ) {
         Box(Modifier.fillMaxSize()) {
-            // 顶部渐变边框
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .height(3.dp)
-                    .background(gradient)
-                    .align(Alignment.TopCenter)
-            )
 
+            // ✨ 修改：卡片内边距调整
             Row(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 18.dp, vertical = 16.dp),
+                    .padding(16.dp),
                 verticalAlignment = Alignment.Top
             ) {
-                // 左侧头像区 72dp
-                Box(modifier = Modifier.width(72.dp)) {
+                // ✨ 修改：左侧头像区改为64dp，紫色边框
+                Box(modifier = Modifier.width(64.dp)) {
                     Box(
                         modifier = Modifier
-                            .size(74.dp)
+                            .size(64.dp)
                             .clip(CircleShape)
-                            .border(3.dp, gradient, CircleShape),
+                            .border(2.dp, ComposeColor(0xFF7B68EE), CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(68.dp)
-                                .clip(CircleShape)
-                                .border(2.dp, ComposeColor.White, CircleShape)
-                        ) {
+                        // 处理 base64 图片
+                        val avatarUrl = c.avatarUrl
+                        if (avatarUrl?.startsWith("data:image/") == true) {
+                            // Base64 图片：解码并显示
+                            val base64Data = avatarUrl.substringAfter("base64,")
+                            val bitmap = remember(base64Data) {
+                                try {
+                                    val imageBytes = android.util.Base64.decode(base64Data, android.util.Base64.DEFAULT)
+                                    android.graphics.BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+                                } catch (e: Exception) {
+                                    null
+                                }
+                            }
+                            
+                            if (bitmap != null) {
+                                androidx.compose.foundation.Image(
+                                    bitmap = bitmap.asImageBitmap(),
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .size(60.dp)
+                                        .clip(CircleShape)
+                                )
+                            } else {
+                                // 解码失败，显示默认头像
+                                androidx.compose.foundation.Image(
+                                    painter = painterResource(R.drawable.default_avatar),
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .size(60.dp)
+                                        .clip(CircleShape)
+                                )
+                            }
+                        } else {
+                            // URL 图片：使用 AsyncImage
                             AsyncImage(
-                                model = c.avatarUrl,
+                                model = avatarUrl,
                                 contentDescription = null,
                                 placeholder = painterResource(R.drawable.default_avatar),
                                 error = painterResource(R.drawable.default_avatar),
                                 contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize().clip(CircleShape)
+                                modifier = Modifier
+                                    .size(60.dp)
+                                    .clip(CircleShape)
                             )
                         }
                     }
-                    // 在线状态指示（近似为圆形）
+                    // ✨ 修改：在线状态点改为绿色
                     Box(
                         modifier = Modifier
                             .size(12.dp)
                             .clip(CircleShape)
-                            .background(if (c.certified) ComposeColor(0xFF10B981) else ComposeColor(0xFFE5E7EB))
-                            .border(1.dp, ComposeColor.White, CircleShape)
+                            .background(if (c.certified) ComposeColor(0xFF4CAF50) else ComposeColor(0xFFE5E7EB))
+                            .border(2.dp, ComposeColor.White, CircleShape)
                             .align(Alignment.BottomEnd)
                     )
                 }
                 Spacer(Modifier.width(12.dp))
 
-                // 右侧信息区
+                // ✨ 修改：右侧信息区样式调整
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
                     Column(modifier = Modifier.weight(1f)) {
-                        // 第一层：姓名 + 认证标签 + 职称
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                c.name,
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = ComposeColor(0xFF1F2937)
-                            )
-                            if (c.certified) {
-                                Spacer(Modifier.width(4.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .background(ComposeColor(0xFFE6F0FF))
-                                        .padding(horizontal = 4.dp, vertical = 1.dp)
-                                ) {
-                                    Text(
-                                        "认证咨询师",
-                                        fontSize = 10.sp,
-                                        color = ComposeColor(0xFF2C6ECB),
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                }
-                            }
-                        }
-                        Spacer(Modifier.height(2.dp))
+                        // 第一行：名字
                         Text(
-                            c.title,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Normal,
-                            color = ComposeColor(0xFF6B7280)
+                            c.name,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = ComposeColor(0xFF333333)
                         )
-
-                        Spacer(Modifier.height(8.dp))
-                        // 第二层：擅长领域标签（最多显示 2/3/4 取决于屏幕宽度）
-                        val conf = LocalConfiguration.current
-                        val maxTags = when {
-                            conf.screenWidthDp in 360..389 -> 2
-                            conf.screenWidthDp >= 410 -> 4
-                            else -> 3
-                        }
-                        val skills = c.skills.take(maxTags)
-                        // 缓存技能标签的渐变，避免每次重组重复创建
-                        val chipGradient = remember {
-                            Brush.horizontalGradient(
-                                listOf(ComposeColor(0xFFF0F7FF), ComposeColor(0xFFE6F0FF))
-                            )
-                        }
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            skills.forEach { skill ->
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(chipGradient)
-                                        .padding(horizontal = 8.dp, vertical = 3.dp)
-                                ) {
-                                    Text(
-                                        skill,
-                                        fontSize = 12.sp,
-                                        color = ComposeColor(0xFF2C6ECB)
-                                    )
-                                }
+                        
+                        Spacer(Modifier.height(6.dp))
+                        
+                        // 第二行：认证标签
+                        if (c.certified) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(ComposeColor(0xFFE3F2FD))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    "认证咨询师",
+                                    fontSize = 10.sp,
+                                    color = ComposeColor(0xFF2196F3),
+                                    fontWeight = FontWeight.SemiBold
+                                )
                             }
+                            Spacer(Modifier.height(6.dp))
                         }
-
-                        Spacer(Modifier.height(10.dp))
-                        // 第三层：评分 + 咨询量 + 简介（简介数据缺失，使用职称替代作为简要说明）
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("★", color = ComposeColor(0xFFFF9F1C), fontSize = 20.sp)
-                            Spacer(Modifier.width(4.dp))
-                            Text(
-                                String.format("%.1f", c.rating),
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = ComposeColor(0xFFFF9F1C)
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Text("•", color = ComposeColor(0xFFD1D5DB), fontSize = 12.sp)
-                            Spacer(Modifier.width(4.dp))
-                            Text(
-                                "咨询量${c.consultCount}+",
-                                fontSize = 11.sp,
-                                color = ComposeColor(0xFF9CA3AF)
-                            )
-                        }
-                        Spacer(Modifier.height(4.dp))
+                        
+                        // 第三行：国家三级咨询师
                         Text(
                             c.title,
-                            fontSize = 12.sp,
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.Normal,
-                            color = ComposeColor(0xFF6B7280),
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
+                            color = ComposeColor(0xFF666666)
                         )
                     }
 
-                    // 第四层：价格 + 预约按钮
+                    // ✨ 修改：第四层价格和按钮样式，价格改为紫色
                     Column(horizontalAlignment = Alignment.End) {
                         Text(
                             "¥${c.price}",
-                            fontSize = 18.sp,
+                            fontSize = 20.sp,
                             fontWeight = FontWeight.Bold,
-                            color = ComposeColor(0xFF2C6ECB)
+                            color = ComposeColor(0xFF7B68EE)
                         )
                         Spacer(Modifier.height(2.dp))
                         Text(
                             "/${c.durationMinutes}分钟",
-                            fontSize = 11.sp,
-                            color = ComposeColor(0xFF9CA3AF)
+                            fontSize = 12.sp,
+                            color = ComposeColor(0xFF999999)
                         )
-                        Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(12.dp))
                         GradientButton(
                             text = "立即预约",
                             onClick = onBook,
                             gradient = gradient,
                             modifier = Modifier
-                                .width(90.dp)
-                                .height(36.dp)
+                                .width(100.dp)
+                                .height(40.dp)
                         )
                     }
                 }
@@ -801,6 +778,7 @@ fun ConsultantCard(
     }
 }
 
+// ✨ 修改：按钮圆角改为24dp，与设计方案一致
 @Composable
 fun GradientButton(
     text: String,
@@ -814,7 +792,7 @@ fun GradientButton(
     Box(
         modifier = modifier
             .scale(scale)
-            .clip(RoundedCornerShape(18.dp))
+            .clip(RoundedCornerShape(24.dp))
             .background(gradient)
             .clickable(
                 interactionSource = interactionSource,
@@ -822,10 +800,11 @@ fun GradientButton(
             ) { onClick() },
         contentAlignment = Alignment.Center
     ) {
-        Text(text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = ComposeColor.White)
+        Text(text, fontSize = 16.sp, fontWeight = FontWeight.Medium, color = ComposeColor.White)
     }
 }
 
+// ✨ 修改：骨架屏样式，圆角改为20dp
 @Composable
 fun ConsultantCardSkeleton() {
     val shimmerColors = listOf(
@@ -849,52 +828,71 @@ fun ConsultantCardSkeleton() {
         end = androidx.compose.ui.geometry.Offset(x = 300f * anim.value, y = 0f)
     )
     Card(
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        shape = RoundedCornerShape(20.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .height(180.dp)
-            .padding(horizontal = 16.dp)
+            .padding(horizontal = 12.dp, vertical = 6.dp)
     ) {
         Row(Modifier.fillMaxSize().padding(16.dp)) {
             // 左侧头像占位
             Box(
                 modifier = Modifier
-                    .size(68.dp)
+                    .size(64.dp)
                     .clip(CircleShape)
                     .background(brush)
             )
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Box(Modifier.height(22.dp).fillMaxWidth(0.4f).clip(RoundedCornerShape(4.dp)).background(brush))
+                Box(Modifier.height(22.dp).fillMaxWidth(0.5f).clip(RoundedCornerShape(4.dp)).background(brush))
                 Spacer(Modifier.height(8.dp))
-                Box(Modifier.height(16.dp).fillMaxWidth(0.6f).clip(RoundedCornerShape(4.dp)).background(brush))
+                Box(Modifier.height(16.dp).fillMaxWidth(0.7f).clip(RoundedCornerShape(4.dp)).background(brush))
                 Spacer(Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    repeat(3) {
-                        Box(Modifier.height(20.dp).width(60.dp).clip(RoundedCornerShape(8.dp)).background(brush))
+                    repeat(2) {
+                        Box(Modifier.height(24.dp).width(60.dp).clip(RoundedCornerShape(8.dp)).background(brush))
                     }
                 }
                 Spacer(Modifier.height(12.dp))
-                Box(Modifier.height(32.dp).fillMaxWidth().clip(RoundedCornerShape(4.dp)).background(brush))
+                Box(Modifier.height(18.dp).fillMaxWidth(0.6f).clip(RoundedCornerShape(4.dp)).background(brush))
             }
             Column(horizontalAlignment = Alignment.End) {
-                Box(Modifier.height(20.dp).width(60.dp).clip(RoundedCornerShape(4.dp)).background(brush))
+                Box(Modifier.height(24.dp).width(70.dp).clip(RoundedCornerShape(4.dp)).background(brush))
                 Spacer(Modifier.height(8.dp))
-                Box(Modifier.height(36.dp).width(90.dp).clip(RoundedCornerShape(18.dp)).background(brush))
+                Box(Modifier.height(40.dp).width(100.dp).clip(RoundedCornerShape(24.dp)).background(brush))
             }
         }
     }
 }
 
+// ✨ 修改：空状态样式优化
 @Composable
 fun EmptyState() {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             // 占位图
-            Box(modifier = Modifier.size(80.dp).background(androidx.compose.ui.graphics.Color(0xFFCCCCCC)))
-            Spacer(Modifier.height(12.dp))
-            Text("暂无符合条件的咨询师，可尝试调整筛选条件", color = androidx.compose.ui.graphics.Color(0xFF999999))
+            Box(
+                modifier = Modifier
+                    .size(80.dp)
+                    .clip(CircleShape)
+                    .background(androidx.compose.ui.graphics.Color(0xFFF0F0F0)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("🔍", fontSize = 40.sp)
+            }
+            Spacer(Modifier.height(16.dp))
+            Text(
+                "暂无符合条件的咨询师",
+                color = androidx.compose.ui.graphics.Color(0xFF666666),
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "可尝试调整筛选条件",
+                color = androidx.compose.ui.graphics.Color(0xFF999999),
+                fontSize = 14.sp
+            )
         }
     }
 }
@@ -912,6 +910,7 @@ fun readLoginStatus(ctx: android.content.Context): Boolean {
     val sp = ctx.getSharedPreferences("loginInfo", android.content.Context.MODE_PRIVATE)
     return sp.getBoolean("isLogin", false)
 }
+// ✨ 修改：下拉菜单文字颜色改为紫色
 @Composable
 fun DropdownTab(
     label: String,
@@ -924,8 +923,8 @@ fun DropdownTab(
             modifier = Modifier.clickable { expanded = true },
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(label, color = androidx.compose.ui.graphics.Color(0xFF111111), fontSize = 16.sp)
-            Icon(Icons.Filled.ArrowDropDown, contentDescription = null, tint = androidx.compose.ui.graphics.Color(0xFF111111))
+            Text(label, color = androidx.compose.ui.graphics.Color(0xFF7B68EE), fontSize = 16.sp, fontWeight = FontWeight.Medium)
+            Icon(Icons.Filled.ArrowDropDown, contentDescription = null, tint = androidx.compose.ui.graphics.Color(0xFF7B68EE))
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             options.forEach { opt ->

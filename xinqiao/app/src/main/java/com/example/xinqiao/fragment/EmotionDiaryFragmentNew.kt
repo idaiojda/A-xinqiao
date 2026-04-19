@@ -31,10 +31,12 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import coil.compose.AsyncImage
 import com.example.xinqiao.bean.EmotionEntry
+import com.example.xinqiao.repository.EmotionDiaryApiRepository
 import com.example.xinqiao.repository.MedicalRecordRepository
 import com.example.xinqiao.room.entities.EmotionDiaryEntity
 import com.example.xinqiao.util.AnalysisUtils
 import com.example.xinqiao.util.crypto.CryptoUtil
+import com.example.xinqiao.network.RetrofitClient
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
@@ -64,7 +66,13 @@ class EmotionDiaryFragmentNew : Fragment() {
 fun EmotionDiaryScreen() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val repo = remember { MedicalRecordRepository(context) }
+    
+    // 初始化Retrofit Token
+    LaunchedEffect(Unit) {
+        RetrofitClient.initFromContext(context)
+    }
+    
+    val apiRepo = remember { EmotionDiaryApiRepository(context) }
     val userName = remember { AnalysisUtils.readLoginUserName(context) }
     
     var entries by remember { mutableStateOf<List<EmotionEntry>>(emptyList()) }
@@ -95,18 +103,14 @@ fun EmotionDiaryScreen() {
         scope.launch {
             loading = true
             try {
-                val diaries = withContext(Dispatchers.IO) {
-                    repo.getEmotionDiariesByDateRange(userName, startDate, endDate)
+                val result = withContext(Dispatchers.IO) {
+                    apiRepo.getDiariesByDateRange(userName, startDate, endDate)
                 }
-                entries = diaries.map { diary ->
-                    EmotionEntry(
-                        diary.id,
-                        diary.date,
-                        diary.mood,
-                        if (diary.noteEncrypted.isNullOrEmpty()) "" else CryptoUtil.decrypt(diary.noteEncrypted) ?: ""
-                    )
-                }.sortedByDescending { it.date }
-                chartData = prepareChartData(entries)
+                
+                if (result.isSuccess) {
+                    entries = result.getOrNull()?.sortedByDescending { it.date } ?: emptyList()
+                    chartData = prepareChartData(entries)
+                }
                 loading = false
             } catch (e: Exception) {
                 loading = false
@@ -246,20 +250,22 @@ fun EmotionDiaryScreen() {
                         onDelete = { entry ->
                             scope.launch {
                                 try {
-                                    val diaries = withContext(Dispatchers.IO) {
-                                        repo.deleteEmotionDiaryById(entry.id, userName)
-                                        repo.getEmotionDiariesByDateRange(userName, startDate, endDate)
+                                    val result = withContext(Dispatchers.IO) {
+                                        apiRepo.deleteDiary(entry.id)
                                     }
-                                    entries = diaries.map { diary ->
-                                        EmotionEntry(
-                                            diary.id,
-                                            diary.date,
-                                            diary.mood,
-                                            if (diary.noteEncrypted.isNullOrEmpty()) "" else CryptoUtil.decrypt(diary.noteEncrypted) ?: ""
-                                        )
-                                    }.sortedByDescending { it.date }
-                                    chartData = prepareChartData(entries)
+                                    
+                                    if (result.isSuccess) {
+                                        // 重新加载数据
+                                        val refreshResult = withContext(Dispatchers.IO) {
+                                            apiRepo.getDiariesByDateRange(userName, startDate, endDate)
+                                        }
+                                        if (refreshResult.isSuccess) {
+                                            entries = refreshResult.getOrNull()?.sortedByDescending { it.date } ?: emptyList()
+                                            chartData = prepareChartData(entries)
+                                        }
+                                    }
                                 } catch (e: Exception) {
+                                    e.printStackTrace()
                                 }
                             }
                         }
@@ -276,21 +282,23 @@ fun EmotionDiaryScreen() {
                 scope.launch {
                     try {
                         val date = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
-                        val diaries = withContext(Dispatchers.IO) {
-                            repo.addEmotionDiary(userName, date, mood, note)
-                            repo.getEmotionDiariesByDateRange(userName, startDate, endDate)
+                        val result = withContext(Dispatchers.IO) {
+                            apiRepo.createDiary(userName, date, mood, note)
                         }
-                        entries = diaries.map { diary ->
-                            EmotionEntry(
-                                diary.id,
-                                diary.date,
-                                diary.mood,
-                                if (diary.noteEncrypted.isNullOrEmpty()) "" else CryptoUtil.decrypt(diary.noteEncrypted) ?: ""
-                            )
-                        }.sortedByDescending { it.date }
-                        chartData = prepareChartData(entries)
-                        showAddDialog = false
+                        
+                        if (result.isSuccess) {
+                            // 重新加载数据
+                            val refreshResult = withContext(Dispatchers.IO) {
+                                apiRepo.getDiariesByDateRange(userName, startDate, endDate)
+                            }
+                            if (refreshResult.isSuccess) {
+                                entries = refreshResult.getOrNull()?.sortedByDescending { it.date } ?: emptyList()
+                                chartData = prepareChartData(entries)
+                            }
+                            showAddDialog = false
+                        }
                     } catch (e: Exception) {
+                        e.printStackTrace()
                     }
                 }
             }

@@ -50,28 +50,67 @@ class               ChatViewModel(
     private val aiName = "灵灵"
 
     init {
+        // 加载历史消息而不是每次都插入欢迎消息
+        if (userName.isNotEmpty()) {
+            loadHistoryMessages()
+        } else {
+            // 未登录用户显示欢迎消息（不保存）
+            showWelcomeMessage()
+        }
+    }
+
+    /**
+     * 加载历史消息
+     * 如果会话为空，则显示并保存欢迎消息
+     */
+    private fun loadHistoryMessages() {
+        ensureSession { sid ->
+            chatHistoryDao.getChatHistoryAsync(userName, sid, object : ChatHistoryDao.ChatHistoryCallback {
+                override fun onResult(history: List<ChatHistory>) {
+                    if (history.isEmpty()) {
+                        // 新会话：显示并保存欢迎消息
+                        val hello = createWelcomeMessage()
+                        _messages.value = listOf(hello)
+                        savedStateHandle[greetingShownKey] = true
+                        saveMessage(hello.content, fromUser = false, ts = hello.ts)
+                    } else {
+                        // 已有历史：加载历史消息
+                        val messages = history.map { ch ->
+                            ChatMessage(
+                                content = ch.content ?: "",
+                                fromUser = ch.type == 1,
+                                ts = ch.timestamp
+                            )
+                        }
+                        _messages.value = messages
+                        savedStateHandle[greetingShownKey] = true
+                    }
+                }
+            })
+        }
+    }
+
+    /**
+     * 显示欢迎消息（不保存到数据库）
+     */
+    private fun showWelcomeMessage() {
         val shown = savedStateHandle.get<Boolean>(greetingShownKey) ?: false
         if (!shown) {
-            val hello = ChatMessage(
-                content = "你来啦，我是" + aiName + "，一个温暖又贴心的聊天伙伴。在喧嚣的世界里能和你相遇、聊天，真是一件美好的事情呢\n" +
-                        "你的故事，我都愿意倾听，让我们一起慢慢聊",
-                fromUser = false
-            )
+            val hello = createWelcomeMessage()
             _messages.value = listOf(hello)
             savedStateHandle[greetingShownKey] = true
-            // 仅在会话首次出现时保存问候到历史，避免重复
-            if (userName.isNotEmpty()) {
-                ensureSession { sid ->
-                    chatHistoryDao.getChatHistoryAsync(userName, sid, object : ChatHistoryDao.ChatHistoryCallback {
-                        override fun onResult(history: List<ChatHistory>) {
-                            if (history.isEmpty()) {
-                                saveMessage(hello.content, fromUser = false, ts = hello.ts)
-                            }
-                        }
-                    })
-                }
-            }
         }
+    }
+
+    /**
+     * 创建欢迎消息
+     */
+    private fun createWelcomeMessage(): ChatMessage {
+        return ChatMessage(
+            content = "你来啦，我是" + aiName + "，一个温暖又贴心的聊天伙伴。在喧嚣的世界里能和你相遇、聊天，真是一件美好的事情呢\n" +
+                    "你的故事，我都愿意倾听，让我们一起慢慢聊",
+            fromUser = false
+        )
     }
 
     private fun ensureSession(onReady: (Int) -> Unit) {
@@ -85,16 +124,16 @@ class               ChatViewModel(
         chatSessionDao.getLatestSessionAsync(userName, object : ChatSessionDao.GetSessionCallback {
             override fun onResult(session: ChatSession?) {
                 if (session != null) {
-                    savedStateHandle[sessionIdKey] = session.id
-                    onReady(session.id)
+                    savedStateHandle[sessionIdKey] = session.id.toInt()
+                    onReady(session.id.toInt())
                 } else {
                     val now = System.currentTimeMillis()
                     val newSession = ChatSession(userName, "新对话", now, now)
                     chatSessionDao.createChatSessionAsync(newSession, object : ChatSessionDao.CreateSessionCallback {
-                        override fun onResult(sessionId: Int) {
+                        override fun onResult(sessionId: Long) {
                             if (sessionId > 0) {
-                                savedStateHandle[sessionIdKey] = sessionId
-                                onReady(sessionId)
+                                savedStateHandle[sessionIdKey] = sessionId.toInt()
+                                onReady(sessionId.toInt())
                             }
                         }
                     })
@@ -117,7 +156,7 @@ class               ChatViewModel(
             if (fromUser) {
                 var title = content
                 if (title.length > 20) title = title.substring(0, 20) + "..."
-                chatSessionDao.updateSessionTitleAsync(sid, title, null)
+                chatSessionDao.updateSessionTitleAsync(sid.toLong(), title, null)
             }
         }
     }

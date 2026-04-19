@@ -31,15 +31,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.xinqiao.repository.MedicalRecordRepository
+import com.example.xinqiao.repository.EmotionDiaryApiRepository
 import com.example.xinqiao.room.entities.EmotionDiaryEntity
 import com.example.xinqiao.util.AnalysisUtils
 import com.example.xinqiao.util.crypto.CryptoUtil
+import com.example.xinqiao.network.RetrofitClient
+import com.example.xinqiao.bean.EmotionEntry
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 fun calculateCurrentStreak(diaries: List<EmotionDiaryEntity>): Int {
     if (diaries.isEmpty()) return 0
@@ -47,6 +54,29 @@ fun calculateCurrentStreak(diaries: List<EmotionDiaryEntity>): Int {
     val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
     val today = Calendar.getInstance()
     val recordedDates = diaries.map { it.date }.toSet()
+    
+    var streak = 0
+    var currentDate = today.clone() as Calendar
+    
+    while (true) {
+        val dateStr = sdf.format(currentDate.time)
+        if (recordedDates.contains(dateStr)) {
+            streak++
+            currentDate.add(Calendar.DAY_OF_YEAR, -1)
+        } else {
+            break
+        }
+    }
+    
+    return streak
+}
+
+fun calculateCurrentStreakFromEntries(entries: List<EmotionEntry>): Int {
+    if (entries.isEmpty()) return 0
+    
+    val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+    val today = Calendar.getInstance()
+    val recordedDates = entries.map { it.date }.toSet()
     
     var streak = 0
     var currentDate = today.clone() as Calendar
@@ -635,9 +665,16 @@ class EmotionDiaryActivity : ComponentActivity() {
 @Composable
 fun EmotionDiaryScreen() {
     val ctx = androidx.compose.ui.platform.LocalContext.current
-    val repo = remember { MedicalRecordRepository(ctx) }
+    val scope = rememberCoroutineScope()
+    
+    // 初始化API Repository
+    val apiRepo = remember { EmotionDiaryApiRepository(ctx) }
+    LaunchedEffect(Unit) {
+        RetrofitClient.initFromContext(ctx)
+    }
+    
     val user = remember { AnalysisUtils.readLoginUserName(ctx) }
-    var diaries by remember { mutableStateOf<List<EmotionDiaryEntity>>(emptyList()) }
+    var entries by remember { mutableStateOf<List<EmotionEntry>>(emptyList()) }
     var loading by remember { mutableStateOf(false) }
     var mood by remember { mutableStateOf(5f) }
     var note by remember { mutableStateOf("") }
@@ -648,25 +685,34 @@ fun EmotionDiaryScreen() {
 
     LaunchedEffect(user) {
         loading = true
-        repo.getEmotionDiariesAsync(user, true, object : MedicalRecordRepository.EmotionDiariesCallback {
-            override fun onSuccess(list: List<EmotionDiaryEntity>) { 
-                diaries = list
-                // Calculate 21-day challenge progress
-                val calendar = Calendar.getInstance()
-                calendar.add(Calendar.DAY_OF_YEAR, -21)
-                val startDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(calendar.time)
-                
-                val recentDiaries = list.filter { diary ->
-                    diary.date >= startDate
+        scope.launch {
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    apiRepo.getAllDiaries(user)
                 }
-                challengeDays = recentDiaries.distinctBy { it.date }.size
                 
-                // Calculate current streak
-                currentStreak = calculateCurrentStreak(list)
-                loading = false 
+                if (result.isSuccess) {
+                    entries = result.getOrNull() ?: emptyList()
+                    
+                    // Calculate 21-day challenge progress
+                    val calendar = Calendar.getInstance()
+                    calendar.add(Calendar.DAY_OF_YEAR, -21)
+                    val startDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(calendar.time)
+                    
+                    val recentDiaries = entries.filter { entry ->
+                        entry.date >= startDate
+                    }
+                    challengeDays = recentDiaries.distinctBy { it.date }.size
+                    
+                    // Calculate current streak
+                    currentStreak = calculateCurrentStreakFromEntries(entries)
+                }
+                loading = false
+            } catch (e: Exception) {
+                android.util.Log.e("EmotionDiary", "Error loading diaries", e)
+                loading = false
             }
-            override fun onError(e: Exception) { loading = false }
-        })
+        }
     }
 
     var showAdd by remember { mutableStateOf(false) }
@@ -693,8 +739,8 @@ fun EmotionDiaryScreen() {
                         )
                         
                         // Mood summary chip
-                        if (diaries.isNotEmpty()) {
-                            val avgMood = diaries.map { it.mood }.average().toInt()
+                        if (entries.isNotEmpty()) {
+                            val avgMood = entries.map { it.mood }.average().toInt()
                             AssistChip(
                                 onClick = { },
                                 label = { 
@@ -827,26 +873,35 @@ fun EmotionDiaryScreen() {
                 ) {
                     CircularProgressIndicator()
                 }
-            } else if (diaries.isEmpty()) {
+            } else if (entries.isEmpty()) {
                 EmptyStateMessage()
             } else {
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    itemsIndexed(diaries) { index, diary ->
-                        AnimatedMoodCard(
-                            diary = diary,
+                    itemsIndexed(entries) { index, entry ->
+                        AnimatedMoodCardFromEntry(
+                            entry = entry,
                             onDelete = {
-                                repo.deleteEmotionDiaryByIdAsync(diary.id, user, object : MedicalRecordRepository.EmotionDiaryRowsCallback {
-                                    override fun onSuccess(rows: Int) {
-                                        repo.getEmotionDiariesAsync(user, false, object : MedicalRecordRepository.EmotionDiariesCallback {
-                                            override fun onSuccess(list: List<EmotionDiaryEntity>) { diaries = list }
-                                            override fun onError(e: Exception) {}
-                                        })
+                                scope.launch {
+                                    try {
+                                        val result = withContext(Dispatchers.IO) {
+                                            apiRepo.deleteDiary(entry.id)
+                                        }
+                                        if (result.isSuccess) {
+                                            // 重新加载
+                                            val refreshResult = withContext(Dispatchers.IO) {
+                                                apiRepo.getAllDiaries(user)
+                                            }
+                                            if (refreshResult.isSuccess) {
+                                                entries = refreshResult.getOrNull() ?: emptyList()
+                                            }
+                                        }
+                                    } catch (e: Exception) {
+                                        android.util.Log.e("EmotionDiary", "Error deleting diary", e)
                                     }
-                                    override fun onError(e: Exception) {}
-                                })
+                                }
                             },
                             modifier = Modifier.animateItemPlacement(
                                 animationSpec = spring(
@@ -872,39 +927,127 @@ fun EmotionDiaryScreen() {
                 val date = sdf.format(Date())
                 android.util.Log.d("EmotionDiary", "Saving diary: user=$user, date=$date, mood=${mood.toInt()}")
                 
-                repo.addEmotionDiaryAsync(user, date, mood.toInt(), note, object : MedicalRecordRepository.EmotionDiaryIdCallback {
-                    override fun onSuccess(id: Long) {
-                        android.util.Log.d("EmotionDiary", "Diary saved successfully with id: $id")
-                        repo.getEmotionDiariesAsync(user, false, object : MedicalRecordRepository.EmotionDiariesCallback {
-                            override fun onSuccess(list: List<EmotionDiaryEntity>) { 
-                                android.util.Log.d("EmotionDiary", "Reloaded diaries count: ${list.size}")
-                                diaries = list
+                scope.launch {
+                    try {
+                        val result = withContext(Dispatchers.IO) {
+                            apiRepo.createDiary(user, date, mood.toInt(), note)
+                        }
+                        
+                        if (result.isSuccess) {
+                            android.util.Log.d("EmotionDiary", "Diary saved successfully")
+                            
+                            // 重新加载
+                            val refreshResult = withContext(Dispatchers.IO) {
+                                apiRepo.getAllDiaries(user)
+                            }
+                            if (refreshResult.isSuccess) {
+                                entries = refreshResult.getOrNull() ?: emptyList()
+                                android.util.Log.d("EmotionDiary", "Reloaded diaries count: ${entries.size}")
+                                
                                 // Recalculate challenge progress
                                 val calendar = Calendar.getInstance()
                                 calendar.add(Calendar.DAY_OF_YEAR, -21)
                                 val startDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(calendar.time)
                                 
-                                val recentDiaries = list.filter { diary ->
-                                    diary.date >= startDate
+                                val recentDiaries = entries.filter { entry ->
+                                    entry.date >= startDate
                                 }
                                 android.util.Log.d("EmotionDiary", "Recent 21 days diaries: ${recentDiaries.size}, unique days: ${recentDiaries.distinctBy { it.date }.size}")
                                 
                                 challengeDays = recentDiaries.distinctBy { it.date }.size
-                                currentStreak = calculateCurrentStreak(list)
+                                currentStreak = calculateCurrentStreakFromEntries(entries)
                             }
-                            override fun onError(e: Exception) {
-                                android.util.Log.e("EmotionDiary", "Error reloading diaries", e)
-                            }
-                        })
-                        note = ""; mood = 5f; showAdd = false
-                    }
-                    override fun onError(e: Exception) { 
+                            
+                            note = ""
+                            mood = 5f
+                            showAdd = false
+                        }
+                    } catch (e: Exception) { 
                         android.util.Log.e("EmotionDiary", "Error saving diary", e)
                         showAdd = false 
                     }
-                })
+                }
             },
             onDismiss = { showAdd = false }
         )
+    }
+}
+
+
+@Composable
+fun AnimatedMoodCardFromEntry(
+    entry: EmotionEntry,
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    // 将 EmotionEntry 转换为显示格式
+    val moodEmoji = when (entry.mood) {
+        in 1..2 -> "😢"
+        in 3..4 -> "😔"
+        5 -> "😐"
+        in 6..7 -> "😊"
+        in 8..9 -> "😄"
+        10 -> "🤗"
+        else -> "😐"
+    }
+    
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = moodEmoji,
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontSize = 48.sp
+                )
+                
+                Column {
+                    Text(
+                        text = "日期：${entry.date}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "心情：${entry.mood}/10",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    if (entry.note.isNotBlank()) {
+                        Text(
+                            text = entry.note,
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+                }
+            }
+            
+            IconButton(onClick = onDelete) {
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = "删除",
+                    tint = MaterialTheme.colorScheme.error
+                )
+            }
+        }
     }
 }

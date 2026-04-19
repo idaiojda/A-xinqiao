@@ -15,6 +15,13 @@ public class ArticleController {
     private final ArticleService service;
     public ArticleController(ArticleService service) { this.service = service; }
 
+    @GetMapping
+    public List<Article> listDefault(@RequestParam(required = false) String category,
+                                     @RequestParam(defaultValue = "0") int page,
+                                     @RequestParam(defaultValue = "10") int size) {
+        return service.list(category, page, size);
+    }
+
     @GetMapping("/list")
     public List<Article> list(@RequestParam(required = false) String category,
                               @RequestParam(defaultValue = "0") int page,

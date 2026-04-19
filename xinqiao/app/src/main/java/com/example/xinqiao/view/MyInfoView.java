@@ -171,7 +171,7 @@ public class MyInfoView extends LinearLayout implements com.example.xinqiao.mysq
                 @Override
                 public void onClick(View v) {
                     Toast.makeText(mContext, "未通过审核，请完善资料后重新提交", Toast.LENGTH_SHORT).show();
-                    Intent intent = new Intent(mContext, com.example.xinqiao.activity.CounselorApplicationActivity.class);
+                    Intent intent = new Intent(mContext, com.example.xinqiao.activity.CounselorCertificationActivity.class);
                     mContext.startActivity(intent);
                 }
             });
@@ -180,7 +180,7 @@ public class MyInfoView extends LinearLayout implements com.example.xinqiao.mysq
             rlApplyCounselor.setOnClickListener(new OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    Intent intent = new Intent(mContext, com.example.xinqiao.activity.CounselorApplicationActivity.class);
+                    Intent intent = new Intent(mContext, com.example.xinqiao.activity.CounselorCertificationActivity.class);
                     mContext.startActivity(intent);
                 }
             });
@@ -189,7 +189,7 @@ public class MyInfoView extends LinearLayout implements com.example.xinqiao.mysq
             rlApplyCounselor.setOnClickListener(new OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    Intent intent = new Intent(mContext, com.example.xinqiao.activity.CounselorApplicationActivity.class);
+                    Intent intent = new Intent(mContext, com.example.xinqiao.activity.CounselorCertificationActivity.class);
                     mContext.startActivity(intent);
                 }
             });

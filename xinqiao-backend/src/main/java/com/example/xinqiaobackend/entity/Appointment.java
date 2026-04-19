@@ -35,6 +35,9 @@ public class Appointment {
     @Column(name = "remark", length = 512)
     private String remark;
 
+    @Column(name = "price")
+    private Double price;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public String getUserUsername() { return userUsername; }
@@ -53,4 +56,6 @@ public class Appointment {
     public void setMode(String mode) { this.mode = mode; }
     public String getRemark() { return remark; }
     public void setRemark(String remark) { this.remark = remark; }
+    public Double getPrice() { return price; }
+    public void setPrice(Double price) { this.price = price; }
 }

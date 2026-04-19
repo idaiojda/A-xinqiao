@@ -10,4 +10,5 @@ import java.util.List;
 public interface UserInfoRepository extends JpaRepository<UserInfo, Long> {
     @Query("select u from UserInfo u where (:q is null or u.username like concat('%', :q, '%'))")
     List<UserInfo> search(@Param("q") String q);
+    UserInfo findByUsername(String username);
 }

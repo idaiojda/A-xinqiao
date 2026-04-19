@@ -78,19 +78,29 @@ class ConsultRepository(private val context: Context) {
                     val list = mutableListOf<Consultant>()
                     for (i in 0 until dataArr.length()) {
                         val o = dataArr.getJSONObject(i)
+                        // 处理头像URL：支持 base64 格式
+                        var avatarUrl = o.optString("avatar")
+                        Log.d("ConsultRepository", "Received avatar for ${o.optString("id")}: ${avatarUrl.take(100)}...")
+                        if (!avatarUrl.startsWith("data:image/") && avatarUrl.startsWith("/api/")) {
+                            // 只对 API 路径添加时间戳，base64 不需要
+                            avatarUrl = "$avatarUrl?t=${System.currentTimeMillis()}"
+                        }
                         list.add(
                             Consultant(
                                 id = o.optString("id"),
                                 name = o.optString("name"),
                                 title = o.optString("title"),
-                                avatarUrl = o.optString("avatar"),
+                                avatarUrl = avatarUrl,
                                 certified = o.optBoolean("certified", true),
                                 skills = o.optJSONArray("skills")?.let { ja ->
                                     List(ja.length()) { idx -> ja.optString(idx) }
                                 } ?: emptyList(),
                                 rating = o.optDouble("rating", 4.8),
                                 consultCount = o.optInt("consultCount", 0),
-                                price = o.optInt("price", 299),
+                                price = o.optInt("price", 0),
+                                priceText = o.optInt("priceText", 0),
+                                priceVoice = o.optInt("priceVoice", 0),
+                                priceVideo = o.optInt("priceVideo", 0),
                                 durationMinutes = o.optInt("duration", 60),
                                 defaultMode = o.optString("defaultMode", "文字咨询"),
                                 city = o.optString("city", null)
@@ -144,6 +154,48 @@ class ConsultRepository(private val context: Context) {
             }
         } catch (e: Exception) {
             Log.e("ConsultRepository", "fetchCities error", e)
+            Result.failure(e)
+        }
+    }
+    
+    fun fetchExpertiseTags(token: String?): Result<List<String>> {
+        val url = "$baseUrl/api/consult/pro/tags"
+        val reqBuilder = Request.Builder().url(url)
+        if (!token.isNullOrEmpty()) {
+            reqBuilder.addHeader("Authorization", "Bearer $token")
+        }
+
+        return try {
+            client.newCall(reqBuilder.build()).execute().use { resp ->
+                if (!resp.isSuccessful) {
+                    Result.failure(RuntimeException("HTTP ${resp.code}"))
+                } else {
+                    val bodyStr = resp.body?.string() ?: "[]"
+                    val out = mutableListOf<String>()
+                    // 兼容数组或带 data 包装
+                    if (bodyStr.trim().startsWith("[")) {
+                        val arr = JSONArray(bodyStr)
+                        for (i in 0 until arr.length()) {
+                            val v = arr.optString(i)
+                            if (!v.isNullOrBlank()) out.add(v)
+                        }
+                    } else {
+                        val root = JSONObject(bodyStr)
+                        val arr = when {
+                            root.has("data") -> root.getJSONArray("data")
+                            root.has("list") -> root.getJSONArray("list")
+                            else -> JSONArray()
+                        }
+                        for (i in 0 until arr.length()) {
+                            val v = arr.optString(i)
+                            if (!v.isNullOrBlank()) out.add(v)
+                        }
+                    }
+                    Result.success(out)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("ConsultRepository", "fetchExpertiseTags error", e)
             Result.failure(e)
         }
     }
@@ -282,6 +334,101 @@ class ConsultRepository(private val context: Context) {
                 Result.success(norm)
             }
         } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    // 获取咨询师详情
+    fun fetchConsultantDetail(consultantId: String, token: String?): Result<ConsultantDetail> {
+        val url = "$baseUrl/api/consult/pro/detail/$consultantId"
+        val reqBuilder = Request.Builder().url(url)
+        if (!token.isNullOrEmpty()) {
+            reqBuilder.addHeader("Authorization", "Bearer $token")
+        }
+
+        return try {
+            client.newCall(reqBuilder.build()).execute().use { resp ->
+                if (!resp.isSuccessful) {
+                    Result.failure(RuntimeException("HTTP ${resp.code}"))
+                } else {
+                    val bodyStr = resp.body?.string() ?: "{}"
+                    val o = JSONObject(bodyStr)
+                    
+                    val certificates = mutableListOf<Certificate>()
+                    val certsArr = o.optJSONArray("certificates") ?: JSONArray()
+                    for (i in 0 until certsArr.length()) {
+                        val certObj = certsArr.getJSONObject(i)
+                        certificates.add(
+                            Certificate(
+                                title = certObj.optString("title"),
+                                desc = certObj.optString("desc")
+                            )
+                        )
+                    }
+                    
+                    val cases = mutableListOf<CaseItem>()
+                    val casesArr = o.optJSONArray("cases") ?: JSONArray()
+                    for (i in 0 until casesArr.length()) {
+                        val caseObj = casesArr.getJSONObject(i)
+                        cases.add(
+                            CaseItem(
+                                title = caseObj.optString("title"),
+                                time = caseObj.optString("time"),
+                                summary = caseObj.optString("summary")
+                            )
+                        )
+                    }
+                    
+                    val reviewDist = mutableListOf<Int>()
+                    val reviewArr = o.optJSONArray("reviewDist") ?: JSONArray()
+                    for (i in 0 until reviewArr.length()) {
+                        reviewDist.add(reviewArr.optInt(i))
+                    }
+                    
+                    val skills = mutableListOf<String>()
+                    val skillsArr = o.optJSONArray("skills") ?: JSONArray()
+                    for (i in 0 until skillsArr.length()) {
+                        skills.add(skillsArr.optString(i))
+                    }
+                    
+                    // 添加时间戳参数绕过缓存
+                    var avatarUrl = o.optString("avatarUrl")
+                    if (avatarUrl.startsWith("/api/")) {
+                        avatarUrl = "$avatarUrl?t=${System.currentTimeMillis()}"
+                    }
+                    var bannerUrl = o.optString("bannerUrl")
+                    if (bannerUrl.startsWith("/api/")) {
+                        bannerUrl = "$bannerUrl?t=${System.currentTimeMillis()}"
+                    }
+                    
+                    val detail = ConsultantDetail(
+                        id = o.optString("id"),
+                        name = o.optString("name"),
+                        title = o.optString("title"),
+                        avatarUrl = avatarUrl,
+                        bannerUrl = bannerUrl,
+                        rating = o.optDouble("rating", 4.8),
+                        consultCount = o.optInt("consultCount", 0),
+                        price = o.optInt("price", 299),
+                        basePrice = o.optInt("basePrice", 0),
+                        priceText = o.optInt("priceText", 0),
+                        priceVoice = o.optInt("priceVoice", 0),
+                        priceVideo = o.optInt("priceVideo", 0),
+                        defaultMode = o.optString("defaultMode", "文字咨询"),
+                        city = o.optString("city"),
+                        skills = skills,
+                        certificates = certificates,
+                        cases = cases,
+                        reviewDist = reviewDist,
+                        intro = o.optString("intro"),
+                        education = o.optString("education", "本科"),
+                        workYear = o.optString("workYear", "3 年")
+                    )
+                    Result.success(detail)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("ConsultRepository", "fetchConsultantDetail error", e)
             Result.failure(e)
         }
     }

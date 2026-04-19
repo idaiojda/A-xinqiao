@@ -79,7 +79,7 @@ public class DBUtils {
         Connection conn = null;
         try {
             conn = helper.getConnection();
-            String sql = "INSERT INTO user_info (username, password, nickname, gender, introduction, avatar, balance, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW());";
+            String sql = "INSERT INTO user_info (username, password, nickname, gender, introduction, avatar, created_at) VALUES (?, ?, ?, ?, ?, ?, NOW());";
             PreparedStatement stmt = conn.prepareStatement(sql);
             stmt.setString(1, userName);
             stmt.setString(2, password);
@@ -87,7 +87,6 @@ public class DBUtils {
             stmt.setString(4, sex);
             stmt.setString(5, signature);
             stmt.setNull(6, java.sql.Types.BLOB);
-            stmt.setDouble(7, 0.00); // 设置初始余额为0
             return stmt.executeUpdate() > 0;
         } catch (SQLException e) {
             android.util.Log.e("DBUtils", "保存用户信息失败: " + e.getMessage());
@@ -106,7 +105,7 @@ public class DBUtils {
         Connection conn = null;
         try {
             conn = helper.getConnection();
-            String sql = "UPDATE user_info SET nickname=?, gender=?, introduction=?, updated_at=NOW() WHERE username=?;";
+            String sql = "UPDATE user_info SET nickname=?, gender=?, introduction=? WHERE username=?;";
             PreparedStatement stmt = conn.prepareStatement(sql);
             stmt.setString(1, nickName);
             stmt.setString(2, sex);
@@ -565,7 +564,7 @@ public class DBUtils {
                 @Override
                 public void onSuccess(Connection conn) {
                     try {
-                        String sql = "UPDATE user_info SET avatar = ?, updated_at = NOW() WHERE username = ?;";
+                        String sql = "UPDATE user_info SET avatar = ? WHERE username = ?;";
                         PreparedStatement stmt = conn.prepareStatement(sql);
                         stmt.setBytes(1, avatarData);
                         stmt.setString(2, userName);
@@ -843,7 +842,7 @@ public class DBUtils {
         Connection conn = null;
         try {
             conn = MySQLHelper.getInstance().getConnection();
-            String sql = "SELECT username FROM user_info WHERE username LIKE ? OR nickname LIKE ? ORDER BY updated_at DESC LIMIT 50";
+            String sql = "SELECT username FROM user_info WHERE username LIKE ? OR nickname LIKE ? ORDER BY created_at DESC LIMIT 50";
             PreparedStatement stmt = conn.prepareStatement(sql);
             String like = "%" + (keyword == null ? "" : keyword) + "%";
             stmt.setString(1, like);
@@ -1157,11 +1156,30 @@ public class DBUtils {
         Connection conn = null;
         try {
             conn = MySQLHelper.getInstance().getConnection();
-            String sql = "INSERT INTO community_groups (name, description, admin_name, schedule, capacity, member_count, rules_json) VALUES (?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE description=VALUES(description), admin_name=VALUES(admin_name), schedule=VALUES(schedule), capacity=VALUES(capacity), rules_json=VALUES(rules_json)";
+            // 先根据 adminName 查找 user_id
+            Long adminUserId = null;
+            if (info.adminName != null && !info.adminName.isEmpty()) {
+                String userSql = "SELECT user_id FROM user_info WHERE username=?";
+                PreparedStatement userStmt = conn.prepareStatement(userSql);
+                userStmt.setString(1, info.adminName);
+                ResultSet userRs = userStmt.executeQuery();
+                if (userRs.next()) {
+                    adminUserId = userRs.getLong("user_id");
+                }
+                userRs.close();
+                userStmt.close();
+            }
+            
+            if (adminUserId == null) {
+                android.util.Log.e("DBUtils", "upsertCommunityGroup: admin user not found for username: " + info.adminName);
+                return false;
+            }
+            
+            String sql = "INSERT INTO community_groups (name, description, admin_user_id, schedule, capacity, member_count, rules_json) VALUES (?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE description=VALUES(description), admin_user_id=VALUES(admin_user_id), schedule=VALUES(schedule), capacity=VALUES(capacity), rules_json=VALUES(rules_json)";
             PreparedStatement stmt = conn.prepareStatement(sql);
             stmt.setString(1, info.name);
             stmt.setString(2, info.description);
-            stmt.setString(3, info.adminName);
+            stmt.setLong(3, adminUserId);
             stmt.setString(4, info.schedule);
             stmt.setInt(5, info.capacity);
             stmt.setInt(6, info.memberCount);
@@ -1181,7 +1199,7 @@ public class DBUtils {
         Connection conn = null;
         try {
             conn = MySQLHelper.getInstance().getConnection();
-            String sql = "SELECT * FROM community_groups WHERE name=?";
+            String sql = "SELECT g.*, u.username AS admin_username FROM community_groups g LEFT JOIN user_info u ON g.admin_user_id = u.user_id WHERE g.name=?";
             PreparedStatement stmt = conn.prepareStatement(sql);
             stmt.setString(1, name);
             ResultSet rs = stmt.executeQuery();
@@ -1189,7 +1207,7 @@ public class DBUtils {
                 GroupInfoRow row = new GroupInfoRow();
                 row.name = rs.getString("name");
                 row.description = rs.getString("description");
-                row.adminName = rs.getString("admin_name");
+                row.adminName = rs.getString("admin_username");
                 row.schedule = rs.getString("schedule");
                 row.capacity = rs.getInt("capacity");
                 row.memberCount = rs.getInt("member_count");
@@ -1208,23 +1226,31 @@ public class DBUtils {
     }
 
     /**
-     * 推断群主昵称：优先返回 admin_name；为空时取最早加入的成员用户名
+     * 推断群主昵称：从 admin_user_id 获取用户名；为空时取最早加入的成员用户名
      */
     public String getCommunityGroupOwnerName(String groupName) {
         Connection conn = null;
         try {
             conn = MySQLHelper.getInstance().getConnection();
-            // 1) 优先 admin_name
+            // 1) 从 admin_user_id 获取用户名
             String admin = null;
             try {
-                ResultSet rs = conn.createStatement().executeQuery("SELECT admin_name FROM community_groups WHERE name='" + groupName + "'");
+                String sql = "SELECT u.username FROM community_groups g LEFT JOIN user_info u ON g.admin_user_id = u.user_id WHERE g.name=?";
+                PreparedStatement stmt = conn.prepareStatement(sql);
+                stmt.setString(1, groupName);
+                ResultSet rs = stmt.executeQuery();
                 if (rs.next()) admin = rs.getString(1);
                 rs.close();
+                stmt.close();
             } catch (Exception ignore) {}
             if (admin != null && !admin.isEmpty()) return admin;
             // 2) 取最早加入成员
             try {
-                String sql = "SELECT user_name FROM community_group_members WHERE group_name=? AND joined=1 ORDER BY IFNULL(joined_at, CURRENT_TIMESTAMP) ASC LIMIT 1";
+                String sql = "SELECT u.username FROM community_group_members m " +
+                           "LEFT JOIN user_info u ON m.user_id = u.user_id " +
+                           "LEFT JOIN community_groups g ON m.group_id = g.id " +
+                           "WHERE g.name=? AND m.status=1 " +
+                           "ORDER BY m.joined_at ASC LIMIT 1";
                 PreparedStatement stmt = conn.prepareStatement(sql);
                 stmt.setString(1, groupName);
                 ResultSet rs = stmt.executeQuery();
@@ -1246,9 +1272,26 @@ public class DBUtils {
         Connection conn = null;
         try {
             conn = MySQLHelper.getInstance().getConnection();
-            String sql = "UPDATE community_groups SET admin_name=? WHERE name=?";
+            // 先根据 userName 查找 user_id
+            String userSql = "SELECT user_id FROM user_info WHERE username=?";
+            PreparedStatement userStmt = conn.prepareStatement(userSql);
+            userStmt.setString(1, userName);
+            ResultSet userRs = userStmt.executeQuery();
+            Long userId = null;
+            if (userRs.next()) {
+                userId = userRs.getLong("user_id");
+            }
+            userRs.close();
+            userStmt.close();
+            
+            if (userId == null) {
+                android.util.Log.e("DBUtils", "setCommunityGroupOwner: user not found for username: " + userName);
+                return false;
+            }
+            
+            String sql = "UPDATE community_groups SET admin_user_id=? WHERE name=?";
             PreparedStatement stmt = conn.prepareStatement(sql);
-            stmt.setString(1, userName);
+            stmt.setLong(1, userId);
             stmt.setString(2, groupName);
             int rows = stmt.executeUpdate();
             stmt.close();
@@ -1268,31 +1311,49 @@ public class DBUtils {
         Connection conn = null;
         try {
             conn = MySQLHelper.getInstance().getConnection();
-            String sql = "SELECT COUNT(*) FROM community_group_members WHERE group_name=? AND joined=1";
+            // 通过 group_id 统计成员
+            String sql = "SELECT COUNT(*) FROM community_group_members m " +
+                        "LEFT JOIN community_groups g ON m.group_id = g.id " +
+                        "WHERE g.name=? AND m.status=1";
             PreparedStatement stmt = conn.prepareStatement(sql);
             stmt.setString(1, groupName);
             ResultSet rs = stmt.executeQuery();
             int count = 0;
             if (rs.next()) count = rs.getInt(1);
             rs.close(); stmt.close();
-            PreparedStatement sAdmin = conn.prepareStatement("SELECT admin_name FROM community_groups WHERE name=?");
+            
+            // 从 admin_user_id 获取管理员用户ID
+            PreparedStatement sAdmin = conn.prepareStatement("SELECT g.id, g.admin_user_id FROM community_groups g WHERE g.name=?");
             sAdmin.setString(1, groupName);
             ResultSet rAdmin = sAdmin.executeQuery();
-            String admin = null;
-            if (rAdmin.next()) admin = rAdmin.getString(1);
+            Long groupId = null;
+            Long adminUserId = null;
+            if (rAdmin.next()) {
+                groupId = rAdmin.getLong(1);
+                adminUserId = rAdmin.getLong(2);
+            }
             rAdmin.close(); sAdmin.close();
-            if (admin != null && !admin.isEmpty()) {
-                PreparedStatement upsert = conn.prepareStatement("INSERT INTO community_group_members (group_name, user_name, joined) VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE joined=VALUES(joined), joined_at=CURRENT_TIMESTAMP");
-                upsert.setString(1, groupName);
-                upsert.setString(2, admin);
+            
+            if (groupId != null && adminUserId != null) {
+                // 确保管理员在成员表中
+                PreparedStatement upsert = conn.prepareStatement(
+                    "INSERT INTO community_group_members (group_id, user_id, role, status) " +
+                    "VALUES (?, ?, 'admin', 1) " +
+                    "ON DUPLICATE KEY UPDATE status=1, role='admin'");
+                upsert.setLong(1, groupId);
+                upsert.setLong(2, adminUserId);
                 upsert.executeUpdate();
                 upsert.close();
+                
+                // 重新统计
                 PreparedStatement stmt3 = conn.prepareStatement(sql);
                 stmt3.setString(1, groupName);
                 ResultSet rs3 = stmt3.executeQuery();
                 if (rs3.next()) count = rs3.getInt(1);
                 rs3.close(); stmt3.close();
             }
+            
+            // 更新小组的成员数
             PreparedStatement sUpdate = conn.prepareStatement("UPDATE community_groups SET member_count=? WHERE name=?");
             sUpdate.setInt(1, count);
             sUpdate.setString(2, groupName);
@@ -1331,10 +1392,32 @@ public class DBUtils {
         Connection conn = null;
         try {
             conn = MySQLHelper.getInstance().getConnection();
-            String upsert = "INSERT INTO community_group_members (group_name, user_name, joined) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE joined=VALUES(joined), joined_at=CURRENT_TIMESTAMP";
+            // 先获取 group_id 和 user_id
+            String getIdsSql = "SELECT g.id, u.user_id FROM community_groups g, user_info u WHERE g.name=? AND u.username=?";
+            PreparedStatement getIdsStmt = conn.prepareStatement(getIdsSql);
+            getIdsStmt.setString(1, groupName);
+            getIdsStmt.setString(2, userName);
+            ResultSet rs = getIdsStmt.executeQuery();
+            
+            if (!rs.next()) {
+                rs.close();
+                getIdsStmt.close();
+                android.util.Log.e("DBUtils", "Group or user not found: " + groupName + ", " + userName);
+                return false;
+            }
+            
+            Long groupId = rs.getLong(1);
+            Long userId = rs.getLong(2);
+            rs.close();
+            getIdsStmt.close();
+            
+            // 更新成员状态
+            String upsert = "INSERT INTO community_group_members (group_id, user_id, role, status) " +
+                          "VALUES (?, ?, 'member', ?) " +
+                          "ON DUPLICATE KEY UPDATE status=VALUES(status), joined_at=CURRENT_TIMESTAMP";
             PreparedStatement stmt = conn.prepareStatement(upsert);
-            stmt.setString(1, groupName);
-            stmt.setString(2, userName);
+            stmt.setLong(1, groupId);
+            stmt.setLong(2, userId);
             stmt.setInt(3, join ? 1 : 0);
             int rows = stmt.executeUpdate();
             stmt.close();
@@ -1377,7 +1460,15 @@ public class DBUtils {
         Connection conn = null;
         try {
             conn = MySQLHelper.getInstance().getConnection();
-            String sql = "SELECT name FROM community_groups WHERE admin_name=? UNION SELECT group_name AS name FROM community_group_members WHERE user_name=? AND joined=1";
+            // 查找用户作为管理员的群组 + 用户加入的群组
+            String sql = "SELECT g.name FROM community_groups g " +
+                        "LEFT JOIN user_info u ON g.admin_user_id = u.user_id " +
+                        "WHERE u.username=? " +
+                        "UNION " +
+                        "SELECT g.name FROM community_group_members m " +
+                        "LEFT JOIN community_groups g ON m.group_id = g.id " +
+                        "LEFT JOIN user_info u ON m.user_id = u.user_id " +
+                        "WHERE u.username=? AND m.status=1";
             PreparedStatement stmt = conn.prepareStatement(sql);
             stmt.setString(1, userName);
             stmt.setString(2, userName);

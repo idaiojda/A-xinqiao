@@ -14,5 +14,10 @@ data class PostDto(
     val images: List<String>? = null,
     val voiceDurationSec: Int? = null,
     val authorAvatar: String? = null,
-    val authorNickname: String? = null
+    val authorNickname: String? = null,
+    val createdAtMillis: Long = 0L,
+    val likeCount: Int = 0,
+    val commentCount: Int = 0,
+    val liked: Boolean = false,
+    val reviewStatus: String = "APPROVED" // PENDING, APPROVED, REJECTED
 )

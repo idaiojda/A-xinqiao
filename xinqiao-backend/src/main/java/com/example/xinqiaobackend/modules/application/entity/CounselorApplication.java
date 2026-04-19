@@ -20,17 +20,11 @@ public class CounselorApplication {
     @Column(name = "real_name", length = 64)
     private String realName;
 
-    @Column(name = "id_card", length = 32)
-    private String idCard;
-
     @Column(name = "phone", length = 32)
     private String phone;
 
     @Column(name = "qualification_type", length = 64)
     private String qualificationType;
-
-    @Column(name = "certificate_no", length = 64)
-    private String certificateNo;
 
     @Column(name = "years")
     private Integer years;
@@ -66,14 +60,10 @@ public class CounselorApplication {
     public void setUserId(Long userId) { this.userId = userId; }
     public String getRealName() { return realName; }
     public void setRealName(String realName) { this.realName = realName; }
-    public String getIdCard() { return idCard; }
-    public void setIdCard(String idCard) { this.idCard = idCard; }
     public String getPhone() { return phone; }
     public void setPhone(String phone) { this.phone = phone; }
     public String getQualificationType() { return qualificationType; }
     public void setQualificationType(String qualificationType) { this.qualificationType = qualificationType; }
-    public String getCertificateNo() { return certificateNo; }
-    public void setCertificateNo(String certificateNo) { this.certificateNo = certificateNo; }
     public Integer getYears() { return years; }
     public void setYears(Integer years) { this.years = years; }
     public List<String> getExpertise() { return expertise; }

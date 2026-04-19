@@ -31,4 +31,16 @@ public interface ConsultationDao {
 
     @Query("UPDATE consultations SET messageCount = :count WHERE sessionId = :sessionId AND userName = :user")
     int updateMessageCount(String user, String sessionId, int count);
+    
+    @Query("SELECT * FROM consultations WHERE date BETWEEN :startDate AND :endDate ORDER BY date DESC")
+    List<ConsultationEntity> getConsultationsByDateRange(String startDate, String endDate);
+    
+    @Query("SELECT * FROM consultations WHERE title LIKE '%' || :query || '%' OR summaryEncrypted LIKE '%' || :query || '%' ORDER BY date DESC")
+    List<ConsultationEntity> searchConsultations(String query);
+    
+    @Query("SELECT * FROM consultations ORDER BY date DESC")
+    List<ConsultationEntity> getAllConsultations();
+    
+    @Query("SELECT * FROM consultations WHERE id = :id LIMIT 1")
+    ConsultationEntity getById(long id);
 }

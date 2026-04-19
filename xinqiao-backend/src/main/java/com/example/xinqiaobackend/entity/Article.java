@@ -1,11 +1,13 @@
 package com.example.xinqiaobackend.entity;
 
 import javax.persistence.*;
+import java.io.Serializable;
 import java.time.Instant;
 
 @Entity
 @Table(name = "articles")
-public class Article {
+public class Article implements Serializable {
+    private static final long serialVersionUID = 1L;
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -22,6 +24,13 @@ public class Article {
 
     @Column(length = 16)
     private String reviewStatus = "PENDING";
+
+    @Column(name = "author_id", length = 64)
+    private String authorId;
+
+    @Lob
+    @Column(columnDefinition = "TEXT")
+    private String image;
 
     @Column(nullable = false)
     private Instant publishedAt;
@@ -41,5 +50,9 @@ public class Article {
     public void setPublishedAt(Instant publishedAt) { this.publishedAt = publishedAt; }
     public String getReviewStatus() { return reviewStatus; }
     public void setReviewStatus(String reviewStatus) { this.reviewStatus = reviewStatus; }
+    public String getAuthorId() { return authorId; }
+    public void setAuthorId(String authorId) { this.authorId = authorId; }
+    public String getImage() { return image; }
+    public void setImage(String image) { this.image = image; }
 }
 

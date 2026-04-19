@@ -1,5 +1,6 @@
 package com.example.xinqiaobackend.controller;
 
+import com.example.xinqiaobackend.dto.CommentDto;
 import com.example.xinqiaobackend.model.*;
 import com.example.xinqiaobackend.service.CommunityService;
 import com.example.xinqiaobackend.service.InMemoryCommunityService;
@@ -121,5 +122,41 @@ public class CommunityController {
         String username = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
         boolean ok = jpaService.setPostLike(postId, on, username);
         return new com.example.xinqiaobackend.model.FollowResultDto(ok);
+    }
+
+    @DeleteMapping("/posts/{postId}")
+    public com.example.xinqiaobackend.model.FollowResultDto deletePost(@PathVariable("postId") Long postId) {
+        String username = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
+        boolean ok = jpaService.deletePost(postId, username);
+        return new com.example.xinqiaobackend.model.FollowResultDto(ok);
+    }
+
+    @PutMapping("/posts/{postId}")
+    public PostDto updatePost(@PathVariable("postId") Long postId, @RequestBody com.example.xinqiaobackend.model.UpdatePostRequest req) {
+        String username = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
+        return jpaService.updatePost(postId, req.getTitle(), req.getContent(), req.getTags(), username);
+    }
+    
+    @PostMapping("/posts/{postId}/review")
+    public com.example.xinqiaobackend.model.FollowResultDto reviewPost(
+            @PathVariable("postId") Long postId, 
+            @RequestParam(name = "status") String status) {
+        boolean ok = jpaService.reviewPost(postId, status);
+        return new com.example.xinqiaobackend.model.FollowResultDto(ok);
+    }
+    
+    @GetMapping("/posts/pending")
+    public List<PostDto> getPendingPosts(
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size) {
+        return jpaService.getPendingPosts(page, size);
+    }
+    
+    @GetMapping("/posts/all")
+    public List<PostDto> getAllPostsForAdmin(
+            @RequestParam(name = "status", required = false) String status,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size) {
+        return jpaService.getAllPostsForAdmin(status, page, size);
     }
 }

@@ -1,6 +1,6 @@
 package com.example.xinqiaobackend.controller;
 
-import com.example.xinqiaobackend.model.CommentDto;
+import com.example.xinqiaobackend.dto.CommentDto;
 import com.example.xinqiaobackend.model.CommentMessage;
 import com.example.xinqiaobackend.service.JpaCommunityService;
 import org.springframework.messaging.handler.annotation.DestinationVariable;

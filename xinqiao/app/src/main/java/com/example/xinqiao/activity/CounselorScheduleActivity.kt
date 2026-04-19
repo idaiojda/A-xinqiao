@@ -6,19 +6,33 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.runtime.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.xinqiao.counselor.CounselorScheduleRepository
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
 
 class CounselorScheduleActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { CounselorScheduleScreen(onBack = { finish() }) }
+        setContent { 
+            MaterialTheme {
+                CounselorScheduleScreen(onBack = { finish() })
+            }
+        }
     }
 }
 
@@ -28,114 +42,563 @@ private fun CounselorScheduleScreen(onBack: () -> Unit) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val repo = remember { CounselorScheduleRepository(ctx) }
     val scope = rememberCoroutineScope()
-    val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
+    val snackbarHostState = remember { SnackbarHostState() }
+    
     var rules by remember { mutableStateOf(listOf<com.example.xinqiao.counselor.ScheduleRuleDto>()) }
     var slots by remember { mutableStateOf(listOf<com.example.xinqiao.counselor.ScheduleSlotDto>()) }
-    var genCount by remember { mutableStateOf(0) }
-    var startDate by remember { mutableStateOf("2025-11-01") }
-    var endDate by remember { mutableStateOf("2025-11-30") }
+    var startDate by remember { mutableStateOf(LocalDate.now().format(DateTimeFormatter.ISO_DATE)) }
+    var endDate by remember { mutableStateOf(LocalDate.now().plusDays(7).format(DateTimeFormatter.ISO_DATE)) }
     var startTime by remember { mutableStateOf("09:00:00") }
-    var endTime by remember { mutableStateOf("12:00:00") }
-    var weekdays by remember { mutableStateOf("1,3,5") }
-    var frequency by remember { mutableStateOf("WEEKLY") }
-    var selectedRule by remember { mutableStateOf<com.example.xinqiao.counselor.ScheduleRuleDto?>(null) }
-    var exceptionDate by remember { mutableStateOf("") }
-    var exceptions by remember { mutableStateOf(listOf<com.example.xinqiao.counselor.ScheduleExceptionDto>()) }
-    Scaffold(topBar = {
-        TopAppBar(title = { Text("排班管理") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, contentDescription = "") } })
-    }, snackbarHost = { androidx.compose.material3.SnackbarHost(hostState = snackbarHostState) }) { padding ->
-        Column(modifier = Modifier.padding(padding).fillMaxSize().padding(16.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(value = startDate, onValueChange = { startDate = it }, label = { Text("开始日期") })
-                Button(onClick = {
-                    val now = java.time.LocalDate.now()
-                    android.app.DatePickerDialog(
-                        ctx,
-                        { _, year, monthOfYear, dayOfMonth -> startDate = "%04d-%02d-%02d".format(year, monthOfYear + 1, dayOfMonth) },
-                        now.year, now.monthValue - 1, now.dayOfMonth
-                    ).show()
-                }) { Text("选择开始") }
-                OutlinedTextField(value = endDate, onValueChange = { endDate = it }, label = { Text("结束日期") })
-                Button(onClick = {
-                    val now = java.time.LocalDate.now()
-                    android.app.DatePickerDialog(
-                        ctx,
-                        { _, year, monthOfYear, dayOfMonth -> endDate = "%04d-%02d-%02d".format(year, monthOfYear + 1, dayOfMonth) },
-                        now.year, now.monthValue - 1, now.dayOfMonth
-                    ).show()
-                }) { Text("选择结束") }
-            }
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(value = startTime, onValueChange = { startTime = it }, label = { Text("开始时间") })
-                Button(onClick = {
-                    val nowT = java.time.LocalTime.now()
-                    android.app.TimePickerDialog(ctx, { _, h, m -> startTime = "%02d:%02d:%02d".format(h, m, 0) }, nowT.hour, nowT.minute, true).show()
-                }) { Text("选择开始") }
-                OutlinedTextField(value = endTime, onValueChange = { endTime = it }, label = { Text("结束时间") })
-                Button(onClick = {
-                    val nowT = java.time.LocalTime.now()
-                    android.app.TimePickerDialog(ctx, { _, h, m -> endTime = "%02d:%02d:%02d".format(h, m, 0) }, nowT.hour, nowT.minute, true).show()
-                }) { Text("选择结束") }
-                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    AssistChip(onClick = { frequency = "DAILY" }, label = { Text("每日") }, colors = AssistChipDefaults.assistChipColors(containerColor = if (frequency == "DAILY") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface))
-                    AssistChip(onClick = { frequency = "WEEKLY" }, label = { Text("每周") }, colors = AssistChipDefaults.assistChipColors(containerColor = if (frequency == "WEEKLY") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface))
-                }
-                if (frequency == "WEEKLY") {
-                    OutlinedTextField(value = weekdays, onValueChange = { weekdays = it }, label = { Text("周几") })
+    var endTime by remember { mutableStateOf("18:00:00") }
+    var showInstructions by remember { mutableStateOf(true) }
+    
+    // 加载数据
+    LaunchedEffect(Unit) {
+        rules = repo.listRules().getOrDefault(emptyList())
+        slots = repo.listSlots(null, null).getOrDefault(emptyList())
+        // 如果已有数据，不显示说明
+        if (rules.isNotEmpty() || slots.isNotEmpty()) {
+            showInstructions = false
+        }
+    }
+    
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("排班管理", fontSize = 20.sp, fontWeight = FontWeight.Medium) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "返回")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
+            )
+        },
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            item { Spacer(modifier = Modifier.height(8.dp)) }
+            
+            // 使用说明（首次使用时显示）
+            if (showInstructions) {
+                item {
+                    InstructionsCard(onDismiss = { showInstructions = false })
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = {
-                    scope.launch {
-                        if (startDate.isBlank() || endDate.isBlank() || startTime.isBlank() || endTime.isBlank()) {
-                            snackbarHostState.showSnackbar("请完整选择日期与时间")
-                        } else {
-                            val w = if (frequency == "WEEKLY") weekdays.split(",").mapNotNull { it.trim().toIntOrNull() } else emptyList()
-                            repo.createRule(frequency, startDate, endDate, startTime, endTime, w)
+            
+            // 快速设置工作时间
+            item {
+                QuickScheduleCard(
+                    startDate = startDate,
+                    endDate = endDate,
+                    startTime = startTime,
+                    endTime = endTime,
+                    onStartDateClick = {
+                        val date = LocalDate.parse(startDate)
+                        android.app.DatePickerDialog(
+                            ctx,
+                            { _, year, month, day ->
+                                startDate = "%04d-%02d-%02d".format(year, month + 1, day)
+                            },
+                            date.year, date.monthValue - 1, date.dayOfMonth
+                        ).show()
+                    },
+                    onEndDateClick = {
+                        val date = LocalDate.parse(endDate)
+                        android.app.DatePickerDialog(
+                            ctx,
+                            { _, year, month, day ->
+                                endDate = "%04d-%02d-%02d".format(year, month + 1, day)
+                            },
+                            date.year, date.monthValue - 1, date.dayOfMonth
+                        ).show()
+                    },
+                    onStartTimeClick = {
+                        val time = LocalTime.parse(startTime)
+                        android.app.TimePickerDialog(
+                            ctx,
+                            { _, hour, minute ->
+                                startTime = "%02d:%02d:00".format(hour, minute)
+                            },
+                            time.hour, time.minute, true
+                        ).show()
+                    },
+                    onEndTimeClick = {
+                        val time = LocalTime.parse(endTime)
+                        android.app.TimePickerDialog(
+                            ctx,
+                            { _, hour, minute ->
+                                endTime = "%02d:%02d:00".format(hour, minute)
+                            },
+                            time.hour, time.minute, true
+                        ).show()
+                    },
+                    onQuickSetup = {
+                        scope.launch {
+                            try {
+                                // 1. 创建规则
+                                repo.createRule(
+                                    frequency = "DAILY",
+                                    startDate = startDate,
+                                    endDate = endDate,
+                                    startTime = startTime,
+                                    endTime = endTime,
+                                    weekdays = emptyList()
+                                )
+                                // 2. 生成时段
+                                val count = repo.generate(startDate, endDate).getOrDefault(0)
+                                // 3. 刷新数据
+                                rules = repo.listRules().getOrDefault(emptyList())
+                                slots = repo.listSlots(null, null).getOrDefault(emptyList())
+                                snackbarHostState.showSnackbar("成功设置排班！生成了 $count 个时段")
+                                showInstructions = false
+                            } catch (e: Exception) {
+                                snackbarHostState.showSnackbar("设置失败: ${e.message}")
+                            }
+                        }
+                    }
+                )
+            }
+            
+            // 我的排班规则
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "我的排班规则",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    TextButton(onClick = {
+                        scope.launch {
                             rules = repo.listRules().getOrDefault(emptyList())
+                            slots = repo.listSlots(null, null).getOrDefault(emptyList())
                         }
-                    }
-                }) { Text("创建规则") }
-                Button(onClick = { scope.launch { genCount = repo.generate(startDate, endDate).getOrDefault(0); slots = repo.listSlots(null, null).getOrDefault(emptyList()) } }) { Text("生成时段") }
-                Button(onClick = { scope.launch { rules = repo.listRules().getOrDefault(emptyList()) } }) { Text("刷新规则") }
-                Button(onClick = { scope.launch { slots = repo.listSlots(null, null).getOrDefault(emptyList()) } }) { Text("刷新时段") }
-            }
-            if (genCount > 0) Text("生成数量：$genCount", style = MaterialTheme.typography.bodyMedium)
-            Text("规则", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp))
-            LazyColumn(modifier = Modifier.fillMaxWidth().height(180.dp)) {
-                items(rules) { r ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("#${r.id} ${r.frequency} ${r.startDate}~${r.endDate} ${r.startTime}-${r.endTime} ${r.weekdays.joinToString(",")}")
-                        Button(onClick = { selectedRule = r; scope.launch { exceptions = repo.listExceptions(r.id).getOrDefault(emptyList()) } }) { Text("例外") }
-                        Button(onClick = { scope.launch { repo.deleteRule(r.id); rules = repo.listRules().getOrDefault(emptyList()); if (selectedRule?.id == r.id) { selectedRule = null; exceptions = emptyList() } } }) { Text("删除") }
+                    }) {
+                        Text("刷新")
                     }
                 }
             }
-            if (selectedRule != null) {
-                Text("例外日期", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(value = exceptionDate, onValueChange = { exceptionDate = it }, label = { Text("YYYY-MM-DD") })
-                    Button(onClick = { scope.launch { if (exceptionDate.isNotBlank()) { repo.addException(selectedRule!!.id, exceptionDate); exceptions = repo.listExceptions(selectedRule!!.id).getOrDefault(emptyList()); exceptionDate = "" } } }) { Text("添加例外") }
+            
+            if (rules.isEmpty()) {
+                item {
+                    EmptyStateCard(
+                        message = "还没有设置排班规则\n请使用上方的快速设置来创建您的工作时间"
+                    )
                 }
-                LazyColumn(modifier = Modifier.fillMaxWidth().height(120.dp)) {
-                    items(exceptions) { e ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("#${e.id} ${e.date}")
-                            Button(onClick = { scope.launch { repo.deleteException(e.id); exceptions = repo.listExceptions(selectedRule!!.id).getOrDefault(emptyList()) } }) { Text("删除") }
+            } else {
+                items(rules) { rule ->
+                    ImprovedRuleCard(
+                        rule = rule,
+                        onDelete = {
+                            scope.launch {
+                                repo.deleteRule(rule.id)
+                                rules = repo.listRules().getOrDefault(emptyList())
+                                slots = repo.listSlots(null, null).getOrDefault(emptyList())
+                                snackbarHostState.showSnackbar("已删除规则")
+                            }
                         }
+                    )
+                }
+            }
+            
+            // 可预约时段
+            item {
+                Text(
+                    text = "可预约时段 (${slots.count { it.available }} 个可用)",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+            
+            if (slots.isEmpty()) {
+                item {
+                    EmptyStateCard(
+                        message = "还没有生成时段\n创建规则后，点击上方的\"一键设置排班\"按钮生成时段"
+                    )
+                }
+            } else {
+                // 按日期分组显示时段
+                val slotsByDate = slots.groupBy { 
+                    it.startTime.substring(0, 10) 
+                }
+                slotsByDate.forEach { (date, dateSlots) ->
+                    item {
+                        DateGroupHeader(date = date, count = dateSlots.size)
+                    }
+                    items(dateSlots) { slot ->
+                        ImprovedSlotCard(
+                            slot = slot,
+                            onToggle = {
+                                scope.launch {
+                                    if (slot.available) {
+                                        repo.closeSlot(slot.id)
+                                    } else {
+                                        repo.openSlot(slot.id)
+                                    }
+                                    slots = repo.listSlots(null, null).getOrDefault(emptyList())
+                                }
+                            }
+                        )
                     }
                 }
             }
-            Text("时段", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp))
-            LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
-                items(slots) { s ->
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("#${s.id} ${s.startTime} - ${s.endTime} ${if (s.available) "可约" else "关闭"}")
-                        if (s.available) Button(onClick = { scope.launch { repo.closeSlot(s.id); slots = repo.listSlots(null, null).getOrDefault(emptyList()) } }) { Text("关闭") }
-                        if (!s.available) Button(onClick = { scope.launch { repo.openSlot(s.id); slots = repo.listSlots(null, null).getOrDefault(emptyList()) } }) { Text("开放") }
+            
+            item { Spacer(modifier = Modifier.height(16.dp)) }
+        }
+    }
+}
+
+@Composable
+private fun InstructionsCard(onDismiss: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "📅 如何设置排班？",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                TextButton(onClick = onDismiss) {
+                    Text("知道了", fontSize = 12.sp)
+                }
+            }
+            
+            Text(
+                text = "1️⃣ 选择工作日期范围（例如：本周或下周）",
+                fontSize = 14.sp,
+                lineHeight = 20.sp
+            )
+            Text(
+                text = "2️⃣ 设置每天的工作时间（例如：9:00 - 18:00）",
+                fontSize = 14.sp,
+                lineHeight = 20.sp
+            )
+            Text(
+                text = "3️⃣ 点击\"一键设置排班\"按钮，系统会自动生成可预约时段",
+                fontSize = 14.sp,
+                lineHeight = 20.sp
+            )
+            Text(
+                text = "4️⃣ 用户就可以在这些时段预约您的咨询服务了",
+                fontSize = 14.sp,
+                lineHeight = 20.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun QuickScheduleCard(
+    startDate: String,
+    endDate: String,
+    startTime: String,
+    endTime: String,
+    onStartDateClick: () -> Unit,
+    onEndDateClick: () -> Unit,
+    onStartTimeClick: () -> Unit,
+    onEndTimeClick: () -> Unit,
+    onQuickSetup: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = "⚡ 快速设置工作时间",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold
+            )
+            
+            // 日期范围
+            Text(
+                text = "工作日期",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onStartDateClick,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("开始", fontSize = 12.sp)
+                        Text(startDate, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+                Text(
+                    text = "至",
+                    modifier = Modifier.align(Alignment.CenterVertically),
+                    fontSize = 16.sp
+                )
+                OutlinedButton(
+                    onClick = onEndDateClick,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("结束", fontSize = 12.sp)
+                        Text(endDate, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
+            
+            // 工作时间
+            Text(
+                text = "每天工作时间",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onStartTimeClick,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("上班", fontSize = 12.sp)
+                        Text(startTime.substring(0, 5), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+                Text(
+                    text = "至",
+                    modifier = Modifier.align(Alignment.CenterVertically),
+                    fontSize = 16.sp
+                )
+                OutlinedButton(
+                    onClick = onEndTimeClick,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("下班", fontSize = 12.sp)
+                        Text(endTime.substring(0, 5), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+            
+            // 一键设置按钮
+            Button(
+                onClick = onQuickSetup,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary
+                ),
+                shape = RoundedCornerShape(8.dp),
+                contentPadding = PaddingValues(vertical = 16.dp)
+            ) {
+                Text(
+                    text = "✨ 一键设置排班",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ImprovedRuleCard(
+    rule: com.example.xinqiao.counselor.ScheduleRuleDto,
+    onDelete: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "📋 ${rule.startDate} 至 ${rule.endDate}",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "⏰ 每天 ${rule.startTime.substring(0, 5)} - ${rule.endTime.substring(0, 5)}",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                )
+                if (rule.weekdays.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "📅 仅周 ${rule.weekdays.joinToString(", ")}",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                }
+            }
+            IconButton(onClick = onDelete) {
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = "删除规则",
+                    tint = MaterialTheme.colorScheme.error
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DateGroupHeader(date: String, count: Int) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "📅 $date",
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Text(
+            text = "$count 个时段",
+            fontSize = 13.sp,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+        )
+    }
+}
+
+@Composable
+private fun ImprovedSlotCard(
+    slot: com.example.xinqiao.counselor.ScheduleSlotDto,
+    onToggle: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (slot.available) 
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
+            else 
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = if (slot.available) "✅" else "🔒",
+                    fontSize = 24.sp
+                )
+                Column {
+                    Text(
+                        text = "${slot.startTime.substring(11, 16)} - ${slot.endTime.substring(11, 16)}",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = if (slot.available) "用户可以预约" else "已关闭预约",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                }
+            }
+            
+            Button(
+                onClick = onToggle,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (slot.available)
+                        MaterialTheme.colorScheme.error.copy(alpha = 0.8f)
+                    else
+                        MaterialTheme.colorScheme.primary
+                ),
+                shape = RoundedCornerShape(6.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                Text(
+                    if (slot.available) "关闭" else "开放",
+                    fontSize = 13.sp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmptyStateCard(message: String) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(32.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = message,
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+            )
         }
     }
 }

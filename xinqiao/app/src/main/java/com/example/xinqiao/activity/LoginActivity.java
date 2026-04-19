@@ -173,7 +173,7 @@ public class LoginActivity extends AppCompatActivity {
                 try { lr = com.example.xinqiao.network.ApiJava.login(phone, password); } catch (Exception ignored) {}
                 if (lr != null && lr.getOk() && lr.getToken() != null) {
                     SharedPreferences spLogin = getSharedPreferences("loginInfo", MODE_PRIVATE);
-                    spLogin.edit().putString("auth_token", lr.getToken()).apply();
+                    spLogin.edit().putString("auth_token", lr.getToken()).commit(); // 使用commit()同步保存
                     // 取 user_id（从统一的 user_info 表）
                     if (dbUtils != null && dbUtils.isDatabaseAvailable()) {
                         int uid = dbUtils.getUserIdByUsername(phone);
@@ -187,7 +187,7 @@ public class LoginActivity extends AppCompatActivity {
                             com.example.xinqiao.network.LoginResp lr2 = com.example.xinqiao.network.ApiJava.login(phone, password);
                             if (lr2 != null && lr2.getOk() && lr2.getToken() != null) {
                                 SharedPreferences spLogin2 = getSharedPreferences("loginInfo", MODE_PRIVATE);
-                                spLogin2.edit().putString("auth_token", lr2.getToken()).apply();
+                                spLogin2.edit().putString("auth_token", lr2.getToken()).commit(); // 使用commit()同步保存
                                 if (dbUtils != null && dbUtils.isDatabaseAvailable()) {
                                     int uid2 = dbUtils.getUserIdByUsername(phone);
                                     if (uid2 != -1) return uid2;
@@ -248,7 +248,7 @@ public class LoginActivity extends AppCompatActivity {
                 if (lr != null && lr.getOk() && lr.getToken() != null) {
                     token = lr.getToken();
                     SharedPreferences spLogin = getSharedPreferences("loginInfo", MODE_PRIVATE);
-                    spLogin.edit().putString("auth_token", token).apply();
+                    spLogin.edit().putString("auth_token", token).commit(); // 使用commit()同步保存
                 } else {
                     boolean regOk = com.example.xinqiao.network.ApiJava.register(phone, String.valueOf(etPassword.getText()));
                     if (regOk) {
@@ -256,7 +256,7 @@ public class LoginActivity extends AppCompatActivity {
                         if (lr2 != null && lr2.getOk() && lr2.getToken() != null) {
                             token = lr2.getToken();
                             SharedPreferences spLogin2 = getSharedPreferences("loginInfo", MODE_PRIVATE);
-                            spLogin2.edit().putString("auth_token", token).apply();
+                            spLogin2.edit().putString("auth_token", token).commit(); // 使用commit()同步保存
                         }
                     }
                 }

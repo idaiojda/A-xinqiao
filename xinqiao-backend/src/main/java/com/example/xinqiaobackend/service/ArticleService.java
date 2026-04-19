@@ -18,10 +18,11 @@ public class ArticleService {
     @Cacheable(value = "articles", key = "((#category == null || #category.trim().isEmpty()) ? '__ALL__' : #category) + '-' + #page + '-' + #size")
     public List<Article> list(String category, int page, int size) {
         Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, size));
+        // 只返回已审核通过的文章给普通用户
         if (category != null && category.trim().length() > 0) {
-            return repo.findByCategoryOrderByPublishedAtDesc(category.trim(), pageable).getContent();
+            return repo.findByCategoryAndReviewStatusOrderByPublishedAtDesc(category.trim(), "APPROVED", pageable).getContent();
         }
-        return repo.findAllByOrderByPublishedAtDesc(pageable).getContent();
+        return repo.findByReviewStatusOrderByPublishedAtDesc("APPROVED", pageable).getContent();
     }
 
     public Article get(Long id) { return repo.findById(id).orElseThrow(() -> new IllegalArgumentException("article not found")); }

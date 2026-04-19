@@ -225,18 +225,40 @@ public class CourseSearchFragment extends Fragment {
 
     private void loadHotRecommendations() {
         new Thread(() -> {
-            // 1) 解析课程XML，建立 id -> CourseBean 的索引与扁平列表
-            List<List<CourseBean>> groups = new ArrayList<>();
-            try {
-                InputStream is = requireContext().getResources().getAssets().open("chaptertitle.xml");
-                groups = AnalysisUtils.getCourseInfos(is);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+            // 从API加载课程数据
             final List<CourseBean> flat = new ArrayList<>();
-            for (List<CourseBean> g : groups) {
-                if (g != null) flat.addAll(g);
+            try {
+                android.util.Log.d("CourseSearchFragment", "开始从后端API加载课程数据...");
+                // 使用阻塞方式调用Kotlin suspend函数
+                java.util.List<com.example.xinqiao.counselor.CourseDto> courses = 
+                    kotlinx.coroutines.BuildersKt.runBlocking(
+                        kotlin.coroutines.EmptyCoroutineContext.INSTANCE,
+                        (coroutineScope, continuation) -> com.example.xinqiao.util.CourseLoader.INSTANCE.loadCourses(continuation)
+                    );
+                
+                if (courses != null && !courses.isEmpty()) {
+                    android.util.Log.d("CourseSearchFragment", "成功加载 " + courses.size() + " 个课程");
+                    // 将CourseDto转换为CourseBean
+                    for (com.example.xinqiao.counselor.CourseDto dto : courses) {
+                        CourseBean bean = new CourseBean();
+                        bean.id = (int) dto.getId();
+                        bean.title = dto.getTitle();
+                        bean.imgTitle = dto.getTitle();
+                        bean.intro = dto.getDescription() != null ? dto.getDescription() : "";
+                        bean.icon = dto.getCoverImage();
+                        bean.coverImage = dto.getCoverImage(); // 添加coverImage字段
+                        bean.lessonCount = dto.getLessonCount();
+                        bean.premium = dto.getPremium();
+                        bean.price = dto.getPrice();
+                        flat.add(bean);
+                    }
+                } else {
+                    android.util.Log.w("CourseSearchFragment", "后端返回的课程列表为空");
+                }
+            } catch (Exception e) {
+                android.util.Log.e("CourseSearchFragment", "加载课程失败: " + e.getMessage(), e);
             }
+            
             // 构建索引用于根据 chapterId 查找 CourseBean
             final java.util.HashMap<Integer, CourseBean> index = new java.util.HashMap<>();
             for (CourseBean cb : flat) {

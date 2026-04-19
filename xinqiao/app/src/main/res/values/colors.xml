@@ -89,4 +89,9 @@
     <color name="about_description">#555555</color>
     <color name="about_copyright">#888888</color>
     <color name="about_info">#777777</color>
+    
+    <!-- Text colors -->
+    <color name="text_primary">#333333</color>
+    <color name="text_hint">#999999</color>
+    <color name="primary">#667eea</color>
 </resources>

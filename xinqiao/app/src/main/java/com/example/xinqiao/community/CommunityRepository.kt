@@ -128,6 +128,7 @@ object FakeCommunityRepository : CommunityRepository {
         val p = ThemePost(
             id = id,
             author = if (anonymous) "匿名用户" else (authorName ?: "我"),
+            authorUsername = if (anonymous) "" else (authorName ?: "我"),
             authorAvatar = authorAvatar ?: "",
             isAnonymous = anonymous,
             time = "刚刚",
@@ -232,7 +233,7 @@ object FakeCommunityRepository : CommunityRepository {
             postStore[idx] = updated
             return updated
         }
-        return ThemePost(id = id, author = "我", isAnonymous = false, time = "刚刚", title = title, content = content, tags = tags)
+        return ThemePost(id = id, author = "我", authorUsername = "我", isAnonymous = false, time = "刚刚", title = title, content = content, tags = tags)
     }
 
     override suspend fun deletePost(id: String): Boolean {
@@ -335,7 +336,7 @@ object EmptyCommunityRepository : CommunityRepository {
     override suspend fun getMyTimeline(): List<TimelineItem> = emptyList()
     override suspend fun health(): Health = Health(true, "")
     override suspend fun getPosts(category: String?, page: Int, size: Int, q: String?): List<ThemePost> = emptyList()
-    override suspend fun createPost(title: String, content: String, tags: List<String>, images: List<String>, anonymous: Boolean, authorName: String?, authorAvatar: String?): ThemePost = ThemePost(id = "", author = authorName ?: "", authorAvatar = authorAvatar ?: "", isAnonymous = anonymous, time = "", title = title, content = content, tags = tags)
+    override suspend fun createPost(title: String, content: String, tags: List<String>, images: List<String>, anonymous: Boolean, authorName: String?, authorAvatar: String?): ThemePost = ThemePost(id = "", author = authorName ?: "", authorUsername = authorName ?: "", authorAvatar = authorAvatar ?: "", isAnonymous = anonymous, time = "", title = title, content = content, tags = tags)
     override suspend fun getPostComments(postId: String): List<Comment> = emptyList()
     override suspend fun postPostComment(postId: String, content: String, author: String): Comment = Comment("", author, content)
     override suspend fun getUserProfile(name: String): UserProfile = UserProfile(name, "", "", false, 0, 0, 0)
@@ -347,7 +348,7 @@ object EmptyCommunityRepository : CommunityRepository {
     override suspend fun getSharedGroups(name: String): List<String> = emptyList()
     override suspend fun getNotifications(): List<NotificationItem> = emptyList()
     override suspend fun markNotificationRead(id: String): Boolean = false
-    override suspend fun updatePost(id: String, title: String, content: String, tags: List<String>): ThemePost = ThemePost(id = id, author = "", isAnonymous = false, time = "", title = title, content = content, tags = tags)
+    override suspend fun updatePost(id: String, title: String, content: String, tags: List<String>): ThemePost = ThemePost(id = id, author = "", authorUsername = "", isAnonymous = false, time = "", title = title, content = content, tags = tags)
     override suspend fun deletePost(id: String): Boolean = false
     override suspend fun setPostLike(id: String, on: Boolean): Boolean = false
     override suspend fun setPostBookmark(id: String, on: Boolean): Boolean = false

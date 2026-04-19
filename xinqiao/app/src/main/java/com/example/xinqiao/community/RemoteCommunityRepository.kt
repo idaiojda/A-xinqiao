@@ -165,7 +165,7 @@ class RemoteCommunityRepository(
     override suspend fun updatePost(id: String, title: String, content: String, tags: List<String>): ThemePost = try {
         api.updatePost(id, UpdatePostRequest(title, content, tags)).toThemePost()
     } catch (_: Exception) {
-        ThemePost(id = id, author = "我", isAnonymous = false, time = "刚刚", title = title, content = content, tags = tags, pendingSync = true)
+        ThemePost(id = id, author = "我", authorUsername = "我", isAnonymous = false, time = "刚刚", title = title, content = content, tags = tags, pendingSync = true)
     }
 
     override suspend fun deletePost(id: String): Boolean = try { api.deletePost(id).ok } catch (_: Exception) { false }
@@ -264,11 +264,21 @@ class RemoteCommunityRepository(
 
 /** 工厂：提供默认 Retrofit 构建，可在应用初始化时传入自定义 baseUrl。 */
 object CommunityServiceFactory {
-    fun create(baseUrl: String): CommunityApi {
+    fun create(baseUrl: String, context: android.content.Context): CommunityApi {
         // Retrofit 要求 baseUrl 以 "/" 结尾，否则会抛 IllegalArgumentException
         val normalized = if (baseUrl.endsWith("/")) baseUrl else baseUrl + "/"
+        
+        // 创建带认证拦截器的 OkHttpClient
+        val client = okhttp3.OkHttpClient.Builder()
+            .addInterceptor(com.example.xinqiao.network.AuthInterceptor(context))
+            .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+            .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+            .build()
+        
         val retrofit = Retrofit.Builder()
             .baseUrl(normalized)
+            .client(client)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
         return retrofit.create(CommunityApi::class.java)
@@ -278,6 +288,7 @@ object CommunityServiceFactory {
 private fun PostDto.toThemePost(): ThemePost = ThemePost(
     id = id,
     author = (authorNickname ?: author),
+    authorUsername = author, // 保存原始用户名
     authorAvatar = authorAvatar ?: "",
     isAnonymous = anonymous,
     time = time,
@@ -286,7 +297,12 @@ private fun PostDto.toThemePost(): ThemePost = ThemePost(
     tags = tags ?: emptyList(),
     images = images ?: emptyList(),
     voiceDurationSec = voiceDurationSec,
-    pendingSync = false
+    liked = liked,
+    likeCount = likeCount,
+    commentCount = commentCount,
+    pendingSync = false,
+    bookmarked = false,
+    reviewStatus = reviewStatus
 )
 
  

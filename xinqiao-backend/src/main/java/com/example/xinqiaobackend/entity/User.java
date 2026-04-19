@@ -1,6 +1,7 @@
 package com.example.xinqiaobackend.entity;
 
 import javax.persistence.*;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -23,6 +24,22 @@ public class User {
     @Column(name = "review_status", length = 16)
     private String reviewStatus = "PENDING";
 
+    @Column(length = 64)
+    private String nickname;
+
+    @Column(length = 32)
+    private String phone;
+
+    @Column(length = 128)
+    private String contact;
+
+    @Lob
+    @Column(columnDefinition = "BLOB")
+    private byte[] avatar;
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
     
 
     public Long getId() { return id; }
@@ -44,6 +61,16 @@ public class User {
     }
     public String getReviewStatus() { return reviewStatus; }
     public void setReviewStatus(String reviewStatus) { this.reviewStatus = reviewStatus; }
+    public String getNickname() { return nickname; }
+    public void setNickname(String nickname) { this.nickname = nickname; }
+    public String getPhone() { return phone; }
+    public void setPhone(String phone) { this.phone = phone; }
+    public String getContact() { return contact; }
+    public void setContact(String contact) { this.contact = contact; }
+    public byte[] getAvatar() { return avatar; }
+    public void setAvatar(byte[] avatar) { this.avatar = avatar; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
     
 }
 

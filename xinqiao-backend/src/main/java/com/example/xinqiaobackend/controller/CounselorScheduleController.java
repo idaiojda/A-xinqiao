@@ -53,7 +53,7 @@ public class CounselorScheduleController {
         if (!slot.getCounselorUsername().equals(auth.getName())) return ResponseEntity.status(403).build();
         slot.setAvailable(false);
         repo.save(slot);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(java.util.Map.of("success", true, "message", "时段已关闭"));
     }
 
     @PostMapping("/{id}/open")
@@ -63,6 +63,6 @@ public class CounselorScheduleController {
         if (!slot.getCounselorUsername().equals(auth.getName())) return ResponseEntity.status(403).build();
         slot.setAvailable(true);
         repo.save(slot);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(java.util.Map.of("success", true, "message", "时段已开放"));
     }
 }

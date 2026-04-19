@@ -55,21 +55,10 @@ public class ArticleDetailActivity extends AppCompatActivity {
         });
 
         ImageButton btnShare = findViewById(R.id.btn_detail_share);
-        ImageButton btnFavorite = findViewById(R.id.btn_detail_favorite);
-        final boolean[] isFavorited = {false};
         
         // 获取文章信息
         String userName = com.example.xinqiao.util.AnalysisUtils.readLoginUserName(this);
         int articleId = intent.getIntExtra("articleId", 0);
-        
-        // 检查文章是否已收藏
-        if (userName != null && !userName.isEmpty() && articleId != 0) {
-            com.example.xinqiao.dao.ArticleFavoriteDao favoriteDao = new com.example.xinqiao.dao.ArticleFavoriteDao(this);
-            favoriteDao.isFavoriteExistsAsync(userName, articleId, exists -> {
-                isFavorited[0] = exists;
-                btnFavorite.setImageResource(exists ? R.drawable.ic_favorite_selected : R.drawable.ic_favorite);
-            });
-        }
         
         btnShare.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -79,47 +68,6 @@ public class ArticleDetailActivity extends AppCompatActivity {
                 shareIntent.setType("text/plain");
                 shareIntent.putExtra(Intent.EXTRA_TEXT, shareText);
                 startActivity(Intent.createChooser(shareIntent, "分享文章"));
-            }
-        });
-        
-        btnFavorite.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (userName == null || userName.isEmpty() || articleId == 0) {
-                    Toast.makeText(ArticleDetailActivity.this, "请先登录", Toast.LENGTH_SHORT).show();
-                    return;
-                }
-                
-                com.example.xinqiao.dao.ArticleFavoriteDao favoriteDao = new com.example.xinqiao.dao.ArticleFavoriteDao(ArticleDetailActivity.this);
-                
-                if (isFavorited[0]) {
-                    // 取消收藏
-                    favoriteDao.deleteFavoriteAsync(userName, articleId, success -> {
-                        if (success) {
-                            isFavorited[0] = false;
-                            btnFavorite.setImageResource(R.drawable.ic_favorite);
-                            Toast.makeText(ArticleDetailActivity.this, "已取消收藏", Toast.LENGTH_SHORT).show();
-                        }
-                    });
-                } else {
-                    // 添加收藏
-                    com.example.xinqiao.bean.ArticleBean article = new com.example.xinqiao.bean.ArticleBean();
-                    article.userName = userName;
-                    article.articleId = articleId;
-                    article.title = intent.getStringExtra("title");
-                    article.content = intent.getStringExtra("content");
-                    article.category = intent.getStringExtra("category");
-                    article.summary = intent.getStringExtra("summary");
-                    article.imageResId = intent.getIntExtra("imageResId", 0);
-                    
-                    favoriteDao.saveFavoriteAsync(article, success -> {
-                        if (success) {
-                            isFavorited[0] = true;
-                            btnFavorite.setImageResource(R.drawable.ic_favorite_selected);
-                            Toast.makeText(ArticleDetailActivity.this, "已收藏", Toast.LENGTH_SHORT).show();
-                        }
-                    });
-                }
             }
         });
 

@@ -68,7 +68,17 @@ public class CourseListAdapter extends ListAdapter<CourseBean, CourseListAdapter
         if (holder.tvImgTitle != null) holder.tvImgTitle.setText(bean.imgTitle);
         if (holder.tvTitle != null) holder.tvTitle.setText(bean.title);
         if (holder.tvDescription != null) holder.tvDescription.setText(bean.intro != null ? bean.intro : "了解心理健康的基本概念，学会识别和应对常见的心理问题");
-        if (holder.ivCover != null) setImageById(bean.id, holder.ivCover);
+        
+        // 加载封面图片：优先使用数据库的coverImage，否则使用本地资源
+        if (holder.ivCover != null) {
+            if (bean.coverImage != null && !bean.coverImage.isEmpty() && !bean.coverImage.startsWith("drawable://")) {
+                // 从网络URL加载
+                ImageLoader.loadImageFromUrl(mContext, bean.coverImage, holder.ivCover);
+            } else {
+                // 使用本地资源
+                setImageById(bean.id, holder.ivCover);
+            }
+        }
         
         // 现代布局额外信息
         if (holder.tvChapterNumber != null) {
@@ -87,42 +97,39 @@ public class CourseListAdapter extends ListAdapter<CourseBean, CourseListAdapter
             holder.tvDifficultyTag.setText(difficulties[(bean.id - 1) % difficulties.length]);
         }
         
-        // 学习人数（模拟数据）
-        if (holder.tvStudentCount != null) {
-            int students = 800 + bean.id * 150 + (int)(Math.random() * 200);
-            if (students >= 1000) {
-                holder.tvStudentCount.setText((students / 1000) + "k");
-            } else {
-                holder.tvStudentCount.setText(String.valueOf(students));
-            }
-        }
-        
-        // 课程时长（模拟数据）
-        if (holder.tvDuration != null) {
-            int minutes = 10 + bean.id * 3 + (int)(Math.random() * 5);
-            holder.tvDuration.setText(minutes + "分钟");
-        }
-        
-        // 评分（根据ID生成不同评分）
-        if (holder.tvRating != null) {
-            double rating = 4.5 + (bean.id % 5) * 0.1;
-            holder.tvRating.setText(String.format("%.1f", rating));
-        }
-        
-        // 旧版标签（兼容性）
+        // 旧版标签（根据数据库premium字段显示）
         if (holder.tvTag != null) {
-            if (bean.id <= 3) {
+            if (bean.premium) {
+                holder.tvTag.setText("付费");
+                holder.tvTag.setBackgroundResource(R.drawable.bg_tag_purple_premium);
+            } else {
                 holder.tvTag.setText("免费");
                 holder.tvTag.setBackgroundResource(R.drawable.bg_tag_purple_free);
-            } else {
-                holder.tvTag.setText("会员");
-                holder.tvTag.setBackgroundResource(R.drawable.bg_tag_purple_premium);
             }
         }
         
-        // 课程数量（兼容性）
+        // 课程数量（动态显示）
         if (holder.tvLessonCount != null) {
-            holder.tvLessonCount.setText("12节课");
+            if (bean.lessonCount > 0) {
+                holder.tvLessonCount.setText(bean.lessonCount + "节课");
+            } else {
+                holder.tvLessonCount.setText("暂无课时");
+            }
+        }
+        
+        // 隐藏评分
+        if (holder.tvRating != null) {
+            holder.tvRating.setVisibility(View.GONE);
+        }
+        
+        // 隐藏学习人数
+        if (holder.tvStudentCount != null) {
+            holder.tvStudentCount.setVisibility(View.GONE);
+        }
+        
+        // 隐藏时长
+        if (holder.tvDuration != null) {
+            holder.tvDuration.setVisibility(View.GONE);
         }
         
         // 点击事件
@@ -132,6 +139,8 @@ public class CourseListAdapter extends ListAdapter<CourseBean, CourseListAdapter
                 Intent intent = new Intent(mContext, VideoListActivity.class);
                 intent.putExtra("id", bean.id);
                 intent.putExtra("intro", bean.intro);
+                intent.putExtra("premium", bean.premium);
+                intent.putExtra("price", bean.price);
                 mContext.startActivity(intent);
             }
         });

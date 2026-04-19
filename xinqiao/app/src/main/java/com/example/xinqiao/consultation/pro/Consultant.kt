@@ -13,6 +13,9 @@ data class Consultant(
     val rating: Double,
     val consultCount: Int,
     val price: Int,
+    val priceText: Int = 0,
+    val priceVoice: Int = 0,
+    val priceVideo: Int = 0,
     val durationMinutes: Int,
     val defaultMode: String,
     val city: String?

@@ -42,6 +42,8 @@ public class VideoListActivity extends AppCompatActivity implements View.OnClick
     private List<VideoBean> videoList;
     private int chapterId;
     private String intro;
+    private double coursePrice = 0.0; // 课程价格
+    private boolean isPremium = false; // 是否付费课程
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -53,6 +55,11 @@ public class VideoListActivity extends AppCompatActivity implements View.OnClick
         chapterId = getIntent().getIntExtra("id", 0);
         // 从课程界面传递过来的章节简介
         intro = getIntent().getStringExtra("intro");
+        // 从课程界面传递过来的价格信息
+        isPremium = getIntent().getBooleanExtra("premium", false);
+        coursePrice = getIntent().getDoubleExtra("price", 0.0);
+        
+        android.util.Log.d("VideoListActivity", "课程ID: " + chapterId + ", 是否付费: " + isPremium + ", 价格: " + coursePrice);
         
         // 初始化数据
         initData();
@@ -86,7 +93,18 @@ public class VideoListActivity extends AppCompatActivity implements View.OnClick
                     return;
                 }
 
-                // 检查是否购买了课程
+                // 免费课程直接播放，付费课程需要检查购买状态
+                if (!isPremium || coursePrice <= 0) {
+                    // 免费课程，直接播放
+                    savePlayHistory(videoList.get(position));
+                    Intent intent = new Intent(VideoListActivity.this, VideoPlayActivity.class);
+                    intent.putExtra("videoPath", videoPath);
+                    intent.putExtra("position", position);
+                    startActivityForResult(intent, 1);
+                    return;
+                }
+
+                // 付费课程，检查是否购买
                 new com.example.xinqiao.util.payment.PaymentUtils(VideoListActivity.this)
                     .checkCoursePurchased(AnalysisUtils.readLoginUserName(VideoListActivity.this),
                         chapterId,
@@ -105,8 +123,9 @@ public class VideoListActivity extends AppCompatActivity implements View.OnClick
                             public void onError(String message) {
                                 // 未购买，显示购买对话框
                                 android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(VideoListActivity.this);
+                                String priceText = String.format("￥%.2f", coursePrice);
                                 builder.setTitle("购买课程")
-                                    .setMessage("您还未购买该课程，是否立即购买？\n课程价格：￥99.00")
+                                    .setMessage("您还未购买该课程，是否立即购买？\n课程价格：" + priceText)
                                     .setPositiveButton("购买", (dialog, which) -> {
                                         // 执行购买操作
                                         new com.example.xinqiao.util.payment.PaymentUtils(VideoListActivity.this)
@@ -182,32 +201,70 @@ public class VideoListActivity extends AppCompatActivity implements View.OnClick
 }
 
     /**
-     * 设置视频列表本地数据
+     * 从后端API加载视频列表数据
      */
     private void initData() {
-        JSONArray jsonArray;
-        InputStream is = null;
-        try {
-            is = getResources().getAssets().open("data.json");
-            jsonArray = new JSONArray(read(is));
-            videoList = new ArrayList<VideoBean>();
-            for (int i = 0; i < jsonArray.length(); i++) {
-                VideoBean bean = new VideoBean();
-                JSONObject jsonObj = jsonArray.getJSONObject(i);
-                if (jsonObj.getInt("chapterId") == chapterId) {
-                    bean.chapterId=jsonObj.getInt("chapterId");
-                    bean.videoId=Integer.parseInt(jsonObj
-                            .getString("videoId"));
-                    bean.title=jsonObj.getString("title");
-                    bean.secondTitle=jsonObj.getString("secondTitle");
-                    bean.videoPath=jsonObj.getString("videoPath");
-                    videoList.add(bean);
+        videoList = new ArrayList<>();
+        
+        // 在后台线程加载数据
+        new Thread(() -> {
+            try {
+                android.util.Log.d("VideoListActivity", "开始从后端加载课时列表，课程ID: " + chapterId);
+                
+                retrofit2.Response<okhttp3.ResponseBody> response = 
+                    kotlinx.coroutines.BuildersKt.runBlocking(
+                        kotlin.coroutines.EmptyCoroutineContext.INSTANCE,
+                        (coroutineScope, continuation) -> 
+                            com.example.xinqiao.network.Http.api().courseLessons((long)chapterId, continuation)
+                    );
+                
+                if (response.isSuccessful() && response.body() != null) {
+                    String json = response.body().string();
+                    android.util.Log.d("VideoListActivity", "API响应: " + json);
+                    
+                    com.google.gson.Gson gson = new com.google.gson.Gson();
+                    java.lang.reflect.Type type = new com.google.gson.reflect.TypeToken<
+                        com.example.xinqiao.network.ApiResp<java.util.List<com.example.xinqiao.counselor.CourseLessonDto>>
+                    >(){}.getType();
+                    
+                    com.example.xinqiao.network.ApiResp<java.util.List<com.example.xinqiao.counselor.CourseLessonDto>> apiResp = 
+                        gson.fromJson(json, type);
+                    
+                    if (apiResp != null && apiResp.getData() != null) {
+                        android.util.Log.d("VideoListActivity", "成功加载 " + apiResp.getData().size() + " 个课时");
+                        
+                        // 转换为VideoBean
+                        for (com.example.xinqiao.counselor.CourseLessonDto dto : apiResp.getData()) {
+                            VideoBean bean = new VideoBean();
+                            bean.chapterId = chapterId;
+                            bean.videoId = (int) dto.getId();
+                            bean.title = dto.getTitle();
+                            bean.secondTitle = dto.getSecondTitle();
+                            bean.videoPath = dto.getVideoUrl();
+                            videoList.add(bean);
+                        }
+                    } else {
+                        android.util.Log.w("VideoListActivity", "API返回数据为空");
+                    }
+                } else {
+                    android.util.Log.e("VideoListActivity", "API请求失败: " + response.code());
                 }
-                bean = null;
+            } catch (Exception e) {
+                android.util.Log.e("VideoListActivity", "加载课时列表失败: " + e.getMessage(), e);
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+            
+            // 在主线程更新UI
+            runOnUiThread(() -> {
+                if (adapter != null) {
+                    adapter.setData(videoList);
+                }
+                
+                // 如果加载失败，显示错误提示
+                if (videoList.isEmpty()) {
+                    Toast.makeText(VideoListActivity.this, "无法加载课时列表，请检查网络连接", Toast.LENGTH_LONG).show();
+                }
+            });
+        }).start();
     }
     /**
      * 读取数据流,参数in是数据流

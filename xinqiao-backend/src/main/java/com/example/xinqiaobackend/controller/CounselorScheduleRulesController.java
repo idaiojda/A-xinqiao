@@ -72,7 +72,7 @@ public class CounselorScheduleRulesController {
         if (r == null) return ResponseEntity.notFound().build();
         if (!r.getCounselorUsername().equals(auth.getName())) return ResponseEntity.status(403).build();
         ruleRepo.delete(r);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(java.util.Map.of("success", true, "message", "规则已删除"));
     }
 
     @PostMapping("/{id}/exceptions")
@@ -90,7 +90,7 @@ public class CounselorScheduleRulesController {
             r.setConfig(om.writeValueAsString(cfg));
             ruleRepo.save(r);
         } catch (Exception ignored) {}
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(java.util.Map.of("success", true, "message", "例外日期已添加"));
     }
 
     @GetMapping("/{id}/exceptions")
@@ -123,7 +123,7 @@ public class CounselorScheduleRulesController {
             r.setConfig(om.writeValueAsString(cfg));
             ruleRepo.save(r);
         } catch (Exception ignored) {}
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(java.util.Map.of("success", true, "message", "例外日期已删除"));
     }
 
     @PostMapping("/generate")

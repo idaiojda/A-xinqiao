@@ -16,59 +16,73 @@ const routes: RouteRecordRaw[] = [
     redirect: '/dashboard',
     meta: { title: '主控制台', requiresAuth: true },
     children: [
+      // ① 数据看板
       {
         path: '/dashboard',
         name: 'Dashboard',
         component: () => import('@/views/Dashboard/index.vue'),
         meta: { title: '数据看板', icon: 'Odometer' }
       },
+      // ② 用户管理
       {
         path: '/users',
         name: 'Users',
         component: () => import('@/modules/users/pages/index.vue'),
-        meta: { title: '用户管理', icon: 'User', permissions: ['user:read'] }
+        meta: { title: '用户管理', icon: 'User' }
       },
+      // ③ 咨询师审核
       {
         path: '/counselors',
         name: 'Counselors',
         component: () => import('@/modules/counselors/pages/Review.vue'),
-        meta: { title: '咨询师审核', icon: 'Avatar', permissions: ['counselor:read'] }
+        meta: { title: '咨询师审核', icon: 'Avatar' }
       },
+      // ④ 内容管理（含三个子页面）
       {
         path: '/content',
         name: 'Content',
-        component: () => import('@/views/Content/index.vue'),
-        meta: { title: '内容审核', icon: 'Document', permissions: ['content:read'] }
+        redirect: '/content/articles',
+        meta: { title: '内容管理', icon: 'Document' },
+        children: [
+          {
+            path: '/content/articles',
+            name: 'ContentArticles',
+            component: () => import('@/views/Content/ArticleReview.vue'),
+            meta: { title: '文章审核', icon: 'Reading' }
+          },
+          {
+            path: '/content/assessments',
+            name: 'ContentAssessments',
+            component: () => import('@/views/Content/AssessmentReview.vue'),
+            meta: { title: '测评审核', icon: 'EditPen' }
+          },
+          {
+            path: '/content/courses',
+            name: 'ContentCourses',
+            component: () => import('@/views/Content/CourseReview.vue'),
+            meta: { title: '课程审核', icon: 'VideoPlay' }
+          },
+          {
+            path: '/content/posts',
+            name: 'ContentPosts',
+            component: () => import('@/views/Content/PostReview.vue'),
+            meta: { title: '帖子审核', icon: 'ChatDotRound' }
+          }
+        ]
       },
+      // ⑤ 诊疗档案管理
       {
-        path: '/assessments',
-        name: 'Assessments',
-        component: () => import('@/views/Assessments/index.vue'),
-        meta: { title: '测评表管理', icon: 'Edit', permissions: ['assessment:read'] }
+        path: '/medical-records',
+        name: 'MedicalRecords',
+        component: () => import('@/views/MedicalRecords/index.vue'),
+        meta: { title: '档案管理', icon: 'FolderOpened' }
       },
+      // ⑥ 个人信息
       {
-        path: '/reports',
-        name: 'Reports',
-        component: () => import('@/views/Reports/index.vue'),
-        meta: { title: '数据报表', icon: 'TrendCharts', permissions: ['report:read'] }
-      },
-      {
-        path: '/monitor',
-        name: 'Monitor',
-        component: () => import('@/views/Monitor/index.vue'),
-        meta: { title: '系统监控', icon: 'Monitor', permissions: ['monitor:read'] }
-      },
-      {
-        path: '/files',
-        name: 'Files',
-        component: () => import('@/views/Files/index.vue'),
-        meta: { title: '档案管理', icon: 'Folder', permissions: ['file:read'] }
-      },
-      {
-        path: '/settings',
-        name: 'Settings',
-        component: () => import('@/views/Settings/index.vue'),
-        meta: { title: '系统设置', icon: 'Setting', permissions: ['setting:read'] }
+        path: '/profile',
+        name: 'Profile',
+        component: () => import('@/views/Profile/index.vue'),
+        meta: { title: '个人信息', icon: 'UserFilled' }
       }
     ]
   },

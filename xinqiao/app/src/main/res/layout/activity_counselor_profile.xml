@@ -43,14 +43,15 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:orientation="vertical">
+                    android:orientation="vertical"
+                    android:layout_gravity="center_vertical">
 
                     <TextView
                         android:id="@+id/tv_name"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="李心理师"
-                        android:textSize="20sp"
+                        android:text="13015982122"
+                        android:textSize="18sp"
                         android:textStyle="bold"
                         android:textColor="@color/settings_title"
                         android:layout_marginBottom="4dp" />
@@ -59,62 +60,9 @@
                         android:id="@+id/tv_title"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="国家二级心理咨询师"
+                        android:text="暂无认证"
                         android:textSize="14sp"
-                        android:textColor="@color/settings_subtitle"
-                        android:layout_marginBottom="8dp" />
-
-                    <!-- 星级评分 -->
-                    <LinearLayout
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal">
-
-                        <ImageView
-                            android:layout_width="16dp"
-                            android:layout_height="16dp"
-                            android:src="@drawable/ic_star_filled"
-                            android:tint="@color/yellow"
-                            android:layout_marginEnd="2dp" />
-
-                        <ImageView
-                            android:layout_width="16dp"
-                            android:layout_height="16dp"
-                            android:src="@drawable/ic_star_filled"
-                            android:tint="@color/yellow"
-                            android:layout_marginEnd="2dp" />
-
-                        <ImageView
-                            android:layout_width="16dp"
-                            android:layout_height="16dp"
-                            android:src="@drawable/ic_star_filled"
-                            android:tint="@color/yellow"
-                            android:layout_marginEnd="2dp" />
-
-                        <ImageView
-                            android:layout_width="16dp"
-                            android:layout_height="16dp"
-                            android:src="@drawable/ic_star_filled"
-                            android:tint="@color/yellow"
-                            android:layout_marginEnd="2dp" />
-
-                        <ImageView
-                            android:layout_width="16dp"
-                            android:layout_height="16dp"
-                            android:src="@drawable/ic_star_filled"
-                            android:tint="@color/yellow"
-                            android:layout_marginEnd="4dp" />
-
-                        <TextView
-                            android:id="@+id/tv_rating"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="4.9"
-                            android:textSize="14sp"
-                            android:textColor="@color/settings_subtitle"
-                            android:textStyle="bold" />
-
-                    </LinearLayout>
+                        android:textColor="@color/settings_subtitle" />
 
                 </LinearLayout>
 

@@ -19,11 +19,15 @@ import kotlinx.coroutines.launch
 import coil.compose.rememberAsyncImagePainter
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
+import androidx.compose.ui.layout.ContentScale
 import androidx.work.*
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import com.example.xinqiao.R
 import java.util.concurrent.TimeUnit
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -40,10 +44,14 @@ fun CommunityScreenNew(controller: CommunityController) {
 
     val categoryNames = listOf("全部话题", "夜间情绪", "社交与关系", "学习与考试", "睡眠", "自我关怀", "呼吸练习", "我的收藏")
 
+    // 评论展开状态：记录哪个帖子的评论是展开的
+    var expandedPostId by remember { mutableStateOf<String?>(null) }
+    val postCommentsMap = remember { mutableStateMapOf<String, List<Comment>>() }
+    var commentsLoading by remember { mutableStateOf(false) }
+    
     var selectedPostForComments by remember { mutableStateOf<ThemePost?>(null) }
     var selectedPostDetail by remember { mutableStateOf<ThemePost?>(null) }
     var comments by remember { mutableStateOf<List<Comment>>(emptyList()) }
-    var commentsLoading by remember { mutableStateOf(false) }
     var commentsInput by remember { mutableStateOf("") }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
@@ -257,8 +265,21 @@ fun CommunityScreenNew(controller: CommunityController) {
                     category = if (controller.selectedCategoryIndex == 0) null else categoryNames[controller.selectedCategoryIndex],
                     q = controller.searchText.takeIf { it.isNotBlank() }
                 )
+                android.util.Log.d("CommunityScreen", "Loaded ${list.size} posts from backend")
+                list.forEachIndexed { index, post ->
+                    android.util.Log.d("CommunityScreen", "Post[$index]: id=${post.id}, title=${post.title}, reviewStatus=${post.reviewStatus}")
+                }
+                // 保留现有帖子的点赞状态
+                val existingLikes = feedPosts.associate { it.id to Pair(it.liked, it.likeCount) }
                 feedPosts.clear()
-                feedPosts.addAll(list)
+                feedPosts.addAll(list.map { post ->
+                    val existing = existingLikes[post.id]
+                    if (existing != null) {
+                        post.copy(liked = existing.first, likeCount = existing.second)
+                    } else {
+                        post
+                    }
+                })
                 feedPage = 0
                 feedReachedEnd = list.isEmpty()
             } catch (e: Exception) {
@@ -318,6 +339,8 @@ fun CommunityScreenNew(controller: CommunityController) {
             itemsIndexed(displayPosts, key = { _, p -> p.id }) { _, post ->
                 PostCardNew(
                     post = post,
+                    comments = postCommentsMap[post.id] ?: emptyList(),
+                    commentsExpanded = expandedPostId == post.id,
                     comfortModeOn = controller.comfortModeOn,
                     onLike = {
                         val idx = feedPosts.indexOfFirst { it.id == post.id }
@@ -337,17 +360,23 @@ fun CommunityScreenNew(controller: CommunityController) {
                         }
                     },
                     onToggleComments = {
-                        selectedPostForComments = post
-                        commentsLoading = true
-                        scope.launch {
-                            try {
-                                comments = CommunityRepositoryProvider.current.getPostComments(post.id)
-                            } catch (e: Exception) {
-                                comments = emptyList()
-                            } finally {
-                                commentsLoading = false
+                        if (expandedPostId == post.id) {
+                            // 如果已经展开，则收起
+                            expandedPostId = null
+                        } else {
+                            // 展开评论区
+                            expandedPostId = post.id
+                            // 如果还没有加载评论，则加载
+                            if (!postCommentsMap.containsKey(post.id)) {
+                                scope.launch {
+                                    try {
+                                        val loadedComments = CommunityRepositoryProvider.current.getPostComments(post.id)
+                                        postCommentsMap[post.id] = loadedComments
+                                    } catch (e: Exception) {
+                                        postCommentsMap[post.id] = emptyList()
+                                    }
+                                }
                             }
-                            sheetState.expand()
                         }
                     },
                     onOpenDetail = {
@@ -392,22 +421,6 @@ fun CommunityScreenNew(controller: CommunityController) {
                             }
                         }
                     },
-                    onBookmark = {
-                        val idx = feedPosts.indexOfFirst { it.id == post.id }
-                        if (idx >= 0) {
-                            val cur = feedPosts[idx]
-                            val on = !cur.bookmarked
-                            val before = cur
-                            feedPosts[idx] = cur.copy(bookmarked = on)
-                            scope.launch {
-                                val ok = try { CommunityRepositoryProvider.current.setPostBookmark(post.id, on) } catch (_: Exception) { false }
-                                if (!ok) {
-                                    val i2 = feedPosts.indexOfFirst { it.id == post.id }
-                                    if (i2 >= 0) feedPosts[i2] = before
-                                }
-                            }
-                        }
-                    },
                     onEdit = {
                         selectedPostDetail = post
                         detailEditMode = true
@@ -426,6 +439,24 @@ fun CommunityScreenNew(controller: CommunityController) {
                             intent.putExtra(android.content.Intent.EXTRA_TEXT, text)
                             ctx.startActivity(android.content.Intent.createChooser(intent, "分享帖子"))
                         } catch (_: Exception) {}
+                    },
+                    onPostComment = { commentText ->
+                        scope.launch {
+                            try {
+                                val newComment = CommunityRepositoryProvider.current.postPostComment(post.id, commentText)
+                                // 更新评论列表
+                                val currentComments = postCommentsMap[post.id] ?: emptyList()
+                                postCommentsMap[post.id] = currentComments + newComment
+                                // 更新帖子的评论数
+                                val idx = feedPosts.indexOfFirst { it.id == post.id }
+                                if (idx >= 0) {
+                                    val cur = feedPosts[idx]
+                                    feedPosts[idx] = cur.copy(commentCount = cur.commentCount + 1)
+                                }
+                            } catch (e: Exception) {
+                                android.widget.Toast.makeText(ctx, "评论失败", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        }
                     }
                 )
             }
@@ -444,8 +475,16 @@ fun CommunityScreenNew(controller: CommunityController) {
                                 )
                                 if (next.isEmpty()) feedReachedEnd = true
                                 else {
-                                    feedPosts.addAll(next)
-                                    feedPage += 1
+                                    // 去重：只添加不存在的帖子
+                                    val existingIds = feedPosts.map { it.id }.toSet()
+                                    val newPosts = next.filter { it.id !in existingIds }
+                                    if (newPosts.isNotEmpty()) {
+                                        feedPosts.addAll(newPosts)
+                                        feedPage += 1
+                                    } else {
+                                        // 如果过滤后没有新帖子，说明已经到底了
+                                        feedReachedEnd = true
+                                    }
                                 }
                             } catch (e: Exception) {
                                 /* ignore */
@@ -565,22 +604,6 @@ fun CommunityScreenNew(controller: CommunityController) {
                                                             )
                                                             feedPosts[idx] = created
                                                         } catch (_: Exception) {
-                                                        }
-                                                    }
-                                                }
-                                            },
-                                            onBookmark = {
-                                                val idx = feedPosts.indexOfFirst { it.id == post.id }
-                                                if (idx >= 0) {
-                                                    val cur = feedPosts[idx]
-                                                    val on = !cur.bookmarked
-                                                    val before = cur
-                                                    feedPosts[idx] = cur.copy(bookmarked = on)
-                                                    scope.launch {
-                                                        val ok = try { CommunityRepositoryProvider.current.setPostBookmark(post.id, on) } catch (_: Exception) { false }
-                                                        if (!ok) {
-                                                            val i2 = feedPosts.indexOfFirst { it.id == post.id }
-                                                            if (i2 >= 0) feedPosts[i2] = before
                                                         }
                                                     }
                                                 }
@@ -920,13 +943,6 @@ fun CommunityScreenNew(controller: CommunityController) {
                                     onOpenDetail = { selectedPostDetail = post },
                                     onOpenImage = { url -> previewImageUrl = url },
                                     onRetrySync = {},
-                                    onBookmark = {
-                                        val idx = feedPosts.indexOfFirst { it.id == post.id }
-                                        if (idx >= 0) {
-                                            val cur = feedPosts[idx]
-                                            feedPosts[idx] = cur.copy(bookmarked = !cur.bookmarked)
-                                        }
-                                    },
                                     onEdit = {
                                         selectedPostDetail = post
                                         detailEditMode = true
@@ -956,7 +972,6 @@ fun CommunityScreenNew(controller: CommunityController) {
                                     onOpenDetail = { selectedPostDetail = post },
                                     onOpenImage = { url -> previewImageUrl = url },
                                     onRetrySync = {},
-                                    onBookmark = {},
                                     onEdit = {},
                                     onDelete = {},
                                     onShare = {}
@@ -2041,79 +2056,6 @@ fun CommunityScreenNew(controller: CommunityController) {
             }
         }
 
-        if (selectedPostForComments != null) {
-            ModalBottomSheet(
-                onDismissRequest = {
-                    selectedPostForComments = null
-                    commentsInput = ""
-                },
-                sheetState = sheetState
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(tokens.spacing.L),
-                    verticalArrangement = Arrangement.spacedBy(tokens.spacing.M)
-                ) {
-                    Text(selectedPostForComments!!.title, style = MaterialTheme.typography.titleSmall)
-                    if (commentsLoading) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                            CircularProgressIndicator()
-                        }
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 120.dp),
-                            verticalArrangement = Arrangement.spacedBy(tokens.spacing.S)
-                        ) {
-                            itemsIndexed(comments) { _, c ->
-                                Surface(tonalElevation = 1.dp, shape = MaterialTheme.shapes.medium) {
-                                    Column(modifier = Modifier.padding(tokens.spacing.M)) {
-                                        Text(c.author, style = MaterialTheme.typography.labelMedium)
-                                        Spacer(Modifier.height(4.dp))
-                                        Text(c.text, style = MaterialTheme.typography.bodyMedium)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        TextField(
-                            value = commentsInput,
-                            onValueChange = { commentsInput = it },
-                            modifier = Modifier.weight(1f),
-                            placeholder = { Text("写下你的回应…") }
-                        )
-                        Spacer(Modifier.width(tokens.spacing.S))
-                        Button(onClick = {
-                            val msg = commentsInput.trim()
-                            if (msg.isNotEmpty() && selectedPostForComments != null) {
-                                val postId = selectedPostForComments!!.id
-                                scope.launch {
-                                    val before = comments
-                                    val optimistic = before + Comment(id = "tmp${System.currentTimeMillis()}", author = "我", text = msg)
-                                    comments = optimistic
-                                    commentsInput = ""
-                                    try {
-                                        val created = CommunityRepositoryProvider.current.postPostComment(postId, msg)
-                                        comments = optimistic.dropLast(1) + created
-                                        val idx = feedPosts.indexOfFirst { it.id == postId }
-                                        if (idx >= 0) {
-                                            val cur = feedPosts[idx]
-                                            feedPosts[idx] = cur.copy(commentCount = cur.commentCount + 1)
-                                        }
-                                    } catch (e: Exception) {
-                                        comments = before
-                                    }
-                                }
-                            }
-                        }) { Text("发送") }
-                    }
-                }
-            }
-        }
-
         if (selectedPostDetail != null) {
             Surface(modifier = Modifier.fillMaxSize()) {
                 Column(
@@ -2178,13 +2120,32 @@ fun CommunityScreenNew(controller: CommunityController) {
                             }
                         }
                         if (p.images.isNotEmpty()) {
+                            val baseUrl = remember { com.example.xinqiao.network.NetworkConfig.getBaseUrl(ctx) }
                             androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(tokens.spacing.S)) {
                                 itemsIndexed(p.images) { _, url ->
-                                    androidx.compose.foundation.Image(
-                                        painter = rememberAsyncImagePainter(url),
-                                        contentDescription = null,
-                                        modifier = Modifier.size(120.dp).clickable { previewImageUrl = url }
-                                    )
+                                    val fullUrl = remember(url) {
+                                        if (url.startsWith("http://") || url.startsWith("https://")) {
+                                            url
+                                        } else {
+                                            "${baseUrl.trimEnd('/')}${if (url.startsWith("/")) url else "/$url"}"
+                                        }
+                                    }
+                                    Surface(
+                                        shape = RoundedCornerShape(12.dp),
+                                        modifier = Modifier.size(120.dp),
+                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                                    ) {
+                                        androidx.compose.foundation.Image(
+                                            painter = rememberAsyncImagePainter(
+                                                model = fullUrl,
+                                                placeholder = painterResource(id = R.drawable.default_avatar),
+                                                error = painterResource(id = R.drawable.default_avatar)
+                                            ),
+                                            contentDescription = null,
+                                            modifier = Modifier.fillMaxSize().clickable { previewImageUrl = fullUrl },
+                                            contentScale = ContentScale.Crop
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -2368,46 +2329,13 @@ fun CommunityScreenNew(controller: CommunityController) {
                                 try {
                                     var remoteImages = emptyList<String>()
                                     if (createImages.isNotEmpty()) {
-                                        val wm = WorkManager.getInstance(ctx)
                                         uploading = true
                                         uploadProgress = 0f
-                                        val constraints = Constraints.Builder()
-                                            .setRequiredNetworkType(NetworkType.CONNECTED)
-                                            .build()
-                                        val requests = createImages.map { uri ->
-                                            OneTimeWorkRequestBuilder<ImageUploadWorker>()
-                                                .setConstraints(constraints)
-                                                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 2, TimeUnit.SECONDS)
-                                                .setInputData(Data.Builder().putString(ImageUploadWorker.KEY_INPUT_URI, uri).build())
-                                                .build()
-                                        }
-                                        withContext(kotlinx.coroutines.Dispatchers.IO) { requests.forEach { wm.enqueue(it) } }
-                                        val urls = withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                            val acc = mutableListOf<String>()
-                                            var completed = 0
-                                            for (req in requests) {
-                                                var progress = 0
-                                                while (true) {
-                                                    val info = wm.getWorkInfoById(req.id).get()
-                                                    if (info != null) {
-                                                        val p = info.progress.getInt(ImageUploadWorker.KEY_PROGRESS, progress)
-                                                        progress = p
-                                                        withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                                            uploadProgress = (completed.toFloat() / requests.size) + (p / 100f) / requests.size
-                                                        }
-                                                        if (info.state.isFinished) {
-                                                            val url = info.outputData.getString(ImageUploadWorker.KEY_REMOTE_URL)
-                                                            if (url != null) acc.add(url)
-                                                            completed++
-                                                            break
-                                                        }
-                                                    }
-                                                    kotlinx.coroutines.delay(200)
-                                                }
-                                            }
-                                            acc
-                                        }
-                                        remoteImages = urls
+                                        remoteImages = ImageUploadHelper.uploadImages(
+                                            context = ctx,
+                                            uriStrings = createImages.toList(),
+                                            onProgress = { progress -> uploadProgress = progress }
+                                        )
                                         uploading = false
                                     }
                                     val authorName2 = if (createAnonymous) null else withContext(kotlinx.coroutines.Dispatchers.IO) {
@@ -2462,9 +2390,13 @@ fun CommunityScreenNew(controller: CommunityController) {
             Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)) {
                 Box(Modifier.fillMaxSize()) {
                     androidx.compose.foundation.Image(
-                        painter = rememberAsyncImagePainter(previewImageUrl),
+                        painter = rememberAsyncImagePainter(
+                            model = previewImageUrl,
+                            error = painterResource(id = R.drawable.default_avatar)
+                        ),
                         contentDescription = null,
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier.fillMaxSize().padding(16.dp),
+                        contentScale = ContentScale.Fit
                     )
                     TextButton(onClick = { previewImageUrl = null }, modifier = Modifier.align(Alignment.TopEnd).padding(tokens.spacing.M)) { Text("关闭") }
                 }

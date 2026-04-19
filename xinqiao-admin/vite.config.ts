@@ -25,5 +25,15 @@ export default defineConfig({
     strictPort: true,
     open: false,
     host: true,
+    proxy: {
+      '/community': {
+        target: 'http://localhost:8081',
+        changeOrigin: true,
+      },
+      '/api': {
+        target: 'http://localhost:8081',
+        changeOrigin: true,
+      },
+    },
   },
 })

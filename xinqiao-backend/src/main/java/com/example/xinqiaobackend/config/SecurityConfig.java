@@ -31,9 +31,14 @@ public class SecurityConfig {
                 .antMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .antMatchers("/api/auth/**").permitAll()
                 .antMatchers("/api/health/**").permitAll()
-                .antMatchers(HttpMethod.GET, "/community/**", "/api/articles/**", "/api/consult/**", "/api/counselor/profile/**", "/ws/**").permitAll()
+                .antMatchers("/api/groups/**").permitAll() // 临时允许访问groups API用于测试
+                .antMatchers("/ws/**").permitAll() // 允许WebSocket连接
+                .antMatchers("/uploads/**").permitAll() // 允许访问上传的静态资源（包括视频）
+                .antMatchers("/api/uploads/**").permitAll() // 允许上传文件
+                .antMatchers(HttpMethod.GET, "/community/**", "/api/articles/**", "/api/consult/**", "/api/counselor/profile/**").permitAll()
                 .antMatchers("/api/admin/**").hasRole("ADMIN")
                 .antMatchers("/api/counselor/**").hasRole("COUNSELOR")
+                .antMatchers("/api/emotion-diaries/**").authenticated() // 情绪日记需要认证
                 .antMatchers("/api/applications/**").authenticated()
                 .antMatchers(HttpMethod.POST, "/community/posts/**", "/community/posts/*/comments").hasRole("USER")
                 .antMatchers(HttpMethod.POST, "/api/articles/**").hasRole("ADMIN")

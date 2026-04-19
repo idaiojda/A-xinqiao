@@ -548,54 +548,41 @@ public class MySQLHelper {
             
             // 确保balance列存在
             try {
-                android.util.Log.d("MySQLHelper", "开始检查balance列是否存在...");
-                // 检查balance列是否存在
-                String checkBalanceColumn = "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = '" + dbName + "' AND table_name = 'user_info' AND column_name = 'balance'";
-                android.util.Log.d("MySQLHelper", "执行SQL: " + checkBalanceColumn);
-                ResultSet rs = conn.createStatement().executeQuery(checkBalanceColumn);
+                android.util.Log.d("MySQLHelper", "开始检查user_wallet表是否存在...");
+                // 检查user_wallet表是否存在
+                String checkWalletTable = "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '" + dbName + "' AND table_name = 'user_wallet'";
+                android.util.Log.d("MySQLHelper", "执行SQL: " + checkWalletTable);
+                ResultSet rs = conn.createStatement().executeQuery(checkWalletTable);
                 rs.next();
-                boolean hasBalanceColumn = rs.getInt(1) > 0;
-                android.util.Log.d("MySQLHelper", "balance列存在: " + hasBalanceColumn);
+                boolean hasWalletTable = rs.getInt(1) > 0;
+                android.util.Log.d("MySQLHelper", "user_wallet表存在: " + hasWalletTable);
                 
-                if (!hasBalanceColumn) {
-                    // 如果balance列不存在，添加该列
-                    String addBalanceColumn = "ALTER TABLE user_info ADD COLUMN balance DECIMAL(10,2) DEFAULT 0.00";
-                    android.util.Log.d("MySQLHelper", "执行SQL: " + addBalanceColumn);
-                    conn.createStatement().executeUpdate(addBalanceColumn);
-                    android.util.Log.i("MySQLHelper", "已添加balance列到user_info表");
+                if (!hasWalletTable) {
+                    // 如果user_wallet表不存在，创建该表
+                    String createWalletTable = "CREATE TABLE user_wallet (" +
+                        "username VARCHAR(50) PRIMARY KEY, " +
+                        "balance DECIMAL(12,2) NOT NULL DEFAULT 0.00, " +
+                        "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
+                        "FOREIGN KEY (username) REFERENCES user_info(username)" +
+                        ")";
+                    android.util.Log.d("MySQLHelper", "执行SQL: " + createWalletTable);
+                    conn.createStatement().executeUpdate(createWalletTable);
+                    android.util.Log.i("MySQLHelper", "已创建user_wallet表");
                 } else {
-                    android.util.Log.i("MySQLHelper", "balance列已存在，无需添加");
+                    android.util.Log.i("MySQLHelper", "user_wallet表已存在，无需创建");
                 }
                 
-                // 检查是否有balance为null的用户并初始化
-                String checkNullBalance = "SELECT COUNT(*) FROM user_info WHERE balance IS NULL";
-                android.util.Log.d("MySQLHelper", "执行SQL: " + checkNullBalance);
-                rs = conn.createStatement().executeQuery(checkNullBalance);
-                rs.next();
-                int nullBalanceCount = rs.getInt(1);
-                android.util.Log.d("MySQLHelper", "balance为null的用户数: " + nullBalanceCount);
-                
-                if (nullBalanceCount > 0) {
-                    // 为balance为null的用户设置默认余额0.00
-                    String updateBalance = "UPDATE user_info SET balance = 0.00 WHERE balance IS NULL";
-                    android.util.Log.d("MySQLHelper", "执行SQL: " + updateBalance);
-                    conn.createStatement().executeUpdate(updateBalance);
-                    android.util.Log.i("MySQLHelper", "已为" + nullBalanceCount + "个用户初始化余额");
-                } else {
-                    android.util.Log.i("MySQLHelper", "没有balance为null的用户，无需初始化");
-                }
-                
-                // 验证balance列是否可以正常查询
+                // 验证user_wallet表是否可以正常查询
                 try {
-                    String testQuery = "SELECT username, balance FROM user_info LIMIT 1";
-                    android.util.Log.d("MySQLHelper", "测试balance列查询: " + testQuery);
+                    String testQuery = "SELECT username, balance FROM user_wallet LIMIT 1";
+                    android.util.Log.d("MySQLHelper", "测试user_wallet表查询: " + testQuery);
                     rs = conn.createStatement().executeQuery(testQuery);
                     if (rs.next()) {
                         String username = rs.getString("username");
                         double balance = rs.getDouble("balance");
                         android.util.Log.i("MySQLHelper", "测试查询成功: 用户 " + username + " 余额为 " + balance);
                     } else {
-                        android.util.Log.i("MySQLHelper", "测试查询成功，但没有用户数据");
+                        android.util.Log.i("MySQLHelper", "测试查询成功，但没有钱包数据");
                     }
                 } catch (SQLException e) {
                     android.util.Log.e("MySQLHelper", "测试balance列查询失败: " + e.getMessage());
@@ -675,15 +662,6 @@ public class MySQLHelper {
                 "FOREIGN KEY (user_id) REFERENCES user_info(user_id)" +
                 ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
-            // 创建课程价格表
-            conn.createStatement().execute(
-                "CREATE TABLE IF NOT EXISTS course_price (" +
-                "course_id INT PRIMARY KEY, " +
-                "price DECIMAL(10,2) NOT NULL, " +
-                "title VARCHAR(100) NOT NULL, " +
-                "description TEXT" +
-                ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-                
             // 创建支付交易记录表
             conn.createStatement().execute(
                 "CREATE TABLE IF NOT EXISTS payment_transaction (" +
@@ -695,24 +673,7 @@ public class MySQLHelper {
                 "FOREIGN KEY (user_id) REFERENCES user_info(user_id)" +
                 ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
-            
-
-            // 初始化课程价格数据
-            String checkSql = "SELECT COUNT(*) as count FROM course_price";
-            ResultSet coursePriceRs = conn.createStatement().executeQuery(checkSql);
-            coursePriceRs.next();
-            if (coursePriceRs.getInt("count") == 0) {
-                // 插入默认课程价格
-                String insertSql = "INSERT INTO course_price (course_id, price, title) VALUES (?, 99.00, ?)";
-                PreparedStatement pstmt = conn.prepareStatement(insertSql);
-                
-                // 从assets/chaptertitle.xml读取的课程ID为1-12
-                for (int i = 1; i <= 12; i++) {
-                    pstmt.setInt(1, i);
-                    pstmt.setString(2, "心理课程 " + i);
-                    pstmt.executeUpdate();
-                }
-            }
+            // 注意：课程价格信息现在存储在courses表中的premium和price字段
 
             // 创建搜索历史表（如不存在）
             conn.createStatement().execute(
@@ -730,49 +691,57 @@ public class MySQLHelper {
             // 小组信息表
             conn.createStatement().execute(
                 "CREATE TABLE IF NOT EXISTS community_groups (" +
-                "name VARCHAR(100) PRIMARY KEY, " +
+                "id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY, " +
+                "name VARCHAR(100) NOT NULL UNIQUE, " +
                 "description TEXT, " +
-                "admin_name VARCHAR(50), " +
+                "admin_user_id BIGINT NOT NULL, " +
+                "avatar_url VARCHAR(255), " +
                 "schedule VARCHAR(100), " +
-                "capacity INT DEFAULT 0, " +
+                "capacity INT DEFAULT 100, " +
                 "member_count INT DEFAULT 0, " +
-                "rules_json TEXT, " +
+                "rules_json JSON, " +
+                "status TINYINT DEFAULT 1, " +
                 "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
-                "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP" +
+                "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, " +
+                "KEY idx_admin_user_id (admin_user_id), " +
+                "KEY idx_status (status)" +
                 ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
             );
 
             // 小组成员表
             conn.createStatement().execute(
                 "CREATE TABLE IF NOT EXISTS community_group_members (" +
-                "id INT AUTO_INCREMENT PRIMARY KEY, " +
-                "group_name VARCHAR(100) NOT NULL, " +
-                "user_name VARCHAR(50) NOT NULL, " +
-                "joined TINYINT(1) DEFAULT 1, " +
-                "joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
-                "UNIQUE KEY uk_group_user (group_name, user_name), " +
-                "INDEX idx_group_name (group_name), " +
-                "INDEX idx_user_name (user_name), " +
-                "FOREIGN KEY (group_name) REFERENCES community_groups(name) ON DELETE CASCADE" +
+                "id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY, " +
+                "group_id BIGINT NOT NULL, " +
+                "user_id BIGINT NOT NULL, " +
+                "role VARCHAR(20) NOT NULL DEFAULT 'member', " +
+                "status TINYINT NOT NULL DEFAULT 1, " +
+                "joined_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, " +
+                "left_at DATETIME DEFAULT NULL, " +
+                "UNIQUE KEY uk_group_user (group_id, user_id), " +
+                "KEY idx_user_id (user_id), " +
+                "KEY idx_status (status)" +
                 ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
             );
 
             // 小组消息表
             conn.createStatement().execute(
                 "CREATE TABLE IF NOT EXISTS community_group_messages (" +
-                "id VARCHAR(64) PRIMARY KEY, " +
-                "group_name VARCHAR(100) NOT NULL, " +
-                "author VARCHAR(50) NOT NULL, " +
-                "author_avatar TEXT, " +
+                "id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY, " +
+                "group_id BIGINT NOT NULL, " +
+                "user_id BIGINT NOT NULL, " +
                 "content TEXT, " +
-                "images_json TEXT, " +
-                "mentions_json TEXT, " +
-                "voice_url VARCHAR(255), " +
-                "voice_duration_sec INT, " +
-                "timestamp BIGINT NOT NULL, " +
-                "recalled TINYINT(1) DEFAULT 0, " +
-                "INDEX idx_group_ts (group_name, timestamp), " +
-                "FOREIGN KEY (group_name) REFERENCES community_groups(name) ON DELETE CASCADE" +
+                "message_type TINYINT NOT NULL DEFAULT 1, " +
+                "images_json JSON DEFAULT NULL, " +
+                "voice_url VARCHAR(255) DEFAULT NULL, " +
+                "voice_duration_sec INT DEFAULT NULL, " +
+                "mentions_json JSON DEFAULT NULL, " +
+                "status TINYINT NOT NULL DEFAULT 1, " +
+                "created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, " +
+                "KEY idx_group_id (group_id), " +
+                "KEY idx_user_id (user_id), " +
+                "KEY idx_created_at (created_at), " +
+                "KEY idx_status (status)" +
                 ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
             );
 

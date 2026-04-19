@@ -381,7 +381,7 @@ public class RegisterActivity extends AppCompatActivity {
                     }
                     
                     // 插入新用户记录到 user_info 表
-                    String sql = "INSERT INTO user_info (username, password, nickname, gender, birthday, marital_status, occupation, introduction, avatar, balance, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())";
+                    String sql = "INSERT INTO user_info (username, password, nickname, gender, birthday, marital_status, occupation, introduction, avatar, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
                     PreparedStatement stmt = conn.prepareStatement(sql);
                     stmt.setString(1, phone);
                     stmt.setString(2, password);
@@ -396,10 +396,18 @@ public class RegisterActivity extends AppCompatActivity {
                     } else {
                         stmt.setNull(9, java.sql.Types.BLOB);
                     }
-                    stmt.setDouble(10, 0.00); // 设置初始余额为0
 
                     int result = stmt.executeUpdate();
                     stmt.close();
+                    
+                    // 为新用户创建钱包记录
+                    if (result > 0) {
+                        String walletSql = "INSERT INTO user_wallet (username, balance) VALUES (?, 0.00)";
+                        PreparedStatement walletStmt = conn.prepareStatement(walletSql);
+                        walletStmt.setString(1, phone);
+                        walletStmt.executeUpdate();
+                        walletStmt.close();
+                    }
 
                     if (result > 0) {
                         runOnUiThread(() -> Toast.makeText(RegisterActivity.this, "注册成功", Toast.LENGTH_SHORT).show());

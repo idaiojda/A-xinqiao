@@ -28,6 +28,9 @@ data class AppointmentUiState(
     val slots: List<SlotTime> = emptyList(),
     val selectedTime: SlotTime? = null,
     val basePrice: Int = 299,
+    val priceText: Int = 0,
+    val priceVoice: Int = 0,
+    val priceVideo: Int = 0,
     val price: Int = 299,
     val durationMinutes: Int = 60,
     val remark: String = "",
@@ -55,10 +58,19 @@ class AppointmentDetailViewModel(app: Application) : AndroidViewModel(app) {
         return sp.getString("auth_token", null)
     }
 
-    fun init(consultantId: String, name: String, defaultMode: String, price: Int = 299, durationMinutes: Int = 60) {
+    fun init(consultantId: String, name: String, defaultMode: String, price: Int = 299, priceText: Int = 0, priceVoice: Int = 0, priceVideo: Int = 0, durationMinutes: Int = 60) {
         val today = LocalDate.now()
         val fmt = DateTimeFormatter.ISO_DATE
-        val dateList = (0 until 7).map { today.plusDays(it.toLong()).format(fmt) }
+        // 显示未来30天的日期，让用户可以选择更远的日期
+        val dateList = (0 until 30).map { today.plusDays(it.toLong()).format(fmt) }
+        
+        // 根据默认咨询方式确定初始价格
+        val initialPrice = when (defaultMode) {
+            "语音咨询" -> if (priceVoice > 0) priceVoice else price
+            "视频咨询" -> if (priceVideo > 0) priceVideo else price
+            else -> if (priceText > 0) priceText else price
+        }
+        
         _ui.value = _ui.value.copy(
             consultantId = consultantId,
             consultantName = name,
@@ -67,7 +79,10 @@ class AppointmentDetailViewModel(app: Application) : AndroidViewModel(app) {
             dates = dateList,
             selectedDate = dateList.first(),
             basePrice = price,
-            price = price,
+            priceText = priceText,
+            priceVoice = priceVoice,
+            priceVideo = priceVideo,
+            price = initialPrice,
             durationMinutes = durationMinutes
         )
         checkLoginAndProfile()
@@ -75,17 +90,17 @@ class AppointmentDetailViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun selectMode(mode: String) {
-        val priceDelta = when (mode) {
-            "语音咨询" -> 50
-            "视频咨询" -> 100
-            else -> 0
+        val s = _ui.value
+        val newPrice = when (mode) {
+            "语音咨询" -> if (s.priceVoice > 0) s.priceVoice else s.basePrice
+            "视频咨询" -> if (s.priceVideo > 0) s.priceVideo else s.basePrice
+            else -> if (s.priceText > 0) s.priceText else s.basePrice
         }
-        val base = _ui.value.basePrice
-        _ui.value = _ui.value.copy(selectedMode = mode, price = base + priceDelta)
+        _ui.value = _ui.value.copy(selectedMode = mode, price = newPrice)
     }
 
     fun selectDate(date: String) {
-        _ui.value = _ui.value.copy(selectedDate = date)
+        _ui.value = _ui.value.copy(selectedDate = date, selectedTime = null)
         loadSlots(date)
     }
 

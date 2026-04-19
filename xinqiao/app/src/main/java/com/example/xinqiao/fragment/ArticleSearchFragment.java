@@ -113,73 +113,108 @@ public class ArticleSearchFragment extends Fragment {
     }
 
     private void loadHotRecommendations() {
-        List<ArticleBean> all = buildAllArticles();
-        List<ArticleBean> top = new ArrayList<>();
-        for (int i = 0; i < all.size() && i < 8; i++) {
-            top.add(all.get(i));
-        }
-        if (adapter != null) adapter.setData(top);
+        // 从后端加载已审核通过的文章
+        new Thread(() -> {
+            try {
+                // 使用Kotlin协程加载文章
+                java.util.List<com.example.xinqiao.counselor.ArticleDto> articles = 
+                    kotlinx.coroutines.BuildersKt.runBlocking(
+                        kotlinx.coroutines.Dispatchers.getIO(),
+                        (scope, continuation) -> ArticleLoader.INSTANCE.loadArticles(0, 20, continuation)
+                    );
+                
+                if (articles != null && !articles.isEmpty()) {
+                    // 转换为 ArticleBean
+                    java.util.List<ArticleBean> beans = convertToArticleBeans(articles);
+                    
+                    // 更新UI
+                    if (getActivity() != null) {
+                        getActivity().runOnUiThread(() -> {
+                            if (adapter != null) {
+                                adapter.setData(beans);
+                            }
+                        });
+                    }
+                } else {
+                    // 加载失败，显示空状态
+                    showEmptyState("暂无文章数据");
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                // 加载失败，显示空状态
+                showEmptyState("加载失败：" + e.getMessage());
+            }
+        }).start();
     }
-
-    private List<ArticleBean> buildAllArticles() {
-        List<ArticleBean> list = new ArrayList<>();
-        String[] titles = {
-                "如何应对焦虑情绪",
-                "提升自尊的五个方法",
-                "压力管理：科学减压技巧",
-                "心理健康与睡眠质量的关系",
-                "社交恐惧的自助指南",
-                "青少年心理健康的关键点",
-                "如何与抑郁情绪共处",
-                "正念冥想的心理益处",
-                "亲密关系中的沟通技巧",
-                "远离网络成瘾，守护心理健康"
-        };
-        String[] categories = {
-                "情绪管理", "自我成长", "压力管理", "健康生活", "社交心理",
-                "青少年", "抑郁应对", "正念冥想", "关系经营", "网络心理"
-        };
-        String[] summaries = {
-                "焦虑是常见的情绪体验，学会识别和接纳焦虑，掌握呼吸放松等技巧，有助于缓解焦虑带来的困扰。",
-                "自尊影响我们的幸福感。通过自我肯定、设立小目标、积极社交等方法，可以逐步提升自信和自我价值感。",
-                "压力无处不在，科学的减压方法如运动、冥想、时间管理等，能帮助我们更好地应对生活挑战。",
-                "良好的睡眠是心理健康的重要保障。建立规律作息、营造舒适环境，有助于提升睡眠质量。",
-                "社交恐惧影响人际交往。通过暴露疗法、正念练习和逐步挑战社交场合，可以逐步克服恐惧。",
-                "青春期是心理成长的关键阶段。关注情绪变化、学会沟通和寻求支持，有助于青少年健康成长。",
-                "抑郁情绪并不可怕，学会自我关怀、寻求专业帮助和与亲友沟通，是走出低谷的重要途径。",
-                "正念冥想有助于缓解压力、提升专注力和情绪调节能力，是现代心理健康管理的有效工具。",
-                "良好的沟通是亲密关系的基石。学会倾听、表达和共情，有助于增进理解和亲密感。",
-                "网络成瘾影响身心健康。合理规划上网时间，培养多样兴趣，有助于保持心理平衡。"
-        };
-        String[] contents = {
-                "焦虑是一种常见的情绪体验，适度的焦虑有助于我们应对挑战，但过度焦虑会影响生活。可以通过深呼吸、肌肉放松、正念冥想等方法缓解焦虑，必要时可寻求心理咨询师的帮助。",
-                "自尊是对自我价值的肯定。提升自尊可以从自我接纳、积极自我对话、设立可实现的小目标、参与社交活动等方面入手。遇到挫折时要善于自我鼓励。",
-                "压力管理包括识别压力源、合理安排时间、保持运动习惯、学会放松和寻求社会支持。遇到压力大时，不妨尝试冥想或与朋友倾诉。",
-                "睡眠与心理健康密切相关。保持规律作息、睡前减少电子产品使用、营造安静环境，有助于改善睡眠。长期失眠建议寻求专业帮助。",
-                "社交恐惧常表现为害怕被关注或评价。可以通过逐步暴露、正念练习、记录进步等方式克服，必要时可寻求心理咨询。",
-                "青少年时期情绪波动大，家长和老师应多关注其心理变化。青少年自身要学会表达情绪、主动沟通和寻求帮助。",
-                "抑郁情绪可能表现为持续低落、兴趣减退等。可以通过规律作息、适度运动、与亲友交流等方式缓解，严重时应及时就医。",
-                "正念冥想是一种专注于当下的练习，有助于缓解压力、提升情绪调节能力。每天坚持几分钟正念练习，对心理健康大有裨益。",
-                "亲密关系中的沟通应以尊重和理解为基础。学会倾听、表达真实感受和需求，有助于减少误会和冲突。",
-                "网络成瘾会影响学习和生活。可以通过设定上网时间、培养线下兴趣、增加户外活动等方式预防和改善。"
-        };
-        int[] imageResIds = {
-                R.drawable.bg_11, R.drawable.bg_12, R.drawable.bg_13, R.drawable.bg_14, R.drawable.bg_15,
-                R.drawable.bg_16, R.drawable.bg_17, R.drawable.bg_18, R.drawable.bg_19, R.drawable.bg_20
-        };
-        long now = System.currentTimeMillis();
-        for (int i = 0; i < titles.length; i++) {
-            ArticleBean a = new ArticleBean();
-            a.articleId = i + 1;
-            a.title = titles[i];
-            a.category = categories[i];
-            a.summary = summaries[i];
-            a.content = contents[i];
-            a.imageResId = imageResIds[i];
-            a.readTimestamp = now - i * 60_000L; // 伪造时间
-            list.add(a);
+    
+    private java.util.List<ArticleBean> convertToArticleBeans(java.util.List<com.example.xinqiao.counselor.ArticleDto> articles) {
+        java.util.List<ArticleBean> beans = new java.util.ArrayList<>();
+        
+        for (int i = 0; i < articles.size(); i++) {
+            com.example.xinqiao.counselor.ArticleDto dto = articles.get(i);
+            ArticleBean bean = new ArticleBean();
+            bean.articleId = (int) dto.getId(); // Long转int
+            bean.title = dto.getTitle();
+            bean.category = dto.getCategory() != null && !dto.getCategory().isEmpty() 
+                ? dto.getCategory() 
+                : "心理健康";
+            bean.content = dto.getContent();
+            // 生成摘要（取前100个字符）
+            bean.summary = dto.getContent().length() > 100 
+                ? dto.getContent().substring(0, 100) + "..." 
+                : dto.getContent();
+            
+            // 处理图片：解析drawable://前缀
+            String imageStr = dto.getImage();
+            if (imageStr != null && !imageStr.isEmpty() && imageStr.startsWith("drawable://")) {
+                // 提取drawable资源名称，例如 "drawable://bg_11" -> "bg_11"
+                String drawableName = imageStr.substring("drawable://".length());
+                try {
+                    // 通过反射获取drawable资源ID
+                    int resId = getResources().getIdentifier(drawableName, "drawable", requireContext().getPackageName());
+                    if (resId != 0) {
+                        bean.imageResId = resId;
+                    } else {
+                        // 如果找不到资源，使用占位图片
+                        bean.imageResId = R.drawable.bg_11;
+                    }
+                } catch (Exception e) {
+                    bean.imageResId = R.drawable.bg_11;
+                }
+            } else {
+                // 没有图片或格式不对，使用占位图片
+                bean.imageResId = R.drawable.bg_11;
+            }
+            
+            // 使用publishedAt作为时间戳
+            try {
+                if (dto.getPublishedAt() != null && !dto.getPublishedAt().isEmpty()) {
+                    // 尝试解析ISO 8601格式的时间戳
+                    java.time.Instant instant = java.time.Instant.parse(dto.getPublishedAt());
+                    bean.readTimestamp = instant.toEpochMilli();
+                } else {
+                    bean.readTimestamp = System.currentTimeMillis();
+                }
+            } catch (Exception e) {
+                bean.readTimestamp = System.currentTimeMillis();
+            }
+            
+            beans.add(bean);
         }
-        return list;
+        
+        return beans;
+    }
+    
+    private void showEmptyState(String message) {
+        if (getActivity() != null) {
+            getActivity().runOnUiThread(() -> {
+                if (adapter != null) {
+                    adapter.setData(new ArrayList<>());
+                }
+                // 可以在这里添加Toast或Snackbar提示
+                android.widget.Toast.makeText(requireContext(), message, android.widget.Toast.LENGTH_SHORT).show();
+            });
+        }
     }
 
     private void tryHideGlobalTitleBar() {

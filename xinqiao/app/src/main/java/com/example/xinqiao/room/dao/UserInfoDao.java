@@ -82,23 +82,6 @@ public interface UserInfoDao {
     UserInfo login(String username, String password);
     
     /**
-     * 更新用户余额
-     * @param userId 用户ID
-     * @param balance 新余额
-     * @return 更新的行数
-     */
-    @Query("UPDATE user_info SET balance = :balance WHERE user_id = :userId")
-    int updateBalance(int userId, double balance);
-    
-    /**
-     * 获取用户余额
-     * @param userId 用户ID
-     * @return 用户余额
-     */
-    @Query("SELECT COALESCE(balance, 0.00) FROM user_info WHERE user_id = :userId")
-    double getBalance(int userId);
-    
-    /**
      * 更新用户头像
      * @param userId 用户ID
      * @param avatar 头像数据

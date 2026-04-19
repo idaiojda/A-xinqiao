@@ -6,6 +6,10 @@ import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
 import com.example.xinqiao.R;
+import com.example.xinqiao.fragment.CounselorDashboardFragment;
+import com.example.xinqiao.fragment.CounselorAppointmentsFragment;
+import com.example.xinqiao.fragment.CounselorContentFragment;
+import com.example.xinqiao.fragment.CounselorProfileFragment;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
 public class CounselorMainActivity extends AppCompatActivity {

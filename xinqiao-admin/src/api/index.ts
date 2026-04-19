@@ -37,6 +37,11 @@ class ApiClient {
     this.instance.interceptors.response.use(
       (response: AxiosResponse<ApiResponse<any> & any>) => {
         const { data } = response
+        // 如果返回的是数组，直接认为成功
+        if (Array.isArray(data)) {
+          return response
+        }
+        // 检查是否是成功的响应
         const ok = data?.code === 200 || data?.code === 0 || data?.ok === true
         if (ok) {
           return response

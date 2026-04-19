@@ -46,6 +46,10 @@ public class RedisChatBroker implements MessageListener {
         template.opsForList().trim(key, 0, 99);
     }
 
+    public void publishEphemeral(String group, String payload) {
+        template.convertAndSend("chat:group:" + group, payload);
+    }
+
     public java.util.List<String> history(String group, int limit) {
         String key = "chat:history:" + group;
         Long size = template.opsForList().size(key);

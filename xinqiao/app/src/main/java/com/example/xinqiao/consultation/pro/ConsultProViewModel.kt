@@ -50,6 +50,9 @@ class ConsultProViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _recentCities = MutableStateFlow<List<String>>(emptyList())
     val recentCities: StateFlow<List<String>> = _recentCities
+    
+    private val _expertiseTags = MutableStateFlow<List<String>>(listOf("全部"))
+    val expertiseTags: StateFlow<List<String>> = _expertiseTags
 
     private var page = 1
     private val size = 10
@@ -141,6 +144,17 @@ class ConsultProViewModel(app: Application) : AndroidViewModel(app) {
                     for (c in list) if (!merged.contains(c)) merged.add(c)
                     _cities.value = merged
                 }
+            }
+        }
+    }
+    
+    fun loadExpertiseTags(token: String?) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = repo.fetchExpertiseTags(token)
+            result.onSuccess { tags ->
+                val merged = mutableListOf<String>("全部")
+                merged.addAll(tags)
+                _expertiseTags.value = merged
             }
         }
     }

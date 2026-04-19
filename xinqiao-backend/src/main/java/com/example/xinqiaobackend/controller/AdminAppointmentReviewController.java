@@ -23,12 +23,23 @@ public class AdminAppointmentReviewController {
         this.messagingTemplate = messagingTemplate;
     }
 
-    @GetMapping("/review")
+    @GetMapping
     public List<Appointment> list(@RequestParam(required = false) String status) {
-        if (status == null) return repo.findAll();
+        if (status == null || status.isEmpty()) {
+            return repo.findAll();
+        }
         AppointmentStatus st;
-        try { st = AppointmentStatus.valueOf(status); } catch (Exception e) { return repo.findAll(); }
+        try {
+            st = AppointmentStatus.valueOf(status);
+        } catch (Exception e) {
+            return repo.findAll();
+        }
         return repo.findAll().stream().filter(a -> a.getStatus() == st).collect(Collectors.toList());
+    }
+
+    @GetMapping("/review")
+    public List<Appointment> listReview(@RequestParam(required = false) String status) {
+        return list(status);
     }
 
     @PostMapping("/{id}/approve")

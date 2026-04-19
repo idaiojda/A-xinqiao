@@ -107,11 +107,7 @@
               <el-dropdown-menu>
                 <el-dropdown-item command="profile">
                   <el-icon><User /></el-icon>
-                  个人资料
-                </el-dropdown-item>
-                <el-dropdown-item command="settings">
-                  <el-icon><Setting /></el-icon>
-                  系统设置
+                  个人信息
                 </el-dropdown-item>
                 <el-dropdown-item divided command="logout">
                   <el-icon><SwitchButton /></el-icon>
@@ -141,7 +137,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { useAppStore } from '@/stores/app'
-import { Menu, Close, Sunny, Moon, User, ArrowDown, Setting, SwitchButton } from '@element-plus/icons-vue'
+import { Menu, Close, Sunny, Moon, User, ArrowDown, SwitchButton } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -177,10 +173,7 @@ const toggleTheme = () => {
 const handleUserAction = (command: string) => {
   switch (command) {
     case 'profile':
-      router.push('/settings')
-      break
-    case 'settings':
-      router.push('/settings')
+      router.push('/profile')
       break
     case 'logout':
       handleLogout()

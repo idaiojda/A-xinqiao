@@ -58,7 +58,7 @@ public class PaymentUtils {
             Connection conn = null;
             try {
                 conn = helper.getConnection();
-                String sql = "UPDATE user_info SET balance = COALESCE(balance, 0.00) + ? WHERE username = ?";
+                String sql = "UPDATE user_wallet SET balance = COALESCE(balance, 0.00) + ? WHERE username = ?";
                 PreparedStatement stmt = conn.prepareStatement(sql);
                 stmt.setDouble(1, amount);
                 stmt.setString(2, username);
@@ -88,7 +88,7 @@ public class PaymentUtils {
             Connection conn = null;
             try {
                 conn = helper.getConnection();
-                String sql = "SELECT COALESCE(balance, 0.00) AS balance FROM user_info WHERE username = ?";
+                String sql = "SELECT COALESCE(balance, 0.00) AS balance FROM user_wallet WHERE username = ?";
                 PreparedStatement stmt = conn.prepareStatement(sql);
                 stmt.setString(1, username);
                 ResultSet rs = stmt.executeQuery();
@@ -123,20 +123,27 @@ public class PaymentUtils {
                 conn.setAutoCommit(false);
 
                 // 检查课程价格
-                String priceSql = "SELECT price FROM course_price WHERE course_id = ?";
+                String priceSql = "SELECT price, premium FROM courses WHERE id = ? AND review_status = 'APPROVED'";
                 PreparedStatement priceStmt = conn.prepareStatement(priceSql);
                 priceStmt.setInt(1, courseId);
                 ResultSet priceRs = priceStmt.executeQuery();
 
                 if (!priceRs.next()) {
-                    mainHandler.post(() -> callback.onError("课程不存在"));
+                    mainHandler.post(() -> callback.onError("课程不存在或未审核通过"));
                     return;
                 }
 
+                boolean premium = priceRs.getBoolean("premium");
                 double coursePrice = priceRs.getDouble("price");
+                
+                // 如果不是付费课程或价格为0，直接返回成功
+                if (!premium || coursePrice <= 0) {
+                    mainHandler.post(() -> callback.onSuccess());
+                    return;
+                }
 
                 // 获取用户ID和余额
-                String userSql = "SELECT user_id, COALESCE(balance, 0.00) AS balance FROM user_info WHERE username = ?";
+                String userSql = "SELECT user_id, COALESCE(balance, 0.00) AS balance FROM user_wallet w JOIN user_info u ON w.username = u.username WHERE u.username = ?";
                 PreparedStatement userStmt = conn.prepareStatement(userSql);
                 userStmt.setString(1, username);
                 ResultSet userRs = userStmt.executeQuery();
@@ -155,10 +162,10 @@ public class PaymentUtils {
                 }
 
                 // 扣除余额
-                String updateBalanceSql = "UPDATE user_info SET balance = balance - ? WHERE user_id = ?";
+                String updateBalanceSql = "UPDATE user_wallet SET balance = balance - ? WHERE username = ?";
                 PreparedStatement updateBalanceStmt = conn.prepareStatement(updateBalanceSql);
                 updateBalanceStmt.setDouble(1, coursePrice);
-                updateBalanceStmt.setInt(2, userId);
+                updateBalanceStmt.setString(2, username);
                 updateBalanceStmt.executeUpdate();
 
                 String purchaseSql = "INSERT INTO purchases (user_id, item_type, item_id, price) VALUES (?, 'course', ?, ?)";
@@ -247,7 +254,7 @@ public class PaymentUtils {
                 conn.setAutoCommit(false);
 
                 // 获取用户ID和余额
-                String userSql = "SELECT user_id, COALESCE(balance, 0.00) AS balance FROM user_info WHERE username = ?";
+                String userSql = "SELECT user_id, COALESCE(balance, 0.00) AS balance FROM user_wallet w JOIN user_info u ON w.username = u.username WHERE u.username = ?";
                 PreparedStatement userStmt = conn.prepareStatement(userSql);
                 userStmt.setString(1, username);
                 ResultSet userRs = userStmt.executeQuery();
@@ -266,10 +273,10 @@ public class PaymentUtils {
                 }
 
                 // 扣除余额
-                String updateBalanceSql = "UPDATE user_info SET balance = balance - ? WHERE user_id = ?";
+                String updateBalanceSql = "UPDATE user_wallet SET balance = balance - ? WHERE username = ?";
                 PreparedStatement updateBalanceStmt = conn.prepareStatement(updateBalanceSql);
                 updateBalanceStmt.setDouble(1, amount);
-                updateBalanceStmt.setInt(2, userId);
+                updateBalanceStmt.setString(2, username);
                 updateBalanceStmt.executeUpdate();
 
                 // 记录交易记录
@@ -318,7 +325,7 @@ public class PaymentUtils {
                 conn.setAutoCommit(false);
 
                 // 获取用户ID和余额
-                String userSql = "SELECT user_id, balance FROM user_info WHERE username = ?";
+                String userSql = "SELECT user_id, balance FROM user_wallet w JOIN user_info u ON w.username = u.username WHERE u.username = ?";
                 PreparedStatement userStmt = conn.prepareStatement(userSql);
                 userStmt.setString(1, username);
                 ResultSet userRs = userStmt.executeQuery();
@@ -337,10 +344,10 @@ public class PaymentUtils {
                 }
 
                 // 扣除余额
-                String updateBalanceSql = "UPDATE user_info SET balance = balance - ? WHERE user_id = ?";
+                String updateBalanceSql = "UPDATE user_wallet SET balance = balance - ? WHERE username = ?";
                 PreparedStatement updateBalanceStmt = conn.prepareStatement(updateBalanceSql);
                 updateBalanceStmt.setDouble(1, price);
-                updateBalanceStmt.setInt(2, userId);
+                updateBalanceStmt.setString(2, username);
                 updateBalanceStmt.executeUpdate();
 
                 String purchaseSql = "INSERT INTO purchases (user_id, item_type, item_id, price) VALUES (?, 'exercise', ?, ?)";

@@ -16,6 +16,7 @@ import kotlinx.coroutines.launch
 data class PostEntity(
     @PrimaryKey val id: String,
     val author: String,
+    val authorUsername: String = "", // 原始用户名
     val authorAvatar: String,
     val isAnonymous: Boolean,
     val time: String,
@@ -154,6 +155,23 @@ interface GroupDao {
 
     @Query("SELECT DISTINCT adminName FROM groups WHERE adminName IS NOT NULL AND adminName <> ''")
     suspend fun listAdminNames(): List<String>
+    
+    suspend fun insertOrUpdate(name: String, adminName: String, joined: Boolean) {
+        val existing = get(name)
+        if (existing != null) {
+            upsert(existing.copy(joined = joined))
+        } else {
+            upsert(GroupInfoEntity(
+                name = name, 
+                adminName = adminName, 
+                joined = joined,
+                memberCount = 0,
+                rulesJson = "",
+                frequency = "",
+                schedule = ""
+            ))
+        }
+    }
 }
 
 @Dao
@@ -203,7 +221,7 @@ interface SettingsDao {
 
 @Database(
     entities = [PostEntity::class, CommentEntity::class, UserProfileEntity::class, GroupInfoEntity::class, GroupMessageEntity::class, BadgeEntity::class, CheckinStatusEntity::class, AppSettingEntity::class],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 abstract class CommunityDatabase : RoomDatabase() {
@@ -260,6 +278,7 @@ private fun String.fromJsonList(): List<String> = try {
 fun ThemePost.toEntity(): PostEntity = PostEntity(
     id = id,
     author = author,
+    authorUsername = authorUsername,
     authorAvatar = authorAvatar,
     isAnonymous = isAnonymous,
     time = time,
@@ -278,6 +297,7 @@ fun ThemePost.toEntity(): PostEntity = PostEntity(
 fun PostEntity.toThemePost(): ThemePost = ThemePost(
     id = id,
     author = author,
+    authorUsername = authorUsername.ifEmpty { author }, // 如果没有authorUsername，使用author
     authorAvatar = authorAvatar,
     isAnonymous = isAnonymous,
     time = time,

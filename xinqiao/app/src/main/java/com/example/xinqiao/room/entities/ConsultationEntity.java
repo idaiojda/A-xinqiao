@@ -16,5 +16,6 @@ public class ConsultationEntity {
     public int messageCount;
     public String summaryEncrypted; // AES-256 encrypted summary or key points
     public String status; // e.g., "已完成" / "已确认"
+    public String interventionMeasures; // 干预措施
 }
 

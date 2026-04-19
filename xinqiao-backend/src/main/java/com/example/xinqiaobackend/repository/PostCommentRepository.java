@@ -7,5 +7,7 @@ import java.util.List;
 
 public interface PostCommentRepository extends JpaRepository<PostComment, Long> {
     List<PostComment> findByPostOrderByCreatedAtAsc(Post post);
+    long countByPost(Post post);
+    void deleteByPost(Post post);
 }
 

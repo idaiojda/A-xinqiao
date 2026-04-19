@@ -1,5 +1,7 @@
 package com.example.xinqiaobackend.entity;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import javax.persistence.*;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -8,6 +10,8 @@ import java.util.List;
 @Entity
 @Table(name = "posts")
 public class Post {
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -19,15 +23,19 @@ public class Post {
     @Column(nullable = false)
     private String content;
 
-    @ElementCollection
-    @CollectionTable(name = "post_tags", joinColumns = @JoinColumn(name = "post_id"))
-    @Column(name = "tag", length = 64)
-    private List<String> tags = new ArrayList<>();
+    // 存储为 JSON 字符串，如 ["标签1","标签2"]
+    @Column(name = "tags_json", columnDefinition = "TEXT")
+    private String tagsJson;
 
-    @ElementCollection
-    @CollectionTable(name = "post_images", joinColumns = @JoinColumn(name = "post_id"))
-    @Column(name = "image_url", length = 512)
-    private List<String> images = new ArrayList<>();
+    // 存储为 JSON 字符串，如 ["/uploads/img1.jpg"]
+    @Column(name = "images_json", columnDefinition = "TEXT")
+    private String imagesJson;
+
+    @Transient
+    private List<String> tags;
+
+    @Transient
+    private List<String> images;
 
     @Column(nullable = false)
     private boolean anonymous;
@@ -35,7 +43,8 @@ public class Post {
     @Column(length = 128)
     private String authorName;
 
-    @Column(length = 512)
+    @Lob
+    @Column(columnDefinition = "LONGBLOB")
     private String authorAvatar;
 
     @Column(nullable = false)
@@ -48,8 +57,18 @@ public class Post {
     private String reviewStatus = "PENDING";
 
     @PrePersist
+    @javax.persistence.PreUpdate
     public void prePersist() {
         if (createdAt == null) createdAt = Instant.now();
+        // 确保 JSON 字段与 transient 字段同步
+        if (tags != null) tagsJson = toJson(tags);
+        if (images != null) imagesJson = toJson(images);
+    }
+
+    @javax.persistence.PostLoad
+    public void postLoad() {
+        tags = parseJson(tagsJson);
+        images = parseJson(imagesJson);
     }
 
     public Long getId() { return id; }
@@ -58,10 +77,43 @@ public class Post {
     public void setTitle(String title) { this.title = title; }
     public String getContent() { return content; }
     public void setContent(String content) { this.content = content; }
-    public List<String> getTags() { return tags; }
-    public void setTags(List<String> tags) { this.tags = tags; }
-    public List<String> getImages() { return images; }
-    public void setImages(List<String> images) { this.images = images; }
+
+    public List<String> getTags() {
+        if (tags == null) tags = parseJson(tagsJson);
+        return tags;
+    }
+    public void setTags(List<String> tags) {
+        this.tags = tags;
+        this.tagsJson = toJson(tags);
+    }
+
+    public List<String> getImages() {
+        if (images == null) images = parseJson(imagesJson);
+        return images;
+    }
+    public void setImages(List<String> images) {
+        this.images = images;
+        this.imagesJson = toJson(images);
+    }
+
+    private List<String> parseJson(String json) {
+        if (json == null || json.trim().isEmpty()) return new ArrayList<>();
+        try {
+            return MAPPER.readValue(json, new TypeReference<List<String>>() {});
+        } catch (Exception e) {
+            return new ArrayList<>();
+        }
+    }
+
+    private String toJson(List<String> list) {
+        if (list == null || list.isEmpty()) return null;
+        try {
+            return MAPPER.writeValueAsString(list);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     public boolean isAnonymous() { return anonymous; }
     public void setAnonymous(boolean anonymous) { this.anonymous = anonymous; }
     public String getAuthorName() { return authorName; }

@@ -1,22 +1,18 @@
 package com.example.xinqiaobackend.service;
 
+import com.example.xinqiaobackend.dto.CommentDto;
 import com.example.xinqiaobackend.model.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class InMemoryCommunityService implements CommunityService {
-    private final List<String> groups = new ArrayList<>(Arrays.asList("社恐成长圈", "恋爱关系修复"));
+    private final List<String> groups = new ArrayList<>(); // 清空静态数据
     private final List<PostDto> allPosts = new ArrayList<>();
     private final Map<String, CacheEntry> cacheByCategory = new ConcurrentHashMap<>();
     private static final long CACHE_TTL_MILLIS = 5 * 60 * 1000L;
     private final AtomicLong lastUpdated = new AtomicLong(System.currentTimeMillis());
-    private final List<QuestionDto> questions = Arrays.asList(
-            new QuestionDto("q1", "Q1. 如何面对考试焦虑？", "匿名用户：尝试建立规律作息，适度运动，分解任务，并进行深呼吸练习。"),
-            new QuestionDto("q2", "Q2. 社交恐惧如何改善？", "匿名用户：从小场景练习开始，逐步暴露并记录积极体验。"),
-            new QuestionDto("q3", "Q3. 失眠怎么办？", "匿名用户：避免睡前使用电子设备，建立固定的睡眠仪式。"),
-            new QuestionDto("q4", "Q4. 恋爱关系中的安全感如何建立？", "匿名用户：明确需求边界，保持开放沟通与同理心。")
-    );
+    private final List<QuestionDto> questions = new ArrayList<>(); // 清空静态数据
 
     private final Set<String> liked = ConcurrentHashMap.newKeySet();
     private final Set<String> collected = ConcurrentHashMap.newKeySet();
@@ -24,14 +20,7 @@ public class InMemoryCommunityService implements CommunityService {
     private final Set<String> members = ConcurrentHashMap.newKeySet();
 
     public InMemoryCommunityService() {
-        // 不初始化示例帖子：仅返回实际创建的帖子数据
-        commentsMap.put("q1", new ArrayList<>(Arrays.asList(
-                new CommentDto("c1", "匿名用户", "谢谢分享，很有帮助！"),
-                new CommentDto("c2", "心理咨询师", "建议尝试渐进式放松法，配合认知重构。")
-        )));
-        commentsMap.put("q2", new ArrayList<>(Arrays.asList(
-                new CommentDto("c3", "匿名用户", "循序渐进，记录每次进步。")
-        )));
+        // 不初始化任何静态数据，所有数据来自数据库
     }
 
     @Override

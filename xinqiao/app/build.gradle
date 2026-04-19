@@ -2,6 +2,14 @@ apply plugin: 'com.android.application'
 apply plugin: 'org.jetbrains.kotlin.android'
 apply plugin: 'com.google.devtools.ksp'
 
+// ── kapt 优化（如项目中仍有 kapt 注解处理器）────────────────────────────
+// kapt {
+//     useBuildCache = true
+//     javacOptions {
+//         option("-Xmaxerrs", 500)
+//     }
+// }
+
 // 使用默认构建目录以避免 AGP 在最终产物输出上的路径不一致问题
 //（某些版本在重写 buildDir 后不会在 outputs 下生成标准 APK/AAB）
 // 如需清理旧产物，请使用 :app:clean 任务
@@ -20,7 +28,8 @@ android {
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         // 仅打包中文与英文资源，减少无用语言的体积
         resConfigs 'zh', 'en'
-        buildConfigField "String", "BACKEND_URL", "\"${System.getenv('BACKEND_URL') ?: ''}\""
+        // 模拟器默认使用 10.0.2.2 连接到主机
+        buildConfigField "String", "BACKEND_URL", "\"${System.getenv('BACKEND_URL') ?: 'http://10.0.2.2:8081'}\""
     }
 
     // 使用调试签名为 release 输出生成已签名 APK，便于测量体积
@@ -35,6 +44,11 @@ android {
     }
 
     buildTypes {
+        debug {
+            // ── Debug 构建优化：关闭混淆和资源压缩，加快增量编译 ──────────
+            minifyEnabled false
+            shrinkResources false
+        }
         release {
             minifyEnabled true
             shrinkResources true
@@ -59,6 +73,12 @@ android {
 
     kotlinOptions {
         jvmTarget = "17"
+    }
+
+    // ── Dex 优化：并行 dex 处理，减少 transformClassesDexBuilderForDebug 耗时 ──
+    dexOptions {
+        preDexLibraries true
+        maxProcessCount 8
     }
 
     packagingOptions {
@@ -115,13 +135,14 @@ tasks.withType(JavaCompile) {
     implementation 'androidx.compose.material:material-icons-extended:1.6.7'
     implementation 'androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0'
     implementation 'com.google.accompanist:accompanist-swiperefresh:0.34.0'
+    implementation 'com.google.accompanist:accompanist-flowlayout:0.34.0'
     implementation 'androidx.compose.material:material:1.6.7'
     implementation 'androidx.compose.animation:animation:1.6.7'
     implementation 'androidx.compose.animation:animation-core:1.6.7'
     
     // Coil for image loading
-    implementation 'io.coil-kt:coil-compose:2.4.0'
-    implementation 'io.coil-kt:coil-gif:2.4.0'
+    implementation 'io.coil-kt:coil-compose:2.6.0'
+    implementation 'io.coil-kt:coil-gif:2.6.0'
     
     // Remove incorrect artifact and use lifecycle-runtime-ktx instead
     
@@ -142,6 +163,9 @@ tasks.withType(JavaCompile) {
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
+    androidTestImplementation 'androidx.test.espresso:espresso-intents:3.5.1'
+    androidTestImplementation 'androidx.test:rules:1.5.0'
+    androidTestImplementation 'androidx.test:runner:1.5.2'
     
     // MySQL连接�?(迁移期间保留)
     implementation files('libs/mysql-connector-java-5.1.49.jar') // 添加本地MySQL JDBC驱动
@@ -162,4 +186,7 @@ tasks.withType(JavaCompile) {
     implementation 'androidx.media3:media3-exoplayer:1.3.1'
     implementation 'androidx.media3:media3-ui:1.3.1'
     implementation 'androidx.media3:media3-datasource-okhttp:1.3.1'
+    
+    // WebRTC for video consultation
+    implementation 'org.webrtc:google-webrtc:1.0.32006'
 }

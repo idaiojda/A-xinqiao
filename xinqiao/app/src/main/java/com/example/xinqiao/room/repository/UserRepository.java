@@ -189,47 +189,6 @@ public class UserRepository {
     }
     
     /**
-     * 更新用户余额
-     * @param userId 用户ID
-     * @param balance 新余额
-     * @param callback 回调接口
-     */
-    public void updateBalance(int userId, double balance, final OperationCallback<Integer> callback) {
-        executorService.execute(() -> {
-            try {
-                int rows = userInfoDao.updateBalance(userId, balance);
-                if (callback != null) {
-                    callback.onSuccess(rows);
-                }
-            } catch (Exception e) {
-                if (callback != null) {
-                    callback.onError(e);
-                }
-            }
-        });
-    }
-    
-    /**
-     * 获取用户余额
-     * @param userId 用户ID
-     * @param callback 回调接口
-     */
-    public void getBalance(int userId, final OperationCallback<Double> callback) {
-        executorService.execute(() -> {
-            try {
-                double balance = userInfoDao.getBalance(userId);
-                if (callback != null) {
-                    callback.onSuccess(balance);
-                }
-            } catch (Exception e) {
-                if (callback != null) {
-                    callback.onError(e);
-                }
-            }
-        });
-    }
-    
-    /**
      * 更新用户头像
      * @param userId 用户ID
      * @param avatar 头像数据

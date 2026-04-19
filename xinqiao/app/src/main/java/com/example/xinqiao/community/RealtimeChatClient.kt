@@ -19,18 +19,36 @@ object RealtimeChatClient {
     fun connect(ctx: Context, group: String, user: String, event: (String) -> Unit, status: ((Boolean) -> Unit)? = null) {
         onEvent = event
         onStatus = status
-        val sp = ctx.getSharedPreferences("network_config", Context.MODE_PRIVATE)
-        val base = sp.getString("base_url_override", null) ?: com.example.xinqiao.network.NetworkConfig.getBaseUrl(ctx)
+        val base = com.example.xinqiao.network.NetworkConfig.getBaseUrl(ctx)
         val wsUrl = (base.replace("http://", "ws://").replace("https://", "wss://").trimEnd('/') + "/ws/chat?group=" + group + "&user=" + user)
+        android.util.Log.d("RealtimeChatClient", "连接 WebSocket: $wsUrl")
         val req = Request.Builder().url(wsUrl).build()
         ws?.close(1000, null)
         ws = client.newWebSocket(req, object: WebSocketListener() {
-            override fun onOpen(webSocket: WebSocket, response: okhttp3.Response) { onStatus?.invoke(true) }
-            override fun onFailure(webSocket: WebSocket, t: Throwable, response: okhttp3.Response?) { onStatus?.invoke(false) }
-            override fun onClosing(webSocket: WebSocket, code: Int, reason: String) { onStatus?.invoke(false) }
-            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) { onStatus?.invoke(false) }
-            override fun onMessage(webSocket: WebSocket, text: String) { onEvent?.invoke(text) }
-            override fun onMessage(webSocket: WebSocket, bytes: ByteString) { onEvent?.invoke(bytes.utf8()) }
+            override fun onOpen(webSocket: WebSocket, response: okhttp3.Response) {
+                android.util.Log.d("RealtimeChatClient", "WebSocket 连接成功")
+                onStatus?.invoke(true)
+            }
+            override fun onFailure(webSocket: WebSocket, t: Throwable, response: okhttp3.Response?) {
+                android.util.Log.e("RealtimeChatClient", "WebSocket 连接失败: ${t.message}", t)
+                onStatus?.invoke(false)
+            }
+            override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                android.util.Log.d("RealtimeChatClient", "WebSocket 正在关闭: code=$code, reason=$reason")
+                onStatus?.invoke(false)
+            }
+            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                android.util.Log.d("RealtimeChatClient", "WebSocket 已关闭: code=$code, reason=$reason")
+                onStatus?.invoke(false)
+            }
+            override fun onMessage(webSocket: WebSocket, text: String) {
+                android.util.Log.d("RealtimeChatClient", "收到文本消息: ${text.take(100)}")
+                onEvent?.invoke(text)
+            }
+            override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
+                android.util.Log.d("RealtimeChatClient", "收到二进制消息")
+                onEvent?.invoke(bytes.utf8())
+            }
         })
     }
 

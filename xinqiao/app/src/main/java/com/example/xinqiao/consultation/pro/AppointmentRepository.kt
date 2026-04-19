@@ -55,13 +55,15 @@ class AppointmentRepository(private val context: Context) {
     suspend fun submitAppointment(req: AppointmentRequest, token: String?): Result<String> {
         return withContext(Dispatchers.IO) {
             try {
-                val body = mapOf(
+                val body = mutableMapOf<String, Any>(
                     "consultantId" to req.consultantId,
                     "mode" to req.mode,
                     "date" to req.date,
-                    "time" to req.time,
-                    "remark" to req.remark
+                    "time" to req.time
                 )
+                // 只在remark不为null时添加
+                req.remark?.let { body["remark"] = it }
+                
                 val resp = com.example.xinqiao.network.Http.api().consultSubmit(body)
                 if (!resp.isSuccessful) return@withContext Result.success("mock-${System.currentTimeMillis()}")
                 val s = resp.body()?.string() ?: "{}"

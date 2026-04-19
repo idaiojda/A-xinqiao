@@ -261,21 +261,63 @@ public class CourseView {
         new Thread(new Runnable() {
             @Override
             public void run() {
-                List<List<CourseBean>> result = null;
+                List<List<CourseBean>> result = new ArrayList<>();
+                String errorMessage = null;
+                
                 try {
-                    InputStream is = mContext.getResources().getAssets().open("chaptertitle.xml");
-                    result = AnalysisUtils.getCourseInfos(is);
+                    android.util.Log.d("CourseView", "开始从后端API加载课程数据...");
+                    // 使用阻塞方式调用Kotlin suspend函数
+                    java.util.List<com.example.xinqiao.counselor.CourseDto> courses = 
+                        kotlinx.coroutines.BuildersKt.runBlocking(
+                            kotlin.coroutines.EmptyCoroutineContext.INSTANCE,
+                            (coroutineScope, continuation) -> com.example.xinqiao.util.CourseLoader.INSTANCE.loadCourses(continuation)
+                        );
+                    
+                    if (courses != null && !courses.isEmpty()) {
+                        android.util.Log.d("CourseView", "成功加载 " + courses.size() + " 个课程");
+                        // 将CourseDto转换为CourseBean
+                        List<CourseBean> courseBeans = new ArrayList<>();
+                        for (com.example.xinqiao.counselor.CourseDto dto : courses) {
+                            CourseBean bean = new CourseBean();
+                            bean.id = (int) dto.getId();
+                            bean.title = dto.getTitle();
+                            bean.imgTitle = dto.getTitle();
+                            bean.intro = dto.getDescription() != null ? dto.getDescription() : "";
+                            bean.icon = dto.getCoverImage();
+                            bean.coverImage = dto.getCoverImage(); // 添加coverImage字段
+                            bean.lessonCount = dto.getLessonCount();
+                            bean.premium = dto.getPremium();
+                            bean.price = dto.getPrice();
+                            courseBeans.add(bean);
+                        }
+                        // 将所有课程放在一个组中
+                        if (!courseBeans.isEmpty()) {
+                            result.add(courseBeans);
+                        }
+                    } else {
+                        android.util.Log.w("CourseView", "后端返回的课程列表为空");
+                        errorMessage = "暂无课程数据";
+                    }
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    android.util.Log.e("CourseView", "加载课程失败: " + e.getMessage(), e);
+                    errorMessage = "无法连接到服务器，请检查网络连接";
                 }
+                
                 final List<List<CourseBean>> finalResult = result;
+                final String finalErrorMessage = errorMessage;
+                
                 mContext.runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        cbl = (finalResult != null) ? finalResult : new ArrayList<List<CourseBean>>();
+                        cbl = (finalResult != null && !finalResult.isEmpty()) ? finalResult : new ArrayList<List<CourseBean>>();
                         if (adapter != null) {
                             List<CourseBean> flat = flattenCourseData(cbl);
                             adapter.submitList(flat);
+                        }
+                        
+                        // 如果加载失败，显示错误提示
+                        if (finalErrorMessage != null) {
+                            Toast.makeText(mContext, finalErrorMessage, Toast.LENGTH_LONG).show();
                         }
                     }
                 });
@@ -349,18 +391,6 @@ public class CourseView {
                     break;
             }
             cadl.add(bean);
-        }
-    }
-
-    /**
-     * 获取课程信息，从assets目录下读取XML并解析
-     */
-    private void getCourseData() {
-        try {
-            InputStream is = mContext.getResources().getAssets().open("chaptertitle.xml");
-            cbl = AnalysisUtils.getCourseInfos(is);//getCourseInfos(is)方法在下面会有说明
-        } catch (Exception e) {
-            e.printStackTrace();
         }
     }
 

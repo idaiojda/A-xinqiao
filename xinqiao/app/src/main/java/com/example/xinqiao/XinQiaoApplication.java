@@ -54,15 +54,36 @@ public class XinQiaoApplication extends Application {
         super.onCreate();
         // 初始化启动优化器（必须最先初始化）
         initStartupOptimizer();
+        
+        // 清除所有可能的错误网络配置（127.0.0.1, localhost）
+        // 强制使用模拟器地址 10.0.2.2:8081
         try {
             SharedPreferences sp = getSharedPreferences("network_config", MODE_PRIVATE);
             String current = sp.getString("base_url_override", null);
+            
+            // 检查是否包含错误的地址
+            if (current != null && (current.contains("127.0.0.1") || current.contains("localhost"))) {
+                Log.w(TAG, "检测到错误的网络配置: " + current + "，正在清除");
+                sp.edit().remove("base_url_override").apply();
+                current = null;
+            }
+            
+            // 设置正确的地址
             String desired = (com.example.xinqiao.BuildConfig.BACKEND_URL != null && com.example.xinqiao.BuildConfig.BACKEND_URL.trim().length() > 0)
                     ? com.example.xinqiao.BuildConfig.BACKEND_URL.trim()
                     : "http://10.0.2.2:8081";
+            
+            // 确保地址正确
+            if (!desired.contains("10.0.2.2")) {
+                Log.w(TAG, "BuildConfig.BACKEND_URL 不包含模拟器地址，强制使用 10.0.2.2:8081");
+                desired = "http://10.0.2.2:8081";
+            }
+            
             if (current == null || !current.equals(desired)) {
                 sp.edit().putString("base_url_override", desired).apply();
-                Log.d(TAG, "Network base URL overridden to " + desired);
+                Log.d(TAG, "Network base URL 已设置为: " + desired);
+            } else {
+                Log.d(TAG, "Network base URL 已正确配置: " + desired);
             }
         } catch (Throwable t) {
             Log.w(TAG, "setup base_url_override failed", t);
@@ -91,7 +112,7 @@ public class XinQiaoApplication extends Application {
         // 社区模块：接入远端仓库（Retrofit）
         try {
             String baseUrl = NetworkConfig.getBaseUrl(this);
-            CommunityApi api = CommunityServiceFactory.INSTANCE.create(baseUrl);
+            CommunityApi api = CommunityServiceFactory.INSTANCE.create(baseUrl, this);
             CommunityRepositoryProvider.INSTANCE.setCurrent(new RemoteCommunityRepository(api));
             Log.d(TAG, "CommunityRepository initialized with remote backend: " + baseUrl);
             try {
@@ -110,9 +131,33 @@ public class XinQiaoApplication extends Application {
             Log.d(TAG, "Http initialized for core network");
         } catch (Throwable t) { Log.w(TAG, "Http init failed", t); }
         
+        // 初始化Coil ImageLoader
+        try {
+            initCoilImageLoader();
+            Log.d(TAG, "Coil ImageLoader initialized");
+        } catch (Throwable t) { Log.w(TAG, "Coil init failed", t); }
+        
         // 注册应用生命周期回调
         registerLifecycleCallbacks();
         try { com.example.xinqiao.notifications.NotificationUtils.INSTANCE.ensureChannel(this); } catch (Throwable ignored) {}
+    }
+    
+    /**
+     * 初始化Coil图片加载库
+     */
+    private void initCoilImageLoader() {
+        okhttp3.OkHttpClient okHttpClient = new okhttp3.OkHttpClient.Builder()
+            .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+            .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+            .build();
+            
+        coil.ImageLoader imageLoader = new coil.ImageLoader.Builder(this)
+            .okHttpClient(okHttpClient)
+            .crossfade(true)
+            .build();
+            
+        coil.Coil.setImageLoader(imageLoader);
     }
 
     private boolean isDebugBuild() {

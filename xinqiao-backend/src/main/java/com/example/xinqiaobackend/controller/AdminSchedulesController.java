@@ -78,7 +78,7 @@ public class AdminSchedulesController {
         if (slot == null) return ResponseEntity.notFound().build();
         slot.setAvailable(true);
         repo.save(slot);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(java.util.Map.of("success", true, "message", "时段已开放"));
     }
 
     @PostMapping("/{id}/close")
@@ -87,7 +87,7 @@ public class AdminSchedulesController {
         if (slot == null) return ResponseEntity.notFound().build();
         slot.setAvailable(false);
         repo.save(slot);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(java.util.Map.of("success", true, "message", "时段已关闭"));
     }
 
     @PostMapping("/generate")
